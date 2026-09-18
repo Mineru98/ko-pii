@@ -1,0 +1,26 @@
+{
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "trailingCommas": "all"
+    }
+  },
+  "files": {
+    "includes": [
+      "src/**",
+      "tests/**",
+      "!src/dictionaries/generated/**",
+      "!dist/**",
+      "!coverage/**"
+    ]
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "name": "ko-pii",
+  "version": "0.1.0",
+  "description": "한국어 PII 검출 + 가역 가명화 라이브러리 (TypeScript 포트, 코어 의존성 0)",
+  "license": "MIT",
+  "author": "modak000",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./io": {
+      "types": "./dist/io/index.d.mts",
+      "import": "./dist/io/index.mjs",
+      "require": "./dist/io/index.cjs"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/server.d.mts",
+      "import": "./dist/mcp/server.mjs",
+      "require": "./dist/mcp/server.cjs"
+    }
+  },
+  "bin": {
+    "ko-pii": "./dist/cli/bin.mjs",
+    "ko-pii-mcp-server": "./dist/mcp/bin.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check src tests",
+    "format": "biome format --write src tests",
+    "typecheck": "tsc --noEmit",
+    "goldmaster": "python3 ../../tools/gen-gold-master.py",
+    "dicts": "python3 ../../tools/convert-dicts.py",
+    "unicode-tables": "node ../../tools/gen-unicode-tables.mjs",
+    "sync:check": "python3 ../../tools/gen-gold-master.py --check && python3 ../../tools/convert-dicts.py --check && node ../../tools/gen-unicode-tables.mjs --check"
+  },
+  "keywords": [
+    "pii",
+    "privacy",
+    "korean",
+    "anonymization",
+    "pseudonymization",
+    "가명화",
+    "개인정보",
+    "비식별"
+  ],
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.11",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@types/node": "^26.4.0",
+    "tsdown": "^0.22.14",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "zod": "^4.5.4"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": ">=1.0.0",
+    "zod": ">=3.25.0"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/sdk": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "cfb": "^1.2.2",
+    "fast-xml-parser": "^5.11.1",
+    "iconv-lite": "^0.7.3",
+    "jszip": "^3.10.1",
+    "unpdf": "^1.8.1"
+  }
+}
