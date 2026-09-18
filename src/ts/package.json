@@ -3,7 +3,7 @@
   "version": "1.15.4",
   "description": "한국어 PII 검출 + 가역 가명화 라이브러리 (TypeScript 포트, 코어 의존성 0)",
   "license": "MIT",
-  "author": "modak000",
+  "author": "Marker-Inc-Korea",
   "homepage": "https://github.com/Marker-Inc-Korea/ko-pii#readme",
   "repository": {
     "type": "git",
