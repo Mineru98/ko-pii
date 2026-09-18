@@ -21,6 +21,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 from ko_pii.dictionaries.common_words import is_common_word
 from ko_pii.dictionaries.surnames import surname_prefix_len
@@ -41,15 +42,21 @@ class Score:
     evidence: list[str] = field(default_factory=list)
 
 
+@lru_cache(maxsize=1)
+def _field_labels_by_length() -> tuple[str, ...]:
+    """FIELD_LABELS_NAME 의 결정적 순회 순서 (긴 라벨 우선) — 한 번만 정렬한다."""
+    from ko_pii.dictionaries.field_labels import FIELD_LABELS_NAME
+    return tuple(sorted(FIELD_LABELS_NAME, key=lambda s: (-len(s), s)))
+
+
 def _has_field_label_before(text: str, start: int, window: int = 6) -> str | None:
     """Look for a name-field label like "성명:" within ``window`` chars before."""
-    from ko_pii.dictionaries.field_labels import FIELD_LABELS_NAME
     head = text[max(0, start - window - 4): start]
     # Strip whitespace and common separators
     # frozenset 순회 순서는 PYTHONHASHSEED 마다 달라 "평가자"/"피평가자" 처럼 접미가 겹치는
     # 라벨에서 evidence 가 실행마다 바뀌었다. 가장 긴 라벨부터 결정적으로 본다
     # (긴 쪽이 실제 필드명 — TS 포트·골드마스터와 1:1 을 위해서도 필요).
-    for label in sorted(FIELD_LABELS_NAME, key=lambda s: (-len(s), s)):
+    for label in _field_labels_by_length():
         # Allow "성명:", "성명 :", "성명 ", etc.
         idx = head.rfind(label)
         if idx == -1:
