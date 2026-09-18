@@ -1,0 +1,4283 @@
+{
+  "_comment": "Python ko-pii 실측 출력 (scratch gen_py.py, seed 23). 수동 편집 금지 — 구현이 이 값에 맞춰진다.",
+  "cases": [
+    {
+      "primary": [
+        {
+          "label": "EMAIL",
+          "text": "x",
+          "start": 5,
+          "end": 6,
+          "risk": 4,
+          "conf": 0.95,
+          "evidence": ["b", "a"],
+          "legal_basis": null,
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "RRN",
+          "text": "x",
+          "start": 28,
+          "end": 29,
+          "risk": 5,
+          "conf": 0.96,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "secondary": [
+        {
+          "label": "PERSON",
+          "text": "xxxxxxx",
+          "start": 31,
+          "end": 38,
+          "risk": 5,
+          "conf": 0.95,
+          "evidence": ["a"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "xx",
+          "start": 37,
+          "end": 39,
+          "risk": 5,
+          "conf": 0.7,
+          "evidence": ["b", "pos:x"],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "CARD",
+          "text": "xx",
+          "start": 20,
+          "end": 22,
+          "risk": 2,
+          "conf": 0.96,
+          "evidence": ["b", "a"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "RRN",
+          "text": "xxxxx",
+          "start": 34,
+          "end": 39,
+          "risk": 5,
+          "conf": 0.5,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "EMAIL",
+          "text": "xxxxx",
+          "start": 2,
+          "end": 7,
+          "risk": 5,
+          "conf": 0.9,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "RRN",
+          "text": "x",
+          "start": 28,
+          "end": 29,
+          "risk": 5,
+          "conf": 1.0,
+          "evidence": ["sec"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "rsl": [],
+      "result": {
+        "union": [
+          {
+            "label": "EMAIL",
+            "text": "xxxxx",
+            "start": 2,
+            "end": 7,
+            "risk": 5,
+            "conf": 0.9,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "CARD",
+            "text": "xx",
+            "start": 20,
+            "end": 22,
+            "risk": 2,
+            "conf": 0.96,
+            "evidence": ["b", "a"],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 28,
+            "end": 29,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["sec"],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "PERSON",
+            "text": "xxxxxxx",
+            "start": 31,
+            "end": 38,
+            "risk": 5,
+            "conf": 0.95,
+            "evidence": ["a"],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ],
+        "intersection": [
+          {
+            "label": "EMAIL",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 4,
+            "conf": 1.0,
+            "evidence": ["b", "a", "corroborated_by:secondary(EMAIL)"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1,
+              "secondary_confirmed_by": [],
+              "secondary_label": "EMAIL"
+            }
+          },
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 28,
+            "end": 29,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["corroborated_by:secondary(RRN)"],
+            "legal_basis": null,
+            "extra": {
+              "secondary_confirmed_by": ["sec"],
+              "secondary_label": "RRN"
+            }
+          }
+        ],
+        "cross_validation": [
+          {
+            "label": "EMAIL",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 4,
+            "conf": 1.0,
+            "evidence": ["b", "a", "corroborated_by:secondary(EMAIL)"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1,
+              "secondary_confirmed_by": [],
+              "secondary_label": "EMAIL"
+            }
+          },
+          {
+            "label": "CARD",
+            "text": "xx",
+            "start": 20,
+            "end": 22,
+            "risk": 2,
+            "conf": 0.6719999999999999,
+            "evidence": ["b", "a", "uncorroborated:primary_missed"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "secondary_only"
+            }
+          },
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 28,
+            "end": 29,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["corroborated_by:secondary(RRN)"],
+            "legal_basis": null,
+            "extra": {
+              "secondary_confirmed_by": ["sec"],
+              "secondary_label": "RRN"
+            }
+          },
+          {
+            "label": "PERSON",
+            "text": "xxxxxxx",
+            "start": 31,
+            "end": 38,
+            "risk": 5,
+            "conf": 0.6649999999999999,
+            "evidence": ["a", "uncorroborated:primary_missed"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "secondary_only"
+            }
+          }
+        ],
+        "enrich_primary": [
+          {
+            "label": "EMAIL",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 4,
+            "conf": 1.0,
+            "evidence": ["b", "a", "corroborated_by:secondary(EMAIL)"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1,
+              "secondary_confirmed_by": [],
+              "secondary_label": "EMAIL"
+            }
+          },
+          {
+            "label": "CARD",
+            "text": "xx",
+            "start": 20,
+            "end": 22,
+            "risk": 2,
+            "conf": 0.96,
+            "evidence": ["b", "a"],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 28,
+            "end": 29,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["corroborated_by:secondary(RRN)"],
+            "legal_basis": null,
+            "extra": {
+              "secondary_confirmed_by": ["sec"],
+              "secondary_label": "RRN"
+            }
+          },
+          {
+            "label": "PERSON",
+            "text": "xxxxxxx",
+            "start": 31,
+            "end": 38,
+            "risk": 5,
+            "conf": 0.95,
+            "evidence": ["a"],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ],
+        "fallback_secondary": [
+          {
+            "label": "EMAIL",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 4,
+            "conf": 0.95,
+            "evidence": ["b", "a"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 28,
+            "end": 29,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ],
+        "role_split": [
+          {
+            "label": "EMAIL",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 4,
+            "conf": 0.95,
+            "evidence": ["b", "a"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 28,
+            "end": 29,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ]
+      }
+    },
+    {
+      "primary": [
+        {
+          "label": "CARD",
+          "text": "xx",
+          "start": 3,
+          "end": 5,
+          "risk": 2,
+          "conf": 0.9,
+          "evidence": ["a", "pos:x"],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        }
+      ],
+      "secondary": [
+        {
+          "label": "AGE",
+          "text": "x",
+          "start": 1,
+          "end": 2,
+          "risk": 4,
+          "conf": 0.3,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "PERSON",
+          "text": "xxxx",
+          "start": 0,
+          "end": 4,
+          "risk": 5,
+          "conf": 0.96,
+          "evidence": ["a", "b"],
+          "legal_basis": null,
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "PERSON",
+          "text": "xxx",
+          "start": 15,
+          "end": 18,
+          "risk": 1,
+          "conf": 0.85,
+          "evidence": ["pos:x"],
+          "legal_basis": null,
+          "extra": {
+            "k": 1
+          }
+        }
+      ],
+      "rsl": [],
+      "result": {
+        "union": [
+          {
+            "label": "PERSON",
+            "text": "xxxx",
+            "start": 0,
+            "end": 4,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": ["a", "b"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "PERSON",
+            "text": "xxx",
+            "start": 15,
+            "end": 18,
+            "risk": 1,
+            "conf": 0.85,
+            "evidence": ["pos:x"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          }
+        ],
+        "intersection": [],
+        "cross_validation": [
+          {
+            "label": "PERSON",
+            "text": "xxxx",
+            "start": 0,
+            "end": 4,
+            "risk": 5,
+            "conf": 0.6719999999999999,
+            "evidence": ["a", "b", "uncorroborated:primary_missed"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1,
+              "cross_val": "secondary_only"
+            }
+          },
+          {
+            "label": "PERSON",
+            "text": "xxx",
+            "start": 15,
+            "end": 18,
+            "risk": 1,
+            "conf": 0.595,
+            "evidence": ["pos:x", "uncorroborated:primary_missed"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1,
+              "cross_val": "secondary_only"
+            }
+          }
+        ],
+        "enrich_primary": [
+          {
+            "label": "AGE",
+            "text": "x",
+            "start": 1,
+            "end": 2,
+            "risk": 4,
+            "conf": 0.3,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "old"
+            }
+          },
+          {
+            "label": "CARD",
+            "text": "xx",
+            "start": 3,
+            "end": 5,
+            "risk": 2,
+            "conf": 0.9,
+            "evidence": ["a", "pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "PERSON",
+            "text": "xxx",
+            "start": 15,
+            "end": 18,
+            "risk": 1,
+            "conf": 0.85,
+            "evidence": ["pos:x"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          }
+        ],
+        "fallback_secondary": [
+          {
+            "label": "CARD",
+            "text": "xx",
+            "start": 3,
+            "end": 5,
+            "risk": 2,
+            "conf": 0.9,
+            "evidence": ["a", "pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          }
+        ],
+        "role_split": [
+          {
+            "label": "CARD",
+            "text": "xx",
+            "start": 3,
+            "end": 5,
+            "risk": 2,
+            "conf": 0.9,
+            "evidence": ["a", "pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          }
+        ]
+      }
+    },
+    {
+      "primary": [
+        {
+          "label": "POSITION",
+          "text": "xxxxxxx",
+          "start": 10,
+          "end": 17,
+          "risk": 3,
+          "conf": 0.85,
+          "evidence": ["a"],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        },
+        {
+          "label": "EMAIL",
+          "text": "xxxxxx",
+          "start": 13,
+          "end": 19,
+          "risk": 5,
+          "conf": 0.85,
+          "evidence": ["a", "b"],
+          "legal_basis": null,
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "ADDRESS",
+          "text": "xxxxxx",
+          "start": 4,
+          "end": 10,
+          "risk": 5,
+          "conf": 0.96,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "PERSON",
+          "text": "x",
+          "start": 14,
+          "end": 15,
+          "risk": 3,
+          "conf": 0.5,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        },
+        {
+          "label": "EMAIL",
+          "text": "xx",
+          "start": 13,
+          "end": 15,
+          "risk": 2,
+          "conf": 0.9,
+          "evidence": ["a", "pos:x"],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        }
+      ],
+      "secondary": [
+        {
+          "label": "EMAIL",
+          "text": "xxxxxx",
+          "start": 12,
+          "end": 18,
+          "risk": 1,
+          "conf": 0.55,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "PHONE",
+          "text": "x",
+          "start": 5,
+          "end": 6,
+          "risk": 5,
+          "conf": 0.55,
+          "evidence": ["b", "pos:x"],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "ADDRESS",
+          "text": "x",
+          "start": 1,
+          "end": 2,
+          "risk": 3,
+          "conf": 0.3,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        },
+        {
+          "label": "RRN",
+          "text": "xxxx",
+          "start": 5,
+          "end": 9,
+          "risk": 4,
+          "conf": 0.9,
+          "evidence": ["a", "b"],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "cross_val": "old"
+          }
+        }
+      ],
+      "rsl": ["PERSON"],
+      "result": {
+        "union": [
+          {
+            "label": "ADDRESS",
+            "text": "x",
+            "start": 1,
+            "end": 2,
+            "risk": 3,
+            "conf": 0.3,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "ADDRESS",
+            "text": "xxxxxx",
+            "start": 4,
+            "end": 10,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          },
+          {
+            "label": "EMAIL",
+            "text": "xxxxxx",
+            "start": 13,
+            "end": 19,
+            "risk": 5,
+            "conf": 0.85,
+            "evidence": ["a", "b"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          }
+        ],
+        "intersection": [
+          {
+            "label": "EMAIL",
+            "text": "xxxxxx",
+            "start": 13,
+            "end": 19,
+            "risk": 5,
+            "conf": 0.9,
+            "evidence": ["a", "b", "corroborated_by:secondary(EMAIL)"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1,
+              "secondary_confirmed_by": [],
+              "secondary_label": "EMAIL"
+            }
+          }
+        ],
+        "cross_validation": [
+          {
+            "label": "ADDRESS",
+            "text": "x",
+            "start": 1,
+            "end": 2,
+            "risk": 3,
+            "conf": 0.21,
+            "evidence": ["uncorroborated:primary_missed"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "secondary_only"
+            }
+          },
+          {
+            "label": "ADDRESS",
+            "text": "xxxxxx",
+            "start": 4,
+            "end": 10,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          },
+          {
+            "label": "EMAIL",
+            "text": "xxxxxx",
+            "start": 13,
+            "end": 19,
+            "risk": 5,
+            "conf": 0.9,
+            "evidence": ["a", "b", "corroborated_by:secondary(EMAIL)"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1,
+              "secondary_confirmed_by": [],
+              "secondary_label": "EMAIL"
+            }
+          }
+        ],
+        "enrich_primary": [
+          {
+            "label": "ADDRESS",
+            "text": "x",
+            "start": 1,
+            "end": 2,
+            "risk": 3,
+            "conf": 0.3,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "ADDRESS",
+            "text": "xxxxxx",
+            "start": 4,
+            "end": 10,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          },
+          {
+            "label": "EMAIL",
+            "text": "xxxxxx",
+            "start": 13,
+            "end": 19,
+            "risk": 5,
+            "conf": 0.9,
+            "evidence": ["a", "b", "corroborated_by:secondary(EMAIL)"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1,
+              "secondary_confirmed_by": [],
+              "secondary_label": "EMAIL"
+            }
+          }
+        ],
+        "fallback_secondary": [
+          {
+            "label": "ADDRESS",
+            "text": "xxxxxx",
+            "start": 4,
+            "end": 10,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          },
+          {
+            "label": "EMAIL",
+            "text": "xxxxxx",
+            "start": 13,
+            "end": 19,
+            "risk": 5,
+            "conf": 0.85,
+            "evidence": ["a", "b"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          }
+        ],
+        "role_split": [
+          {
+            "label": "ADDRESS",
+            "text": "xxxxxx",
+            "start": 4,
+            "end": 10,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          },
+          {
+            "label": "EMAIL",
+            "text": "xxxxxx",
+            "start": 13,
+            "end": 19,
+            "risk": 5,
+            "conf": 0.85,
+            "evidence": ["a", "b"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "primary": [
+        {
+          "label": "POSITION",
+          "text": "xxx",
+          "start": 20,
+          "end": 23,
+          "risk": 4,
+          "conf": 0.85,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "PHONE",
+          "text": "xxxx",
+          "start": 11,
+          "end": 15,
+          "risk": 2,
+          "conf": 0.9,
+          "evidence": ["b"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "CARD",
+          "text": "xxxxxxx",
+          "start": 10,
+          "end": 17,
+          "risk": 2,
+          "conf": 0.95,
+          "evidence": ["a"],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        },
+        {
+          "label": "CARD",
+          "text": "xxx",
+          "start": 21,
+          "end": 24,
+          "risk": 2,
+          "conf": 0.95,
+          "evidence": ["pos:x"],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "xxxxxxx",
+          "start": 17,
+          "end": 24,
+          "risk": 4,
+          "conf": 0.7,
+          "evidence": ["b", "a"],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        }
+      ],
+      "secondary": [
+        {
+          "label": "EMAIL",
+          "text": "xxxx",
+          "start": 20,
+          "end": 24,
+          "risk": 1,
+          "conf": 0.3,
+          "evidence": ["b"],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "PHONE",
+          "text": "xxx",
+          "start": 21,
+          "end": 24,
+          "risk": 2,
+          "conf": 0.5,
+          "evidence": ["pos:x", "b"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "xxxxxxxx",
+          "start": 13,
+          "end": 21,
+          "risk": 3,
+          "conf": 0.5,
+          "evidence": ["a", "pos:x"],
+          "legal_basis": null,
+          "extra": {
+            "k": 1
+          }
+        }
+      ],
+      "rsl": ["PERSON"],
+      "result": {
+        "union": [
+          {
+            "label": "CARD",
+            "text": "xxxxxxx",
+            "start": 10,
+            "end": 17,
+            "risk": 2,
+            "conf": 0.95,
+            "evidence": ["a"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "POSITION",
+            "text": "xxx",
+            "start": 20,
+            "end": 23,
+            "risk": 4,
+            "conf": 0.85,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          }
+        ],
+        "intersection": [
+          {
+            "label": "PHONE",
+            "text": "xxxx",
+            "start": 11,
+            "end": 15,
+            "risk": 2,
+            "conf": 0.9500000000000001,
+            "evidence": ["b", "corroborated_by:secondary(PHONE)"],
+            "legal_basis": null,
+            "extra": {
+              "secondary_confirmed_by": ["a", "pos:x"],
+              "secondary_label": "PHONE"
+            }
+          },
+          {
+            "label": "PHONE",
+            "text": "xxxxxxx",
+            "start": 17,
+            "end": 24,
+            "risk": 4,
+            "conf": 0.75,
+            "evidence": ["b", "a", "corroborated_by:secondary(PHONE)"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "secondary_confirmed_by": ["pos:x", "b"],
+              "secondary_label": "PHONE"
+            }
+          }
+        ],
+        "cross_validation": [
+          {
+            "label": "PHONE",
+            "text": "xxxx",
+            "start": 11,
+            "end": 15,
+            "risk": 2,
+            "conf": 0.9500000000000001,
+            "evidence": ["b", "corroborated_by:secondary(PHONE)"],
+            "legal_basis": null,
+            "extra": {
+              "secondary_confirmed_by": ["a", "pos:x"],
+              "secondary_label": "PHONE"
+            }
+          },
+          {
+            "label": "POSITION",
+            "text": "xxx",
+            "start": 20,
+            "end": 23,
+            "risk": 4,
+            "conf": 0.85,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          }
+        ],
+        "enrich_primary": [
+          {
+            "label": "PHONE",
+            "text": "xxxx",
+            "start": 11,
+            "end": 15,
+            "risk": 2,
+            "conf": 0.9500000000000001,
+            "evidence": ["b", "corroborated_by:secondary(PHONE)"],
+            "legal_basis": null,
+            "extra": {
+              "secondary_confirmed_by": ["a", "pos:x"],
+              "secondary_label": "PHONE"
+            }
+          },
+          {
+            "label": "POSITION",
+            "text": "xxx",
+            "start": 20,
+            "end": 23,
+            "risk": 4,
+            "conf": 0.85,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          }
+        ],
+        "fallback_secondary": [
+          {
+            "label": "CARD",
+            "text": "xxxxxxx",
+            "start": 10,
+            "end": 17,
+            "risk": 2,
+            "conf": 0.95,
+            "evidence": ["a"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "POSITION",
+            "text": "xxx",
+            "start": 20,
+            "end": 23,
+            "risk": 4,
+            "conf": 0.85,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          }
+        ],
+        "role_split": [
+          {
+            "label": "CARD",
+            "text": "xxxxxxx",
+            "start": 10,
+            "end": 17,
+            "risk": 2,
+            "conf": 0.95,
+            "evidence": ["a"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "POSITION",
+            "text": "xxx",
+            "start": 20,
+            "end": 23,
+            "risk": 4,
+            "conf": 0.85,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "primary": [
+        {
+          "label": "CARD",
+          "text": "xxxxxxx",
+          "start": 9,
+          "end": 16,
+          "risk": 5,
+          "conf": 1.0,
+          "evidence": ["b"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "xx",
+          "start": 4,
+          "end": 6,
+          "risk": 1,
+          "conf": 0.85,
+          "evidence": ["a"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "xxxxxxxx",
+          "start": 1,
+          "end": 9,
+          "risk": 5,
+          "conf": 0.85,
+          "evidence": ["pos:x"],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "ADDRESS",
+          "text": "xxxx",
+          "start": 0,
+          "end": 4,
+          "risk": 2,
+          "conf": 0.55,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "xxxxx",
+          "start": 4,
+          "end": 9,
+          "risk": 5,
+          "conf": 0.95,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        }
+      ],
+      "secondary": [
+        {
+          "label": "PHONE",
+          "text": "xxx",
+          "start": 0,
+          "end": 3,
+          "risk": 1,
+          "conf": 0.9,
+          "evidence": ["pos:x", "b"],
+          "legal_basis": null,
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "POSITION",
+          "text": "xxxxxxxx",
+          "start": 2,
+          "end": 10,
+          "risk": 3,
+          "conf": 0.3,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "PHONE",
+          "text": "xxx",
+          "start": 3,
+          "end": 6,
+          "risk": 2,
+          "conf": 0.5,
+          "evidence": ["b", "a"],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "EMAIL",
+          "text": "xx",
+          "start": 6,
+          "end": 8,
+          "risk": 5,
+          "conf": 0.5,
+          "evidence": ["pos:x", "a"],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "ADDRESS",
+          "text": "xxxxx",
+          "start": 13,
+          "end": 18,
+          "risk": 2,
+          "conf": 1.0,
+          "evidence": ["b"],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "PERSON",
+          "text": "xxxxxxxx",
+          "start": 1,
+          "end": 9,
+          "risk": 5,
+          "conf": 0.95,
+          "evidence": ["sec"],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "cross_val": "old"
+          }
+        }
+      ],
+      "rsl": ["PHONE", "RRN", "CARD"],
+      "result": {
+        "union": [
+          {
+            "label": "PERSON",
+            "text": "xxxxxxxx",
+            "start": 1,
+            "end": 9,
+            "risk": 5,
+            "conf": 0.95,
+            "evidence": ["sec"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          },
+          {
+            "label": "CARD",
+            "text": "xxxxxxx",
+            "start": 9,
+            "end": 16,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["b"],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ],
+        "intersection": [
+          {
+            "label": "PERSON",
+            "text": "xxxxx",
+            "start": 4,
+            "end": 9,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["corroborated_by:secondary(PERSON)"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "secondary_confirmed_by": ["sec"],
+              "secondary_label": "PERSON"
+            }
+          }
+        ],
+        "cross_validation": [
+          {
+            "label": "ADDRESS",
+            "text": "xxxx",
+            "start": 0,
+            "end": 4,
+            "risk": 2,
+            "conf": 0.55,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "PERSON",
+            "text": "xxxxx",
+            "start": 4,
+            "end": 9,
+            "risk": 5,
+            "conf": 0.95,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "CARD",
+            "text": "xxxxxxx",
+            "start": 9,
+            "end": 16,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["b"],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ],
+        "enrich_primary": [
+          {
+            "label": "ADDRESS",
+            "text": "xxxx",
+            "start": 0,
+            "end": 4,
+            "risk": 2,
+            "conf": 0.55,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "PERSON",
+            "text": "xxxxx",
+            "start": 4,
+            "end": 9,
+            "risk": 5,
+            "conf": 0.95,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "CARD",
+            "text": "xxxxxxx",
+            "start": 9,
+            "end": 16,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["b"],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ],
+        "fallback_secondary": [
+          {
+            "label": "ADDRESS",
+            "text": "xxxx",
+            "start": 0,
+            "end": 4,
+            "risk": 2,
+            "conf": 0.55,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "PERSON",
+            "text": "xxxxx",
+            "start": 4,
+            "end": 9,
+            "risk": 5,
+            "conf": 0.95,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "CARD",
+            "text": "xxxxxxx",
+            "start": 9,
+            "end": 16,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["b"],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ],
+        "role_split": [
+          {
+            "label": "ADDRESS",
+            "text": "xxxx",
+            "start": 0,
+            "end": 4,
+            "risk": 2,
+            "conf": 0.55,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "PERSON",
+            "text": "xxxxx",
+            "start": 4,
+            "end": 9,
+            "risk": 5,
+            "conf": 0.95,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          }
+        ]
+      }
+    },
+    {
+      "primary": [
+        {
+          "label": "POSITION",
+          "text": "xxxx",
+          "start": 8,
+          "end": 12,
+          "risk": 1,
+          "conf": 0.5,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "secondary": [
+        {
+          "label": "PERSON",
+          "text": "x",
+          "start": 5,
+          "end": 6,
+          "risk": 4,
+          "conf": 0.3,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "CARD",
+          "text": "xxxx",
+          "start": 11,
+          "end": 15,
+          "risk": 3,
+          "conf": 0.85,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "AGE",
+          "text": "xx",
+          "start": 12,
+          "end": 14,
+          "risk": 5,
+          "conf": 0.95,
+          "evidence": ["pos:x"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "xx",
+          "start": 9,
+          "end": 11,
+          "risk": 1,
+          "conf": 0.9,
+          "evidence": ["a", "pos:x"],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "k": 1
+          }
+        }
+      ],
+      "rsl": [],
+      "result": {
+        "union": [
+          {
+            "label": "PERSON",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 4,
+            "conf": 0.3,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "PERSON",
+            "text": "xx",
+            "start": 9,
+            "end": 11,
+            "risk": 1,
+            "conf": 0.9,
+            "evidence": ["a", "pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "AGE",
+            "text": "xx",
+            "start": 12,
+            "end": 14,
+            "risk": 5,
+            "conf": 0.95,
+            "evidence": ["pos:x"],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ],
+        "intersection": [],
+        "cross_validation": [
+          {
+            "label": "PERSON",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 4,
+            "conf": 0.21,
+            "evidence": ["uncorroborated:primary_missed"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1,
+              "cross_val": "secondary_only"
+            }
+          },
+          {
+            "label": "PERSON",
+            "text": "xx",
+            "start": 9,
+            "end": 11,
+            "risk": 1,
+            "conf": 0.63,
+            "evidence": ["a", "pos:x", "uncorroborated:primary_missed"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1,
+              "cross_val": "secondary_only"
+            }
+          },
+          {
+            "label": "AGE",
+            "text": "xx",
+            "start": 12,
+            "end": 14,
+            "risk": 5,
+            "conf": 0.6649999999999999,
+            "evidence": ["pos:x", "uncorroborated:primary_missed"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "secondary_only"
+            }
+          }
+        ],
+        "enrich_primary": [
+          {
+            "label": "PERSON",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 4,
+            "conf": 0.3,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "POSITION",
+            "text": "xxxx",
+            "start": 8,
+            "end": 12,
+            "risk": 1,
+            "conf": 0.5,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "AGE",
+            "text": "xx",
+            "start": 12,
+            "end": 14,
+            "risk": 5,
+            "conf": 0.95,
+            "evidence": ["pos:x"],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ],
+        "fallback_secondary": [
+          {
+            "label": "POSITION",
+            "text": "xxxx",
+            "start": 8,
+            "end": 12,
+            "risk": 1,
+            "conf": 0.5,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ],
+        "role_split": [
+          {
+            "label": "POSITION",
+            "text": "xxxx",
+            "start": 8,
+            "end": 12,
+            "risk": 1,
+            "conf": 0.5,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ]
+      }
+    },
+    {
+      "primary": [
+        {
+          "label": "AGE",
+          "text": "xxxxx",
+          "start": 4,
+          "end": 9,
+          "risk": 2,
+          "conf": 0.85,
+          "evidence": ["pos:x"],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "POSITION",
+          "text": "x",
+          "start": 4,
+          "end": 5,
+          "risk": 3,
+          "conf": 1.0,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "k": 1
+          }
+        }
+      ],
+      "secondary": [
+        {
+          "label": "ADDRESS",
+          "text": "xxxxxxx",
+          "start": 1,
+          "end": 8,
+          "risk": 3,
+          "conf": 0.55,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "POSITION",
+          "text": "xxxx",
+          "start": 19,
+          "end": 23,
+          "risk": 4,
+          "conf": 0.7,
+          "evidence": ["a", "b"],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        }
+      ],
+      "rsl": [],
+      "result": {
+        "union": [
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 4,
+            "end": 5,
+            "risk": 3,
+            "conf": 1.0,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "POSITION",
+            "text": "xxxx",
+            "start": 19,
+            "end": 23,
+            "risk": 4,
+            "conf": 0.7,
+            "evidence": ["a", "b"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          }
+        ],
+        "intersection": [],
+        "cross_validation": [
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 4,
+            "end": 5,
+            "risk": 3,
+            "conf": 1.0,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "POSITION",
+            "text": "xxxx",
+            "start": 19,
+            "end": 23,
+            "risk": 4,
+            "conf": 0.48999999999999994,
+            "evidence": ["a", "b", "uncorroborated:primary_missed"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "secondary_only"
+            }
+          }
+        ],
+        "enrich_primary": [
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 4,
+            "end": 5,
+            "risk": 3,
+            "conf": 1.0,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "POSITION",
+            "text": "xxxx",
+            "start": 19,
+            "end": 23,
+            "risk": 4,
+            "conf": 0.7,
+            "evidence": ["a", "b"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          }
+        ],
+        "fallback_secondary": [
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 4,
+            "end": 5,
+            "risk": 3,
+            "conf": 1.0,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          }
+        ],
+        "role_split": [
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 4,
+            "end": 5,
+            "risk": 3,
+            "conf": 1.0,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          }
+        ]
+      }
+    },
+    {
+      "primary": [
+        {
+          "label": "AGE",
+          "text": "xxxxxx",
+          "start": 15,
+          "end": 21,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["a", "b"],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        }
+      ],
+      "secondary": [
+        {
+          "label": "ADDRESS",
+          "text": "xx",
+          "start": 10,
+          "end": 12,
+          "risk": 1,
+          "conf": 0.55,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "xxxxx",
+          "start": 13,
+          "end": 18,
+          "risk": 3,
+          "conf": 0.55,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "RRN",
+          "text": "xxxxxxxx",
+          "start": 9,
+          "end": 17,
+          "risk": 5,
+          "conf": 0.95,
+          "evidence": ["pos:x", "b"],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        }
+      ],
+      "rsl": null,
+      "result": {
+        "union": [
+          {
+            "label": "RRN",
+            "text": "xxxxxxxx",
+            "start": 9,
+            "end": 17,
+            "risk": 5,
+            "conf": 0.95,
+            "evidence": ["pos:x", "b"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "intersection": [],
+        "cross_validation": [
+          {
+            "label": "RRN",
+            "text": "xxxxxxxx",
+            "start": 9,
+            "end": 17,
+            "risk": 5,
+            "conf": 0.6649999999999999,
+            "evidence": ["pos:x", "b", "uncorroborated:primary_missed"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "secondary_only"
+            }
+          }
+        ],
+        "enrich_primary": [
+          {
+            "label": "ADDRESS",
+            "text": "xx",
+            "start": 10,
+            "end": 12,
+            "risk": 1,
+            "conf": 0.55,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "AGE",
+            "text": "xxxxxx",
+            "start": 15,
+            "end": 21,
+            "risk": 3,
+            "conf": 0.9,
+            "evidence": ["a", "b"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "fallback_secondary": [
+          {
+            "label": "AGE",
+            "text": "xxxxxx",
+            "start": 15,
+            "end": 21,
+            "risk": 3,
+            "conf": 0.9,
+            "evidence": ["a", "b"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "role_split": [
+          {
+            "label": "ADDRESS",
+            "text": "xx",
+            "start": 10,
+            "end": 12,
+            "risk": 1,
+            "conf": 0.55,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          }
+        ]
+      }
+    },
+    {
+      "primary": [
+        {
+          "label": "PERSON",
+          "text": "xx",
+          "start": 34,
+          "end": 36,
+          "risk": 2,
+          "conf": 0.96,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "PHONE",
+          "text": "xxxx",
+          "start": 28,
+          "end": 32,
+          "risk": 2,
+          "conf": 0.3,
+          "evidence": ["pos:x"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "xxxxxxxx",
+          "start": 19,
+          "end": 27,
+          "risk": 3,
+          "conf": 0.85,
+          "evidence": ["pos:x"],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        }
+      ],
+      "secondary": [
+        {
+          "label": "RRN",
+          "text": "xxxxxxx",
+          "start": 27,
+          "end": 34,
+          "risk": 1,
+          "conf": 0.7,
+          "evidence": ["a"],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        },
+        {
+          "label": "EMAIL",
+          "text": "xxx",
+          "start": 17,
+          "end": 20,
+          "risk": 2,
+          "conf": 0.7,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "AGE",
+          "text": "xxxx",
+          "start": 18,
+          "end": 22,
+          "risk": 1,
+          "conf": 0.55,
+          "evidence": ["a"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "ADDRESS",
+          "text": "xx",
+          "start": 34,
+          "end": 36,
+          "risk": 1,
+          "conf": 0.3,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        }
+      ],
+      "rsl": null,
+      "result": {
+        "union": [
+          {
+            "label": "PERSON",
+            "text": "xxxxxxxx",
+            "start": 19,
+            "end": 27,
+            "risk": 3,
+            "conf": 0.85,
+            "evidence": ["pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "PHONE",
+            "text": "xxxx",
+            "start": 28,
+            "end": 32,
+            "risk": 2,
+            "conf": 0.3,
+            "evidence": ["pos:x"],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "PERSON",
+            "text": "xx",
+            "start": 34,
+            "end": 36,
+            "risk": 2,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "intersection": [],
+        "cross_validation": [
+          {
+            "label": "PERSON",
+            "text": "xxxxxxxx",
+            "start": 19,
+            "end": 27,
+            "risk": 3,
+            "conf": 0.85,
+            "evidence": ["pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "PHONE",
+            "text": "xxxx",
+            "start": 28,
+            "end": 32,
+            "risk": 2,
+            "conf": 0.3,
+            "evidence": ["pos:x"],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "PERSON",
+            "text": "xx",
+            "start": 34,
+            "end": 36,
+            "risk": 2,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "enrich_primary": [
+          {
+            "label": "PERSON",
+            "text": "xxxxxxxx",
+            "start": 19,
+            "end": 27,
+            "risk": 3,
+            "conf": 0.85,
+            "evidence": ["pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "PHONE",
+            "text": "xxxx",
+            "start": 28,
+            "end": 32,
+            "risk": 2,
+            "conf": 0.3,
+            "evidence": ["pos:x"],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "PERSON",
+            "text": "xx",
+            "start": 34,
+            "end": 36,
+            "risk": 2,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "fallback_secondary": [
+          {
+            "label": "PERSON",
+            "text": "xxxxxxxx",
+            "start": 19,
+            "end": 27,
+            "risk": 3,
+            "conf": 0.85,
+            "evidence": ["pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "PHONE",
+            "text": "xxxx",
+            "start": 28,
+            "end": 32,
+            "risk": 2,
+            "conf": 0.3,
+            "evidence": ["pos:x"],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "PERSON",
+            "text": "xx",
+            "start": 34,
+            "end": 36,
+            "risk": 2,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "role_split": [
+          {
+            "label": "AGE",
+            "text": "xxxx",
+            "start": 18,
+            "end": 22,
+            "risk": 1,
+            "conf": 0.55,
+            "evidence": ["a"],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "PHONE",
+            "text": "xxxx",
+            "start": 28,
+            "end": 32,
+            "risk": 2,
+            "conf": 0.3,
+            "evidence": ["pos:x"],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "ADDRESS",
+            "text": "xx",
+            "start": 34,
+            "end": 36,
+            "risk": 1,
+            "conf": 0.3,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          }
+        ]
+      }
+    },
+    {
+      "primary": [
+        {
+          "label": "CARD",
+          "text": "xxxx",
+          "start": 22,
+          "end": 26,
+          "risk": 1,
+          "conf": 0.7,
+          "evidence": ["a"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "RRN",
+          "text": "x",
+          "start": 3,
+          "end": 4,
+          "risk": 1,
+          "conf": 0.5,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "EMAIL",
+          "text": "xxxx",
+          "start": 22,
+          "end": 26,
+          "risk": 4,
+          "conf": 0.96,
+          "evidence": ["pos:x", "a"],
+          "legal_basis": null,
+          "extra": {
+            "cross_val": "old"
+          }
+        }
+      ],
+      "secondary": [
+        {
+          "label": "POSITION",
+          "text": "x",
+          "start": 5,
+          "end": 6,
+          "risk": 5,
+          "conf": 0.96,
+          "evidence": [],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        },
+        {
+          "label": "POSITION",
+          "text": "x",
+          "start": 10,
+          "end": 11,
+          "risk": 5,
+          "conf": 1.0,
+          "evidence": ["pos:x", "a"],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "k": 1
+          }
+        },
+        {
+          "label": "EMAIL",
+          "text": "xxxx",
+          "start": 2,
+          "end": 6,
+          "risk": 3,
+          "conf": 0.85,
+          "evidence": ["a"],
+          "legal_basis": "법 제2조",
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "x",
+          "start": 20,
+          "end": 21,
+          "risk": 1,
+          "conf": 0.9,
+          "evidence": ["pos:x"],
+          "legal_basis": "법 제2조",
+          "extra": {
+            "cross_val": "old"
+          }
+        },
+        {
+          "label": "ADDRESS",
+          "text": "xxxx",
+          "start": 13,
+          "end": 17,
+          "risk": 5,
+          "conf": 0.55,
+          "evidence": [],
+          "legal_basis": null,
+          "extra": {
+            "k": 1
+          }
+        }
+      ],
+      "rsl": null,
+      "result": {
+        "union": [
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 3,
+            "end": 4,
+            "risk": 1,
+            "conf": 0.5,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 10,
+            "end": 11,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["pos:x", "a"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "ADDRESS",
+            "text": "xxxx",
+            "start": 13,
+            "end": 17,
+            "risk": 5,
+            "conf": 0.55,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "PERSON",
+            "text": "x",
+            "start": 20,
+            "end": 21,
+            "risk": 1,
+            "conf": 0.9,
+            "evidence": ["pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          },
+          {
+            "label": "EMAIL",
+            "text": "xxxx",
+            "start": 22,
+            "end": 26,
+            "risk": 4,
+            "conf": 0.96,
+            "evidence": ["pos:x", "a"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "intersection": [],
+        "cross_validation": [
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 3,
+            "end": 4,
+            "risk": 1,
+            "conf": 0.5,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 5,
+            "conf": 0.6719999999999999,
+            "evidence": ["uncorroborated:primary_missed"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "secondary_only"
+            }
+          },
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 10,
+            "end": 11,
+            "risk": 5,
+            "conf": 0.7,
+            "evidence": ["pos:x", "a", "uncorroborated:primary_missed"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1,
+              "cross_val": "secondary_only"
+            }
+          },
+          {
+            "label": "ADDRESS",
+            "text": "xxxx",
+            "start": 13,
+            "end": 17,
+            "risk": 5,
+            "conf": 0.385,
+            "evidence": ["uncorroborated:primary_missed"],
+            "legal_basis": null,
+            "extra": {
+              "k": 1,
+              "cross_val": "secondary_only"
+            }
+          },
+          {
+            "label": "PERSON",
+            "text": "x",
+            "start": 20,
+            "end": 21,
+            "risk": 1,
+            "conf": 0.63,
+            "evidence": ["pos:x", "uncorroborated:primary_missed"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "secondary_only"
+            }
+          },
+          {
+            "label": "EMAIL",
+            "text": "xxxx",
+            "start": 22,
+            "end": 26,
+            "risk": 4,
+            "conf": 0.96,
+            "evidence": ["pos:x", "a"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "enrich_primary": [
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 3,
+            "end": 4,
+            "risk": 1,
+            "conf": 0.5,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 10,
+            "end": 11,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["pos:x", "a"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "ADDRESS",
+            "text": "xxxx",
+            "start": 13,
+            "end": 17,
+            "risk": 5,
+            "conf": 0.55,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "PERSON",
+            "text": "x",
+            "start": 20,
+            "end": 21,
+            "risk": 1,
+            "conf": 0.9,
+            "evidence": ["pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          },
+          {
+            "label": "EMAIL",
+            "text": "xxxx",
+            "start": 22,
+            "end": 26,
+            "risk": 4,
+            "conf": 0.96,
+            "evidence": ["pos:x", "a"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "fallback_secondary": [
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 3,
+            "end": 4,
+            "risk": 1,
+            "conf": 0.5,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "EMAIL",
+            "text": "xxxx",
+            "start": 22,
+            "end": 26,
+            "risk": 4,
+            "conf": 0.96,
+            "evidence": ["pos:x", "a"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ],
+        "role_split": [
+          {
+            "label": "RRN",
+            "text": "x",
+            "start": 3,
+            "end": 4,
+            "risk": 1,
+            "conf": 0.5,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {}
+          },
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 5,
+            "end": 6,
+            "risk": 5,
+            "conf": 0.96,
+            "evidence": [],
+            "legal_basis": "법 제2조",
+            "extra": {}
+          },
+          {
+            "label": "POSITION",
+            "text": "x",
+            "start": 10,
+            "end": 11,
+            "risk": 5,
+            "conf": 1.0,
+            "evidence": ["pos:x", "a"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "ADDRESS",
+            "text": "xxxx",
+            "start": 13,
+            "end": 17,
+            "risk": 5,
+            "conf": 0.55,
+            "evidence": [],
+            "legal_basis": null,
+            "extra": {
+              "k": 1
+            }
+          },
+          {
+            "label": "PERSON",
+            "text": "x",
+            "start": 20,
+            "end": 21,
+            "risk": 1,
+            "conf": 0.9,
+            "evidence": ["pos:x"],
+            "legal_basis": "법 제2조",
+            "extra": {
+              "cross_val": "old"
+            }
+          },
+          {
+            "label": "EMAIL",
+            "text": "xxxx",
+            "start": 22,
+            "end": 26,
+            "risk": 4,
+            "conf": 0.96,
+            "evidence": ["pos:x", "a"],
+            "legal_basis": null,
+            "extra": {
+              "cross_val": "old"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "anon": [
+    {
+      "text": "담당자 홍길동 과장 010-1234-5678 서울특별시 강남구 테헤란로 152",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.99,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "POSITION",
+          "text": "과장",
+          "start": 8,
+          "end": 10,
+          "risk": 2,
+          "conf": 0.8,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "ADDRESS",
+          "text": "테헤란로 152",
+          "start": 35,
+          "end": 43,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "010-1234-5678",
+          "start": 11,
+          "end": 24,
+          "risk": 4,
+          "conf": 0.5,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "union",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "담당자 <PERSON_1> 과장 <PHONE_1> 서울특별시 강남구 <ADDRESS_1>",
+      "records": [
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          1.0,
+          [
+            "pos:surname(홍)",
+            "pos:title(과장:gov)",
+            "pos:deterministic_pii_nearby",
+            "pos:agency_in_sentence",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ]
+        ],
+        ["POSITION", "REVIEW", null, 8, 10, 0.8, ["ml"]],
+        ["PHONE", "BLOCK", "<PHONE_1>", 11, 24, 1.0, ["pattern:phone", "type:mobile"]],
+        ["ADDRESS", "BLOCK", "<ADDRESS_1>", 35, 43, 0.9, ["ml"]]
+      ],
+      "summary": {
+        "combined_risk": "HIGH",
+        "combined_rationale": [
+          "준식별자 4종 결합 → 재식별 가능성 매우 높음 (ADDRESS, PERSON, PHONE, POSITION)"
+        ],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE", "POSITION"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 3,
+          "REVIEW": 1
+        },
+        "by_risk": {
+          "HIGH": 2,
+          "LOW": 1,
+          "MEDIUM": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "POSITION": 1,
+          "PHONE": 1,
+          "ADDRESS": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 2,
+          "—": 2
+        }
+      }
+    },
+    {
+      "text": "담당자 홍길동 과장 010-1234-5678 서울특별시 강남구 테헤란로 152",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.99,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "POSITION",
+          "text": "과장",
+          "start": 8,
+          "end": 10,
+          "risk": 2,
+          "conf": 0.8,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "ADDRESS",
+          "text": "테헤란로 152",
+          "start": 35,
+          "end": 43,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "010-1234-5678",
+          "start": 11,
+          "end": 24,
+          "risk": 4,
+          "conf": 0.5,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "intersection",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "담당자 <PERSON_1> 과장 <PHONE_1> <ADDRESS_1>",
+      "records": [
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          1.0,
+          [
+            "pos:surname(홍)",
+            "pos:title(과장:gov)",
+            "pos:deterministic_pii_nearby",
+            "pos:agency_in_sentence",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean",
+            "corroborated_by:secondary(PERSON)"
+          ]
+        ],
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          11,
+          24,
+          1.0,
+          ["pattern:phone", "type:mobile", "corroborated_by:secondary(PHONE)"]
+        ],
+        [
+          "ADDRESS",
+          "BLOCK",
+          "<ADDRESS_1>",
+          25,
+          43,
+          0.8500000000000001,
+          ["pattern:address_road", "anchor:prefix", "corroborated_by:secondary(ADDRESS)"]
+        ]
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": ["준식별자 3종 결합 → 재식별 가능성 있음"],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE"],
+        "sensitive_attributes": [],
+        "total": 3,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 3
+        },
+        "by_risk": {
+          "HIGH": 2,
+          "MEDIUM": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "PHONE": 1,
+          "ADDRESS": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 3
+        }
+      }
+    },
+    {
+      "text": "담당자 홍길동 과장 010-1234-5678 서울특별시 강남구 테헤란로 152",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.99,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "POSITION",
+          "text": "과장",
+          "start": 8,
+          "end": 10,
+          "risk": 2,
+          "conf": 0.8,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "ADDRESS",
+          "text": "테헤란로 152",
+          "start": 35,
+          "end": 43,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "010-1234-5678",
+          "start": 11,
+          "end": 24,
+          "risk": 4,
+          "conf": 0.5,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "cross_validation",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "담당자 <PERSON_1> 과장 <PHONE_1> <ADDRESS_1>",
+      "records": [
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          1.0,
+          [
+            "pos:surname(홍)",
+            "pos:title(과장:gov)",
+            "pos:deterministic_pii_nearby",
+            "pos:agency_in_sentence",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean",
+            "corroborated_by:secondary(PERSON)"
+          ]
+        ],
+        [
+          "POSITION",
+          "REVIEW",
+          null,
+          8,
+          10,
+          0.5599999999999999,
+          ["ml", "uncorroborated:primary_missed"]
+        ],
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          11,
+          24,
+          1.0,
+          ["pattern:phone", "type:mobile", "corroborated_by:secondary(PHONE)"]
+        ],
+        [
+          "ADDRESS",
+          "BLOCK",
+          "<ADDRESS_1>",
+          25,
+          43,
+          0.8500000000000001,
+          ["pattern:address_road", "anchor:prefix", "corroborated_by:secondary(ADDRESS)"]
+        ]
+      ],
+      "summary": {
+        "combined_risk": "HIGH",
+        "combined_rationale": [
+          "준식별자 4종 결합 → 재식별 가능성 매우 높음 (ADDRESS, PERSON, PHONE, POSITION)"
+        ],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE", "POSITION"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 3,
+          "REVIEW": 1
+        },
+        "by_risk": {
+          "HIGH": 2,
+          "LOW": 1,
+          "MEDIUM": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "POSITION": 1,
+          "PHONE": 1,
+          "ADDRESS": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 3,
+          "—": 1
+        }
+      }
+    },
+    {
+      "text": "담당자 홍길동 과장 010-1234-5678 서울특별시 강남구 테헤란로 152",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.99,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "POSITION",
+          "text": "과장",
+          "start": 8,
+          "end": 10,
+          "risk": 2,
+          "conf": 0.8,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "ADDRESS",
+          "text": "테헤란로 152",
+          "start": 35,
+          "end": 43,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "010-1234-5678",
+          "start": 11,
+          "end": 24,
+          "risk": 4,
+          "conf": 0.5,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "enrich_primary",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "담당자 <PERSON_1> 과장 <PHONE_1> <ADDRESS_1>",
+      "records": [
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          1.0,
+          [
+            "pos:surname(홍)",
+            "pos:title(과장:gov)",
+            "pos:deterministic_pii_nearby",
+            "pos:agency_in_sentence",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean",
+            "corroborated_by:secondary(PERSON)"
+          ]
+        ],
+        ["POSITION", "REVIEW", null, 8, 10, 0.8, ["ml"]],
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          11,
+          24,
+          1.0,
+          ["pattern:phone", "type:mobile", "corroborated_by:secondary(PHONE)"]
+        ],
+        [
+          "ADDRESS",
+          "BLOCK",
+          "<ADDRESS_1>",
+          25,
+          43,
+          0.8500000000000001,
+          ["pattern:address_road", "anchor:prefix", "corroborated_by:secondary(ADDRESS)"]
+        ]
+      ],
+      "summary": {
+        "combined_risk": "HIGH",
+        "combined_rationale": [
+          "준식별자 4종 결합 → 재식별 가능성 매우 높음 (ADDRESS, PERSON, PHONE, POSITION)"
+        ],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE", "POSITION"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 3,
+          "REVIEW": 1
+        },
+        "by_risk": {
+          "HIGH": 2,
+          "LOW": 1,
+          "MEDIUM": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "POSITION": 1,
+          "PHONE": 1,
+          "ADDRESS": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 3,
+          "—": 1
+        }
+      }
+    },
+    {
+      "text": "담당자 홍길동 과장 010-1234-5678 서울특별시 강남구 테헤란로 152",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.99,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "POSITION",
+          "text": "과장",
+          "start": 8,
+          "end": 10,
+          "risk": 2,
+          "conf": 0.8,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "ADDRESS",
+          "text": "테헤란로 152",
+          "start": 35,
+          "end": 43,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "010-1234-5678",
+          "start": 11,
+          "end": 24,
+          "risk": 4,
+          "conf": 0.5,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "fallback_secondary",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "담당자 <PERSON_1> 과장 <PHONE_1> <ADDRESS_1>",
+      "records": [
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          1.0,
+          [
+            "pos:surname(홍)",
+            "pos:title(과장:gov)",
+            "pos:deterministic_pii_nearby",
+            "pos:agency_in_sentence",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ]
+        ],
+        ["PHONE", "BLOCK", "<PHONE_1>", 11, 24, 1.0, ["pattern:phone", "type:mobile"]],
+        ["ADDRESS", "BLOCK", "<ADDRESS_1>", 25, 43, 0.8, ["pattern:address_road", "anchor:prefix"]]
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": ["준식별자 3종 결합 → 재식별 가능성 있음"],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE"],
+        "sensitive_attributes": [],
+        "total": 3,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 3
+        },
+        "by_risk": {
+          "HIGH": 2,
+          "MEDIUM": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "PHONE": 1,
+          "ADDRESS": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 3
+        }
+      }
+    },
+    {
+      "text": "담당자 홍길동 과장 010-1234-5678 서울특별시 강남구 테헤란로 152",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.99,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "POSITION",
+          "text": "과장",
+          "start": 8,
+          "end": 10,
+          "risk": 2,
+          "conf": 0.8,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "ADDRESS",
+          "text": "테헤란로 152",
+          "start": 35,
+          "end": 43,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PHONE",
+          "text": "010-1234-5678",
+          "start": 11,
+          "end": 24,
+          "risk": 4,
+          "conf": 0.5,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "role_split",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "담당자 <PERSON_1> 과장 <PHONE_1> 서울특별시 강남구 <ADDRESS_1>",
+      "records": [
+        ["PERSON", "BLOCK", "<PERSON_1>", 4, 7, 0.99, ["ml"]],
+        ["POSITION", "REVIEW", null, 8, 10, 0.8, ["ml"]],
+        ["PHONE", "BLOCK", "<PHONE_1>", 11, 24, 1.0, ["pattern:phone", "type:mobile"]],
+        ["ADDRESS", "BLOCK", "<ADDRESS_1>", 35, 43, 0.9, ["ml"]]
+      ],
+      "summary": {
+        "combined_risk": "HIGH",
+        "combined_rationale": [
+          "준식별자 4종 결합 → 재식별 가능성 매우 높음 (ADDRESS, PERSON, PHONE, POSITION)"
+        ],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE", "POSITION"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 3,
+          "REVIEW": 1
+        },
+        "by_risk": {
+          "MEDIUM": 2,
+          "LOW": 1,
+          "HIGH": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "POSITION": 1,
+          "PHONE": 1,
+          "ADDRESS": 1
+        },
+        "by_legal_basis": {
+          "—": 3,
+          "개인정보보호법 제2조": 1
+        }
+      }
+    },
+    {
+      "text": "신청인 김철수 (880101-1234568) hong@example.com 박영희 팀장",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "김철수",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.6,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "union",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "신청인 <PERSON_1> (<RRN_1>) <EMAIL_1> <PERSON_2> 팀장",
+      "records": [
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          1.0,
+          [
+            "pos:surname(김)",
+            "pos:field_label(신청인)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ]
+        ],
+        [
+          "RRN",
+          "BLOCK",
+          "<RRN_1>",
+          9,
+          23,
+          1.0,
+          ["pattern:rrn", "date_valid:1988-01-01", "checksum:valid"]
+        ],
+        ["EMAIL", "BLOCK", "<EMAIL_1>", 25, 41, 1.0, ["pattern:email"]],
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_2>",
+          42,
+          45,
+          1.0,
+          [
+            "pos:surname(박)",
+            "pos:title(팀장:gov)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ]
+        ]
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": ["식별자 1종 등장: RRN → 즉시 식별 가능"],
+        "distinct_identifiers": ["RRN"],
+        "distinct_quasi_identifiers": ["EMAIL", "PERSON"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 4
+        },
+        "by_risk": {
+          "HIGH": 2,
+          "CRITICAL": 1,
+          "MEDIUM": 1
+        },
+        "by_label": {
+          "PERSON": 2,
+          "RRN": 1,
+          "EMAIL": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 3,
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "text": "신청인 김철수 (880101-1234568) hong@example.com 박영희 팀장",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "김철수",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.6,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "intersection",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "신청인 <PERSON_1> (880101-1234568) hong@example.com 박영희 팀장",
+      "records": [
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          1.0,
+          [
+            "pos:surname(김)",
+            "pos:field_label(신청인)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean",
+            "corroborated_by:secondary(PERSON)"
+          ]
+        ]
+      ],
+      "summary": {
+        "combined_risk": "LOW",
+        "combined_rationale": ["준식별자 1종 → 단독 식별 어려움"],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["PERSON"],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "HIGH": 1
+        },
+        "by_label": {
+          "PERSON": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 1
+        }
+      }
+    },
+    {
+      "text": "신청인 김철수 (880101-1234568) hong@example.com 박영희 팀장",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "김철수",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.6,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "cross_validation",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "신청인 <PERSON_1> (<RRN_1>) <EMAIL_1> <PERSON_2> 팀장",
+      "records": [
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          1.0,
+          [
+            "pos:surname(김)",
+            "pos:field_label(신청인)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean",
+            "corroborated_by:secondary(PERSON)"
+          ]
+        ],
+        [
+          "RRN",
+          "BLOCK",
+          "<RRN_1>",
+          9,
+          23,
+          1.0,
+          ["pattern:rrn", "date_valid:1988-01-01", "checksum:valid"]
+        ],
+        ["EMAIL", "BLOCK", "<EMAIL_1>", 25, 41, 1.0, ["pattern:email"]],
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_2>",
+          42,
+          45,
+          1.0,
+          [
+            "pos:surname(박)",
+            "pos:title(팀장:gov)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ]
+        ]
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": ["식별자 1종 등장: RRN → 즉시 식별 가능"],
+        "distinct_identifiers": ["RRN"],
+        "distinct_quasi_identifiers": ["EMAIL", "PERSON"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 4
+        },
+        "by_risk": {
+          "HIGH": 2,
+          "CRITICAL": 1,
+          "MEDIUM": 1
+        },
+        "by_label": {
+          "PERSON": 2,
+          "RRN": 1,
+          "EMAIL": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 3,
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "text": "신청인 김철수 (880101-1234568) hong@example.com 박영희 팀장",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "김철수",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.6,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "enrich_primary",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "신청인 <PERSON_1> (<RRN_1>) <EMAIL_1> <PERSON_2> 팀장",
+      "records": [
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          1.0,
+          [
+            "pos:surname(김)",
+            "pos:field_label(신청인)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean",
+            "corroborated_by:secondary(PERSON)"
+          ]
+        ],
+        [
+          "RRN",
+          "BLOCK",
+          "<RRN_1>",
+          9,
+          23,
+          1.0,
+          ["pattern:rrn", "date_valid:1988-01-01", "checksum:valid"]
+        ],
+        ["EMAIL", "BLOCK", "<EMAIL_1>", 25, 41, 1.0, ["pattern:email"]],
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_2>",
+          42,
+          45,
+          1.0,
+          [
+            "pos:surname(박)",
+            "pos:title(팀장:gov)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ]
+        ]
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": ["식별자 1종 등장: RRN → 즉시 식별 가능"],
+        "distinct_identifiers": ["RRN"],
+        "distinct_quasi_identifiers": ["EMAIL", "PERSON"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 4
+        },
+        "by_risk": {
+          "HIGH": 2,
+          "CRITICAL": 1,
+          "MEDIUM": 1
+        },
+        "by_label": {
+          "PERSON": 2,
+          "RRN": 1,
+          "EMAIL": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 3,
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "text": "신청인 김철수 (880101-1234568) hong@example.com 박영희 팀장",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "김철수",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.6,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "fallback_secondary",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "신청인 <PERSON_1> (<RRN_1>) <EMAIL_1> <PERSON_2> 팀장",
+      "records": [
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          1.0,
+          [
+            "pos:surname(김)",
+            "pos:field_label(신청인)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ]
+        ],
+        [
+          "RRN",
+          "BLOCK",
+          "<RRN_1>",
+          9,
+          23,
+          1.0,
+          ["pattern:rrn", "date_valid:1988-01-01", "checksum:valid"]
+        ],
+        ["EMAIL", "BLOCK", "<EMAIL_1>", 25, 41, 1.0, ["pattern:email"]],
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_2>",
+          42,
+          45,
+          1.0,
+          [
+            "pos:surname(박)",
+            "pos:title(팀장:gov)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ]
+        ]
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": ["식별자 1종 등장: RRN → 즉시 식별 가능"],
+        "distinct_identifiers": ["RRN"],
+        "distinct_quasi_identifiers": ["EMAIL", "PERSON"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 4
+        },
+        "by_risk": {
+          "HIGH": 2,
+          "CRITICAL": 1,
+          "MEDIUM": 1
+        },
+        "by_label": {
+          "PERSON": 2,
+          "RRN": 1,
+          "EMAIL": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 3,
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "text": "신청인 김철수 (880101-1234568) hong@example.com 박영희 팀장",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "김철수",
+          "start": 4,
+          "end": 7,
+          "risk": 3,
+          "conf": 0.6,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "role_split",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "신청인 김철수 (<RRN_1>) <EMAIL_1> 박영희 팀장",
+      "records": [
+        ["PERSON", "REVIEW", null, 4, 7, 0.6, ["ml"]],
+        [
+          "RRN",
+          "BLOCK",
+          "<RRN_1>",
+          9,
+          23,
+          1.0,
+          ["pattern:rrn", "date_valid:1988-01-01", "checksum:valid"]
+        ],
+        ["EMAIL", "BLOCK", "<EMAIL_1>", 25, 41, 1.0, ["pattern:email"]]
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": ["식별자 1종 등장: RRN → 즉시 식별 가능"],
+        "distinct_identifiers": ["RRN"],
+        "distinct_quasi_identifiers": ["EMAIL", "PERSON"],
+        "sensitive_attributes": [],
+        "total": 3,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "REVIEW": 1,
+          "BLOCK": 2
+        },
+        "by_risk": {
+          "MEDIUM": 2,
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "RRN": 1,
+          "EMAIL": 1
+        },
+        "by_legal_basis": {
+          "—": 1,
+          "개인정보보호법 제24조의2": 1,
+          "개인정보보호법 제2조": 1
+        }
+      }
+    },
+    {
+      "text": "회의 참석: 이민수, 최지우. 연락처 02-345-6789",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "이민수",
+          "start": 7,
+          "end": 10,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "최지우",
+          "start": 12,
+          "end": 15,
+          "risk": 3,
+          "conf": 0.4,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "회의",
+          "start": 0,
+          "end": 2,
+          "risk": 3,
+          "conf": 0.95,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "union",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "<PERSON_1> 참석: <PERSON_2>, 최지우. 연락처 <PHONE_1>",
+      "records": [
+        ["PERSON", "BLOCK", "<PERSON_1>", 0, 2, 0.95, ["ml"]],
+        ["PERSON", "BLOCK", "<PERSON_2>", 7, 10, 0.9, ["ml"]],
+        ["PERSON", "ALLOW", null, 12, 15, 0.4, ["ml"]],
+        ["PHONE", "BLOCK", "<PHONE_1>", 21, 32, 1.0, ["pattern:phone", "type:landline"]]
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": ["준식별자 2종 결합 → 재식별 가능성 있음"],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["PERSON", "PHONE"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 3,
+          "ALLOW": 1
+        },
+        "by_risk": {
+          "MEDIUM": 4
+        },
+        "by_label": {
+          "PERSON": 3,
+          "PHONE": 1
+        },
+        "by_legal_basis": {
+          "—": 3,
+          "개인정보보호법 제2조": 1
+        }
+      }
+    },
+    {
+      "text": "회의 참석: 이민수, 최지우. 연락처 02-345-6789",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "이민수",
+          "start": 7,
+          "end": 10,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "최지우",
+          "start": 12,
+          "end": 15,
+          "risk": 3,
+          "conf": 0.4,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "회의",
+          "start": 0,
+          "end": 2,
+          "risk": 3,
+          "conf": 0.95,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "intersection",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "회의 참석: 이민수, 최지우. 연락처 02-345-6789",
+      "records": [],
+      "summary": {
+        "combined_risk": "INFO",
+        "combined_rationale": ["식별 정보 없음"],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 0,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {},
+        "by_risk": {},
+        "by_label": {},
+        "by_legal_basis": {}
+      }
+    },
+    {
+      "text": "회의 참석: 이민수, 최지우. 연락처 02-345-6789",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "이민수",
+          "start": 7,
+          "end": 10,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "최지우",
+          "start": 12,
+          "end": 15,
+          "risk": 3,
+          "conf": 0.4,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "회의",
+          "start": 0,
+          "end": 2,
+          "risk": 3,
+          "conf": 0.95,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "cross_validation",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "회의 참석: 이민수, 최지우. 연락처 <PHONE_1>",
+      "records": [
+        [
+          "PERSON",
+          "REVIEW",
+          null,
+          0,
+          2,
+          0.6649999999999999,
+          ["ml", "uncorroborated:primary_missed"]
+        ],
+        ["PERSON", "REVIEW", null, 7, 10, 0.63, ["ml", "uncorroborated:primary_missed"]],
+        [
+          "PERSON",
+          "ALLOW",
+          null,
+          12,
+          15,
+          0.27999999999999997,
+          ["ml", "uncorroborated:primary_missed"]
+        ],
+        ["PHONE", "BLOCK", "<PHONE_1>", 21, 32, 1.0, ["pattern:phone", "type:landline"]]
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": ["준식별자 2종 결합 → 재식별 가능성 있음"],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["PERSON", "PHONE"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "REVIEW": 2,
+          "ALLOW": 1,
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "MEDIUM": 4
+        },
+        "by_label": {
+          "PERSON": 3,
+          "PHONE": 1
+        },
+        "by_legal_basis": {
+          "—": 3,
+          "개인정보보호법 제2조": 1
+        }
+      }
+    },
+    {
+      "text": "회의 참석: 이민수, 최지우. 연락처 02-345-6789",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "이민수",
+          "start": 7,
+          "end": 10,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "최지우",
+          "start": 12,
+          "end": 15,
+          "risk": 3,
+          "conf": 0.4,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "회의",
+          "start": 0,
+          "end": 2,
+          "risk": 3,
+          "conf": 0.95,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "enrich_primary",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "<PERSON_1> 참석: <PERSON_2>, 최지우. 연락처 <PHONE_1>",
+      "records": [
+        ["PERSON", "BLOCK", "<PERSON_1>", 0, 2, 0.95, ["ml"]],
+        ["PERSON", "BLOCK", "<PERSON_2>", 7, 10, 0.9, ["ml"]],
+        ["PERSON", "ALLOW", null, 12, 15, 0.4, ["ml"]],
+        ["PHONE", "BLOCK", "<PHONE_1>", 21, 32, 1.0, ["pattern:phone", "type:landline"]]
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": ["준식별자 2종 결합 → 재식별 가능성 있음"],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["PERSON", "PHONE"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 3,
+          "ALLOW": 1
+        },
+        "by_risk": {
+          "MEDIUM": 4
+        },
+        "by_label": {
+          "PERSON": 3,
+          "PHONE": 1
+        },
+        "by_legal_basis": {
+          "—": 3,
+          "개인정보보호법 제2조": 1
+        }
+      }
+    },
+    {
+      "text": "회의 참석: 이민수, 최지우. 연락처 02-345-6789",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "이민수",
+          "start": 7,
+          "end": 10,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "최지우",
+          "start": 12,
+          "end": 15,
+          "risk": 3,
+          "conf": 0.4,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "회의",
+          "start": 0,
+          "end": 2,
+          "risk": 3,
+          "conf": 0.95,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "fallback_secondary",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "회의 참석: 이민수, 최지우. 연락처 <PHONE_1>",
+      "records": [["PHONE", "BLOCK", "<PHONE_1>", 21, 32, 1.0, ["pattern:phone", "type:landline"]]],
+      "summary": {
+        "combined_risk": "LOW",
+        "combined_rationale": ["준식별자 1종 → 단독 식별 어려움"],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["PHONE"],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "MEDIUM": 1
+        },
+        "by_label": {
+          "PHONE": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 1
+        }
+      }
+    },
+    {
+      "text": "회의 참석: 이민수, 최지우. 연락처 02-345-6789",
+      "fixed": [
+        {
+          "label": "PERSON",
+          "text": "이민수",
+          "start": 7,
+          "end": 10,
+          "risk": 3,
+          "conf": 0.9,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "최지우",
+          "start": 12,
+          "end": 15,
+          "risk": 3,
+          "conf": 0.4,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        },
+        {
+          "label": "PERSON",
+          "text": "회의",
+          "start": 0,
+          "end": 2,
+          "risk": 3,
+          "conf": 0.95,
+          "evidence": ["ml"],
+          "legal_basis": null,
+          "extra": {}
+        }
+      ],
+      "mode": "role_split",
+      "inc": null,
+      "exc": null,
+      "strategy": "tokenize",
+      "out": "<PERSON_1> 참석: <PERSON_2>, 최지우. 연락처 <PHONE_1>",
+      "records": [
+        ["PERSON", "BLOCK", "<PERSON_1>", 0, 2, 0.95, ["ml"]],
+        ["PERSON", "BLOCK", "<PERSON_2>", 7, 10, 0.9, ["ml"]],
+        ["PERSON", "ALLOW", null, 12, 15, 0.4, ["ml"]],
+        ["PHONE", "BLOCK", "<PHONE_1>", 21, 32, 1.0, ["pattern:phone", "type:landline"]]
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": ["준식별자 2종 결합 → 재식별 가능성 있음"],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": ["PERSON", "PHONE"],
+        "sensitive_attributes": [],
+        "total": 4,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 3,
+          "ALLOW": 1
+        },
+        "by_risk": {
+          "MEDIUM": 4
+        },
+        "by_label": {
+          "PERSON": 3,
+          "PHONE": 1
+        },
+        "by_legal_basis": {
+          "—": 3,
+          "개인정보보호법 제2조": 1
+        }
+      }
+    }
+  ],
+  "bad_mode": "ValueError: 'bogus' is not a valid MergeMode"
+}

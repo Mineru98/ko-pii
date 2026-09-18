@@ -167,9 +167,9 @@ describe("batch 회귀 (Python 실측 대조 기반)", () => {
     expect(par.totalDetections).toBe(seq.totalDetections);
     expect(par.totalBlocked).toBe(seq.totalBlocked);
     expect(par.totalReview).toBe(seq.totalReview);
-    // 결과는 완료 순서가 아닌 내용으로 비교
-    const byInput = (rs: typeof seq.results) =>
-      new Map(rs.map((r) => [r.inputPath.split("/").pop() + r.detections, r]));
+    // 결과는 완료 순서가 아닌 입력 경로로 비교 — basename 키는 in/doc1.txt 와
+    // in/sub/doc1.txt 가 충돌해 워커 완료 순서에 따라 플레이키했다.
+    const byInput = (rs: typeof seq.results) => new Map(rs.map((r) => [r.inputPath, r]));
     const a = byInput(seq.results);
     const b = byInput(par.results);
     expect(b.size).toBe(a.size);

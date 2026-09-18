@@ -256,6 +256,9 @@ describe("bounded 회귀 (Python 실측 32종 픽스처 대조 기반)", () => {
     // EOCD 엔트리 수 1 → 2 (마지막 EOCD 기준)
     const e2 = patched.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
     patched.writeUInt16LE(2, e2 + 10);
+    // CD 크기도 갱신해야 실제 "중복 멤버" 아카이브다. 엔트리 수만 올리면 Python zipfile 은
+    // cdSize 만큼만 파싱해 invalid_archive 로 판정한다 (실측 — io-parity 의 dup_cdsize_stale).
+    patched.writeUInt32LE(entry.length * 2, e2 + 12);
     const source = writeTmp(dir, "dup.hwpx", patched);
 
     await expectCode(() => readTextBounded(source), "duplicate_archive_member");
