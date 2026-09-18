@@ -32,6 +32,21 @@
 내리지 않습니다. 고객별 승격에서는 critical identifier, 문맥형 라벨, Vault 운영을 따로
 검증해야 합니다.
 
+```ts
+import { Anonymizer, ProcessingMode, RiskLevel } from "ko-pii";
+
+const result = new Anonymizer(ProcessingMode.STRICT, "tokenize").process(
+  "신청인 홍길동 (880101-1234568) 연락처 010-1234-5678",
+);
+console.log(result.text);
+// 신청인 <PERSON_1> (<RRN_1>) 연락처 <PHONE_1>
+
+console.log(result.vault?.reveal("<RRN_1>"));                  // 880101-1234568 (권한자만 복원)
+console.log(RiskLevel[result.combined_risk!.combined_risk]);   // CRITICAL
+```
+
+Python(캐노니컬 구현, 3.10+)도 같은 입력에 같은 결과를 냅니다 — TypeScript 는 Python 이 생성한 골드 마스터 벡터로 검출 span·가명화 출력·Vault 바이트까지 대조합니다 ([다중 언어 구현](#다중-언어-구현-python--typescript)).
+
 ```python
 from ko_pii import Anonymizer, ProcessingMode
 
@@ -43,21 +58,6 @@ print(result.text)
 
 print(result.vault.reveal("<RRN_1>"))            # 880101-1234568 (권한자만 복원)
 print(result.combined_risk.combined_risk.name)   # CRITICAL
-```
-
-TypeScript(Node 20+)도 같은 입력에 같은 결과를 냅니다 — Python 이 생성한 골드 마스터 벡터로 검출 span·가명화 출력·Vault 바이트까지 대조합니다 ([다중 언어 구현](#다중-언어-구현-python--typescript)).
-
-```ts
-import { Anonymizer, ProcessingMode, RiskLevel } from "ko-pii";
-
-const result = new Anonymizer(ProcessingMode.STRICT, "tokenize").process(
-  "신청인 홍길동 (880101-1234568) 연락처 010-1234-5678",
-);
-console.log(result.text);
-// 신청인 <PERSON_1> (<RRN_1>) 연락처 <PHONE_1>
-
-console.log(result.vault?.reveal("<RRN_1>"));                  // 880101-1234568
-console.log(RiskLevel[result.combined_risk!.combined_risk]);   // CRITICAL
 ```
 
 ### 가명화 전후 비교
@@ -151,6 +151,21 @@ ko-pii 는 RAG 의 **인제스트(벡터 DB 진입 전)와 검색(LLM 전달 전
 | 금융·보험 | `STRICT` + `tokenize` | RRN·카드·계좌 결정적 검출 |
 | 일반 사무 (사내 문서) | `BALANCED` + `partial` | 읽기 편한 부분 마스킹 |
 
+```ts
+// 의약품 도메인 — PERSON FP 방지 + 신체속성 오탐 방지
+const anon = new Anonymizer(
+  ProcessingMode.STRICT,
+  "tokenize",
+  undefined,                     // vault
+  undefined,                     // include
+  ["AGE", "HEIGHT", "WEIGHT"],   // exclude — "체중 1kg당" 오탐 방지
+);
+
+// PERSON FP 가 많다면 — 도메인 사전 주입
+// src/ts/src/dictionaries/common_words.ts 에 의약품 성분명·제조사명 추가
+// 예: "이부프로펜", "한미약품", "메트포르민" → PERSON 에서 자동 제외
+```
+
 ```python
 # 의약품 도메인 — PERSON FP 방지 + 신체속성 오탐 방지
 anon = Anonymizer(
@@ -168,6 +183,20 @@ anon = Anonymizer(
 
 ## 설치
 
+TypeScript / Node.js:
+
+```bash
+npm install ko-pii
+```
+
+**Node 20 이상.** ESM·CJS 듀얼 패키지 + 타입 선언 포함. 파일 파서(HWP/HWPX/DOCX/XLSX/PDF)와 Vault 암호화(AES-256-GCM, `node:crypto`)는 extras 없이 기본 포함입니다. MCP 서버를 쓸 때만 선택 peer 를 추가합니다:
+
+```bash
+npm install @modelcontextprotocol/sdk zod   # ko-pii-mcp-server / "ko-pii/mcp" 사용 시
+```
+
+Python:
+
 ```bash
 pip install ko-pii
 ```
@@ -181,23 +210,28 @@ pip install "ko-pii[security]"   # Vault AES-256-GCM
 
 **Python 3.10 이상.** 코어는 표준 라이브러리만 사용.
 
-TypeScript / Node.js:
-
-```bash
-npm install ko-pii
-```
-
-**Node 20 이상.** ESM·CJS 듀얼 패키지 + 타입 선언 포함. 파일 파서(HWP/HWPX/DOCX/XLSX/PDF)와 Vault 암호화(AES-256-GCM, `node:crypto`)는 extras 없이 기본 포함입니다. MCP 서버를 쓸 때만 선택 peer 를 추가합니다:
-
-```bash
-npm install @modelcontextprotocol/sdk zod   # ko-pii-mcp-server / "ko-pii/mcp" 사용 시
-```
-
 ---
 
 ## 사용 시나리오
 
 ### 시나리오 1 — 결재 공문 일괄 가명화 (외부 공개·LLM 전송 전)
+
+```ts
+import { readdir, writeFile } from "node:fs/promises";
+import { join, parse } from "node:path";
+import { Anonymizer, ProcessingMode } from "ko-pii";
+import { readText } from "ko-pii/io";
+
+const anon = new Anonymizer(ProcessingMode.PARANOID, "tokenize");
+
+for (const name of await readdir("./공문서/")) {
+  if (!name.endsWith(".hwp")) continue;
+  const result = anon.process(await readText(join("./공문서/", name)));
+  await writeFile(join("./가명화/", name), result.text, "utf-8");
+  // vault.json 분리 보관 (권한 있는 사용자만 복원 가능)
+  result.vault?.save(join("./vault/", `${parse(name).name}.json`));
+}
+```
 
 ```python
 from pathlib import Path
@@ -217,6 +251,27 @@ for path in Path("./공문서/").glob("*.hwp"):
 - HWP/HWPX 파서: `pip install "ko-pii[file]"`
 
 ### 시나리오 2 — 민원 응대 시스템에서 사전 PII 검증
+
+```ts
+import { Anonymizer, ProcessingMode, RiskLevel } from "ko-pii";
+
+const anon = new Anonymizer(ProcessingMode.AUDIT);  // 차단 X, 검출만 보고
+
+const result = anon.process(incomingPetitionText);
+
+// 결합 위험도가 CRITICAL 이면 담당자에게 알림
+if (result.combined_risk && result.combined_risk.combined_risk >= RiskLevel.CRITICAL) {
+  notifyAdmin({
+    identifiers: result.combined_risk.distinct_identifiers,  // ["RRN"]
+    quasi: result.combined_risk.distinct_quasi,              // ["ADDRESS", "PERSON", "PHONE"]
+  });
+}
+
+// 응대 직원에게는 가명화 버전 제공
+const masked = new Anonymizer(ProcessingMode.STRICT, "partial").process(
+  incomingPetitionText,
+).text;
+```
 
 ```python
 from ko_pii import Anonymizer, ProcessingMode, RiskLevel
@@ -242,7 +297,21 @@ masked = Anonymizer(mode=ProcessingMode.STRICT, strategy="partial").process(
 - **결합 위험도** 자동 평가 — 「개인정보 비식별 조치 가이드라인」 의 준식별자 결합 검증
 - 응대 직원에게는 `partial` 전략으로 일부만 마스킹 (`880101-1******`)
 
-### 시나리오 3 — Python 로그에 PII 자동 가명화 (개발자용)
+### 시나리오 3 — 애플리케이션 로그에 PII 자동 가명화 (개발자용)
+
+```ts
+// 로깅 지점을 감싸 출력 직전에 자동 가명화
+import { Anonymizer, ProcessingMode } from "ko-pii";
+
+const _anon = new Anonymizer(ProcessingMode.STRICT, "redact");
+
+function safeLog(message: string): void {
+  console.log(_anon.process(message).text);
+}
+
+safeLog("신청인 홍길동 (880101-1234568) 처리 완료");
+// → "신청인 [성명] ([주민등록번호]) 처리 완료"
+```
 
 ```python
 # 코드 어디서든 logger.info("...") 호출 시 자동 가명화
@@ -323,19 +392,6 @@ KPII_VAULT_PASSWORD=secret ko-pii doc.hwp \
 
 `npm install -g ko-pii`(또는 `npx ko-pii`)로 설치한 TypeScript CLI 도 같은 옵션·출력·종료 코드를 씁니다 (Python CLI 와 E2E 34케이스 동일).
 
-### Python API
-
-```python
-from ko_pii import Anonymizer, ProcessingMode
-
-anon = Anonymizer(mode=ProcessingMode.STRICT, strategy="tokenize")
-result = anon.process(text)
-
-print(result.text)                       # 가명화된 텍스트
-print(result.vault.reveal("<RRN_1>"))    # 원본 복원 (권한자만)
-print(result.summary["by_label"])        # {"RRN": 1, "PHONE": 1, "PERSON": 1}
-```
-
 ### TypeScript API
 
 Python 공개 API 와 1:1 대응입니다. 함수·메서드는 camelCase(`detectAll`, `reviewItems`), 생성자 인자는 위치 인자(`mode, strategy, vault, include, exclude, ...`)이고, 직렬화되는 결과 필드(`combined_risk`, `summary.by_label`, `legal_basis`)는 Python JSON 과 호환되도록 snake_case 를 유지합니다.
@@ -377,6 +433,19 @@ const [rows, vault] = anonymizeRecords(
 
 > **오프셋 단위:** TypeScript 의 `start`/`end` 는 UTF-16 코드 유닛, Python 은 코드 포인트입니다. 이모지 등 BMP 밖 문자가 없으면 수치가 같고, 양쪽 모두 `text.slice(start, end) === detection.text` 가 성립합니다.
 
+### Python API
+
+```python
+from ko_pii import Anonymizer, ProcessingMode
+
+anon = Anonymizer(mode=ProcessingMode.STRICT, strategy="tokenize")
+result = anon.process(text)
+
+print(result.text)                       # 가명화된 텍스트
+print(result.vault.reveal("<RRN_1>"))    # 원본 복원 (권한자만)
+print(result.summary["by_label"])        # {"RRN": 1, "PHONE": 1, "PERSON": 1}
+```
+
 ### MCP 서버
 
 `detect_pii` · `anonymize` · `reveal` · `combined_risk` 4개 도구를 stdio MCP 서버로 제공합니다. Python(`pip install "ko-pii[mcp]"`)과 TypeScript 모두 `ko-pii-mcp-server` 명령이며 도구 출력은 바이트 단위로 같습니다.
@@ -396,6 +465,21 @@ const [rows, vault] = anonymizeRecords(
 
 ### 결합 위험도 + k-익명성
 
+```ts
+import { RiskLevel, k_anonymity } from "ko-pii";
+
+// 검출 결과의 결합 위험도 자동 평가
+console.log(RiskLevel[result.combined_risk!.combined_risk]);  // CRITICAL
+console.log(result.combined_risk!.distinct_identifiers);      // ["RRN"]
+console.log(result.combined_risk!.distinct_quasi);            // ["PERSON", "PHONE"]
+
+// k-익명성 평가 (집단 데이터)
+const report = k_anonymity(records, ["age", "city", "job"], 5);
+console.log(report.k);                    // 최소 그룹 크기
+console.log(report.satisfies_threshold);  // true/false
+console.log(report.rationale);            // ["준식별자 ['age', 'city', 'job'] 기준 N개 그룹", ...]
+```
+
 ```python
 # 검출 결과의 결합 위험도 자동 평가
 print(result.combined_risk.combined_risk.name)    # CRITICAL
@@ -412,6 +496,17 @@ print(report.rationale)             # ["준식별자 ['age', 'city', 'job'] 기�
 
 ### CSV/XLSX 표 자동 처리
 
+```ts
+import { anonymizeRecords } from "ko-pii/tabular";
+import { readRecords } from "ko-pii/io";
+
+const rows = await readRecords("employees.csv");
+// 헤더 "성명/주민번호/연락처/주소" → 자동으로 PERSON/RRN/PHONE/ADDRESS 매핑
+const [anonRows, vault] = anonymizeRecords(rows, { strategy: "tokenize" });
+console.log(anonRows[0]);
+// { 성명: "<PERSON_1>", 주민번호: "<RRN_1>", 연락처: "<PHONE_1>", 주소: "<ADDRESS_1>" }
+```
+
 ```python
 from ko_pii.tabular import anonymize_records
 import csv
@@ -427,6 +522,15 @@ SQL 스키마처럼 오탐이 곧 쿼리 차단으로 이어지는 경로에서�
 근거와 신뢰도를 반환하는 strict API를 사용합니다. `product_name`은 `name`으로 분류되지
 않고, 단독 `name`은 자동 차단이 아니라 낮은 신뢰도의 검토 대상으로 표시됩니다.
 
+```ts
+import { classifySchemaColumns } from "ko-pii/tabular";
+
+const evidence = classifySchemaColumns(["성명", "주민등록번호", "product_name", "name"]);
+console.log(evidence["성명"].label, evidence["성명"].confidence);  // PERSON 1.0
+console.log(evidence["name"].confidence);                          // 0.60 (ambiguous)
+console.assert(!("product_name" in evidence));
+```
+
 ```python
 from ko_pii.tabular import classify_schema_columns
 
@@ -439,6 +543,33 @@ assert "product_name" not in evidence
 ### 검토 큐 워크플로우 (오탐 학습)
 
 confidence 낮은 검출 → 검토 큐에 저장 → 사용자가 FP/OK/FN 마킹 → 누적 마킹에서 사전 추천 패치 자동 생성 (자동 반영 X, 사람 검토 후 반영).
+
+```ts
+import { reviewItems } from "ko-pii";
+import { ReviewQueue, applyFeedback } from "ko-pii/review";
+
+const result = anon.process(text);
+
+// 1. confidence 낮아 REVIEW 분류된 검출 (모드별 자동 분류)
+for (const record of reviewItems(result)) {
+  const d = record.detection;
+  console.log(d.text, d.confidence, d.evidence);
+}
+
+// 2. 별도 JSONL 큐에 저장 → 사용자가 verdict 마킹
+const q = new ReviewQueue("review.jsonl");
+q.enqueueReviewRecords(reviewItems(result), text);
+
+// 3. 누적 마킹 → 패치 파일 생성 (common_words 후보 / 이름 후보)
+applyFeedback(
+  "review.jsonl",
+  "feedback_patches/",
+  2,   // 같은 토큰이 2회 이상 FP → 후보 (사전 오염 방지)
+);
+// → feedback_patches/common_words_additions.txt  (PERSON FP 후보)
+// → feedback_patches/names_to_add.txt           (FN 표시 이름)
+// → feedback_patches/summary.json
+```
 
 ```python
 result = anon.process(text)
@@ -466,6 +597,16 @@ apply_feedback(
 ```
 
 ### 개별 검출기 호출
+
+```ts
+import { detectAll } from "ko-pii";
+
+// include 필터로 특정 라벨만 검출 (TS 는 patterns 서브패스 대신 detectAll 사용)
+for (const r of detectAll("신청인 880101-1234568", ["RRN"])) {
+  console.log(r.label, r.text, r.confidence, r.legal_basis);
+}
+// RRN 880101-1234568 1 개인정보보호법 제24조의2
+```
 
 ```python
 from ko_pii.patterns.rrn import detect
@@ -643,6 +784,17 @@ TypeScript `ko-pii/io` 는 같은 포맷을 [cfb](https://www.npmjs.com/package/
 개별·전체 압축 해제량, 압축률, 경로 탈출, XML DTD·엔티티, 추출 문자 수를 먼저 검사하는
 bounded API를 사용합니다.
 
+```ts
+import { FileReadPolicy, readTextBounded } from "ko-pii/io";
+
+const document = await readTextBounded(
+  "notice.hwpx",
+  new FileReadPolicy({ maxFileBytes: 8 * 1024 * 1024 }),
+);
+console.log(document.sha256, document.archiveMembers);
+const text = document.text;
+```
+
 ```python
 from ko_pii.io_ import FileReadPolicy, read_text_bounded
 
@@ -662,6 +814,8 @@ worker에서 실행하는 배포만 `allowed_extensions`로 명시적으로 활�
 
 검색된 문서를 LLM 에 넣기 전에 PII 를 마스킹합니다. 한 번의 검색 결과 안에서 같은 인물은 같은 토큰(`<PERSON_1>`)으로 치환돼 문맥이 보존되고, `vault` 를 넘기면 답변 생성 후 `vault.reveal()` 로 복원할 수 있습니다.
 
+> **언어 지원:** LlamaIndex·LangChain 어댑터는 Python 전용입니다. TypeScript 에서는 `Anonymizer` 를 검색 결과에 직접 적용해 같은 파이프라인을 구성합니다.
+
 ```python
 # LlamaIndex — node postprocessor (검색 → 마스킹 → LLM)
 from ko_pii.integrations.llamaindex import KoPiiNodePostprocessor
@@ -679,6 +833,8 @@ chain = retriever | KoPiiRedactor(mode="STRICT") | prompt | llm
 ### 룰+ML 하이브리드 (opt-in)
 
 **코어는 ML 없이 동작**하되, 정확도가 더 필요하면 ML 을 얹을 수 있습니다. 하이브리드는 **두 종류**이며 서로 다른 기능입니다:
+
+> **언어 지원:** 아래 HF 토큰 NER 어댑터와 문서 분류기는 torch 의존이라 Python 전용입니다. TypeScript 에서는 `SecondaryDetector` 인터페이스로 외부 검출기를 직접 주입합니다 (하단 [다중 언어 구현](#다중-언어-구현-python--typescript) 표 참조).
 
 | | ① 토큰 NER 하이브리드 (span 교체) | ② 문서 분류기 하이브리드 (confidence 결합) |
 |---|---|---|
@@ -756,6 +912,12 @@ python -m ko_pii.classifier.train ...   # 모델은 직접 학습
 
 **Q6. 이름 단독 검출이 오탐이 많아요. 이름+전화번호 같이 있을 때만 차단할 수 있나요?**
 `PERMISSIVE` 모드 (CRITICAL만 차단) + `combined_risk` 조건부 재처리:
+```ts
+let result = new Anonymizer(ProcessingMode.PERMISSIVE).process(text);
+if (result.combined_risk && result.combined_risk.combined_risk >= RiskLevel.HIGH) {
+  result = new Anonymizer(ProcessingMode.STRICT).process(text);
+}
+```
 ```python
 result = Anonymizer(mode=ProcessingMode.PERMISSIVE).process(text)
 if result.combined_risk.combined_risk >= RiskLevel.HIGH:
@@ -766,22 +928,24 @@ if result.combined_risk.combined_risk >= RiskLevel.HIGH:
 
 ## 개발
 
-```bash
-git clone https://github.com/Marker-Inc-Korea/ko-pii
-cd ko-pii
-pip install -e ".[dev]"
-pytest    # 전체 테스트 통과
-```
-
 TypeScript:
 
 ```bash
-cd src/ts
+git clone https://github.com/Marker-Inc-Korea/ko-pii
+cd ko-pii/src/ts
 npm install
 npm test             # vitest (골드 마스터 회귀 포함)
 npm run typecheck && npm run lint
 npm run sync:check   # 생성물·골드 벡터가 Python 원본과 동기화됐는지 검증
 npm run package      # 게이트 → 빌드 → npm pack → 타르볼 검증 → 설치 스모크 (게시는 하지 않음)
+```
+
+Python:
+
+```bash
+cd ko-pii            # 저장소 루트
+pip install -e ".[dev]"
+pytest    # 전체 테스트 통과
 ```
 
 상세 문서: [`docs/`](docs/) 디렉토리 참조.
