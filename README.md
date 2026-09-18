@@ -142,7 +142,7 @@ anon = Anonymizer(
 )
 
 # PERSON FP 가 많다면 — 도메인 사전 주입
-# src/ko_pii/dictionaries/common_words.py 에 의약품 성분명·제조사명 추가
+# src/python/ko_pii/dictionaries/common_words.py 에 의약품 성분명·제조사명 추가
 # 예: "이부프로펜", "한미약품", "메트포르민" → PERSON 에서 자동 제외
 ```
 
@@ -682,6 +682,18 @@ pytest    # 전체 테스트 통과
 ```
 
 상세 문서: [`docs/`](docs/) 디렉토리 참조.
+
+## 다중 언어 구현 (Python + TypeScript)
+
+ko-pii 는 하나의 라이브러리를 여러 언어로 동일하게 구현하는 polyglot monorepo 다.
+Python(`src/python/ko_pii`, PyPI)이 캐노컬 구현이고, TypeScript(`src/ts/`, npm)가 이를 재구현한다.
+두 구현의 동일성은 공유 계약으로 보장한다 — 자세한 설계는 [`ARCHITECTURE.md`](ARCHITECTURE.md) 참조.
+
+- `spec/goldmaster/` — Python 이 생성한 고정 컨포먼스 벡터 (수동 편집 금지)
+- `tools/` — 다중 언어 코드젠 (사전·골드 벡터·유니코드 테이블, `--check` 게이트 지원)
+- `tests/unit/test_cross_language_sync.py` — 생성물/벡터 드리프트 가드
+
+동작·데이터 변경은 항상 Python 을 먼저 수정하고 재생성 → diff 리뷰 → 각 언어 정렬 순서로 진행한다.
 
 ---
 
