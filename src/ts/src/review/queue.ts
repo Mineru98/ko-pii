@@ -21,7 +21,7 @@ import { dirname } from "node:path";
 import type { DetectionRecord } from "../anonymizer.js";
 import { pyFloatRepr } from "../core/pyFormat.js";
 import type { DetectionResult } from "../core/types.js";
-import { pyIsoUtcNow } from "../vault/reversible.js";
+import { pyIsoUtcNow, pyStrip } from "../vault/reversible.js";
 
 /** Python `Verdict(str, Enum)` 대응. */
 export enum Verdict {
@@ -208,8 +208,10 @@ export class ReviewQueue {
       return;
     }
     const content = readFileSync(this.path, "utf8");
-    for (const rawLine of content.split("\n")) {
-      const line = rawLine.trim();
+    // Python 텍스트 모드(universal newlines): \n·\r\n·\r 모두 줄 구분. `str.strip()` 은 JS
+    // `trim()` 과 달리 BOM(U+FEFF)을 걷어내지 않는다 (vault/audit.ts replay 와 같은 규칙).
+    for (const rawLine of content.split(/\r\n|\r|\n/)) {
+      const line = pyStrip(rawLine);
       if (!line) continue;
       try {
         const parsed: unknown = JSON.parse(line);

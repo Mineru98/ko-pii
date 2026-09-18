@@ -26,7 +26,7 @@
  */
 
 import { computeCheckDigit, luhnComputeCheckDigit } from "../checksum/index.js";
-import { ValueError } from "../core/errors.js";
+import { IndexError, ValueError } from "../core/errors.js";
 import { pyIsAlpha, pyIsAscii } from "../core/strUtils.js";
 import type { DetectionResult } from "../core/types.js";
 import { ReversibleVault } from "../vault/reversible.js";
@@ -135,7 +135,7 @@ function rebuildPreservingSeparators(original: string, newDigits: readonly strin
     // isdigit 문자가 더 많으면 Python 은 IndexError 를 낸다 — 동일하게 예외로 맞춘다.
     if (pyStrIsDigit(ch)) {
       const nd = newDigits[di];
-      if (nd === undefined) throw new RangeError("string index out of range");
+      if (nd === undefined) throw new IndexError("string index out of range");
       chars.push(nd);
       di += 1;
     } else {

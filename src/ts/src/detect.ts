@@ -128,10 +128,13 @@ export function detectAll(
     raw.push(...remapped);
   }
 
-  // Python: `set(include) if include else None` — 빈 include 는 "필터 없음"이고,
-  // include 와 exclude 는 둘 다 적용된다.
-  const incSet = include ? new Set(include) : null;
-  const inc = incSet !== null && incSet.size > 0 ? incSet : null;
+  // Python: `set(include) if include else None` — include 와 exclude 는 둘 다 적용된다.
+  // truthiness 는 Python 규칙: 빈 컨테이너(list/tuple/set ↔ Array/Set)는 "필터 없음"이지만,
+  // 제너레이터 같은 1회용 이터러블은 비어 있어도 truthy 라 빈 집합 필터(전부 제외)가 된다.
+  const isEmptyContainer =
+    (Array.isArray(include) && include.length === 0) ||
+    (include instanceof Set && include.size === 0);
+  const inc = include && !isEmptyContainer ? new Set(include) : null;
   const exc = exclude ? new Set(exclude) : new Set<string>();
   let filtered = raw;
   if (inc !== null) filtered = filtered.filter((d) => inc.has(d.label));

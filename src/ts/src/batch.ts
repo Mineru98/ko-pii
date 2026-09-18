@@ -88,12 +88,20 @@ export const DEFAULT_EXTENSIONS: ReadonlySet<string> = new Set([
 
 /** Python ``os.path.isfile`` 대응 (symlink 따라감). */
 function isFile(p: string): boolean {
-  return statSync(p, { throwIfNoEntry: false })?.isFile() ?? false;
+  try {
+    return statSync(p, { throwIfNoEntry: false })?.isFile() ?? false;
+  } catch {
+    return false; // Python 은 ENOENT 뿐 아니라 모든 OSError(ELOOP·ENOTDIR·EACCES)를 False 로 본다
+  }
 }
 
 /** Python ``os.path.isdir`` 대응 (symlink 따라감). */
 function isDir(p: string): boolean {
-  return statSync(p, { throwIfNoEntry: false })?.isDirectory() ?? false;
+  try {
+    return statSync(p, { throwIfNoEntry: false })?.isDirectory() ?? false;
+  } catch {
+    return false; // symlink 루프(ELOOP) 등 — glob/수집이 예외로 중단되지 않게
+  }
 }
 
 /** Python ``os.path.splitext`` (posixpath) 1:1 포트. */

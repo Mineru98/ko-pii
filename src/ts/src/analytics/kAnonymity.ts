@@ -160,8 +160,9 @@ export function k_anonymity(
   const quasiKeys = keys;
   const groups = new Map<string, { values: unknown[]; count: number }>();
   for (const rec of record_list) {
-    // Python rec.get(k): 누락 키는 undefined (직렬화 시 null — Python None과 동치)
-    const values = quasiKeys.map((k) => rec[k]);
+    // Python rec.get(k): 자기 키만 보고 누락은 None. `rec[k]` 는 프로토타입 체인("constructor",
+    // "toString" 등 → Function)까지 조회하므로 Object.hasOwn 으로 막고, 누락은 null(=None)로 둔다.
+    const values = quasiKeys.map((k) => (Object.hasOwn(rec, k) ? (rec[k] ?? null) : null));
     const hash = groupKey(values);
     const g = groups.get(hash);
     if (g !== undefined) {
