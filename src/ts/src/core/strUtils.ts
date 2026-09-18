@@ -31,3 +31,40 @@ export function pyIsAscii(s: string): boolean {
 export function regexEscape(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+/** Python `len(str)` — 코드 포인트 수 (서로게이트 쌍은 1로 센다). */
+export function codePointLength(text: string): number {
+  let n = text.length;
+  for (let i = 0; i < text.length - 1; i++) {
+    const hi = text.charCodeAt(i);
+    if (hi >= 0xd800 && hi <= 0xdbff) {
+      const lo = text.charCodeAt(i + 1);
+      if (lo >= 0xdc00 && lo <= 0xdfff) {
+        n -= 1;
+        i += 1;
+      }
+    }
+  }
+  return n;
+}
+
+/** Python `type(value).__name__` 대응 (에러 메시지 호환). */
+export function pyTypeName(value: unknown): string {
+  if (value === null) return "NoneType";
+  if (Array.isArray(value)) return "list";
+  if (value instanceof Uint8Array) return "bytes";
+  switch (typeof value) {
+    case "string":
+      return "str";
+    case "boolean":
+      return "bool";
+    case "number":
+      return Number.isInteger(value) ? "int" : "float";
+    case "bigint":
+      return "int";
+    case "object":
+      return "dict";
+    default:
+      return typeof value;
+  }
+}

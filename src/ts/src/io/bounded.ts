@@ -23,6 +23,7 @@ import type { BigIntStats } from "node:fs";
 import { lstatSync, readFileSync, statSync } from "node:fs";
 import { extname } from "node:path";
 import { ValueError } from "../core/errors.js";
+import { codePointLength } from "../core/strUtils.js";
 import { readText as dispatcherReadText } from "./dispatcher.js";
 import type { ZipEntryInfo } from "./zipFile.js";
 import { isZipfileEocd, parseCentralDirectory, readZipEntry, ZlibError } from "./zipFile.js";
@@ -148,22 +149,6 @@ function isSymlink(path: string): boolean {
   } catch {
     return false;
   }
-}
-
-/** Python `len(str)` — 코드 포인트 수 (서로게이트 쌍은 1로 센다). */
-function codePointLength(text: string): number {
-  let n = text.length;
-  for (let i = 0; i < text.length - 1; i++) {
-    const hi = text.charCodeAt(i);
-    if (hi >= 0xd800 && hi <= 0xdbff) {
-      const lo = text.charCodeAt(i + 1);
-      if (lo >= 0xdc00 && lo <= 0xdfff) {
-        n -= 1;
-        i += 1;
-      }
-    }
-  }
-  return n;
 }
 
 function validatePath(path: string, policy: FileReadPolicy): PathValidation {

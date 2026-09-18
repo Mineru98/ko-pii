@@ -412,7 +412,7 @@ const [rows, vault] = anonymizeRecords(
 
 | Subpath | Contents (Python counterpart) |
 |---|---|
-| `ko-pii` | `Anonymizer` · `detectAll` · `ReversibleVault` · `AuditLog` · encrypted Vault · `k_anonymity` · `score_combined_risk` |
+| `ko-pii` | `Anonymizer` · `detectAll` · `PreForwardAnonymizer` · `ReversibleVault` · `AuditLog` · encrypted Vault · `k_anonymity` · `score_combined_risk` |
 | `ko-pii/io` | file parsers + `readTextBounded` / `FileReadPolicy` (`ko_pii.io_`) |
 | `ko-pii/tabular` | `anonymizeRecords` · `mapColumns` · `classifySchemaColumns` (`ko_pii.tabular`) |
 | `ko-pii/batch` | directory batch / parallel processing (`ko_pii.batch`) |

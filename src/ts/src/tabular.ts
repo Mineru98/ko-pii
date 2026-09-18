@@ -14,6 +14,7 @@
 import { Anonymizer } from "./anonymizer.js";
 import { ValueError } from "./core/errors.js";
 import { ProcessingMode } from "./core/modes.js";
+import { pyTypeName } from "./core/strUtils.js";
 import { RiskLevel } from "./core/types.js";
 import type { CsvRecord } from "./io/csvReader.js";
 import { recordEntries, recordKeys, setField } from "./io/recordOrder.js";
@@ -326,26 +327,6 @@ function forceAnonymizeCell(
     return newVal;
   }
   return value;
-}
-
-/** Python `type(value).__name__` 대응 (에러 메시지 호환). */
-function pyTypeName(value: unknown): string {
-  if (value === null) return "NoneType";
-  if (Array.isArray(value)) return "list";
-  switch (typeof value) {
-    case "string":
-      return "str";
-    case "boolean":
-      return "bool";
-    case "number":
-      return Number.isInteger(value) ? "int" : "float";
-    case "bigint":
-      return "int";
-    case "object":
-      return "dict";
-    default:
-      return typeof value;
-  }
 }
 
 const VALID_STRATEGIES: ReadonlySet<string> = new Set([

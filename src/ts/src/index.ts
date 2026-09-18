@@ -49,6 +49,14 @@ export {
   redact,
   tokenize,
 } from "./modes/index.js";
+// streaming (Python __all__: PreForwardAnonymizer / StreamBuffer*)
+export type { PreForwardAnonymizerOptions } from "./streaming.js";
+export {
+  PreForwardAnonymizer,
+  StreamBufferClosed,
+  StreamBufferLimitExceeded,
+  StreamBufferStatus,
+} from "./streaming.js";
 export { isEncryptedFile, loadEncrypted, saveEncrypted } from "./vault/encrypted.js";
 // Vault
 export { AuditLog, ReversibleVault, replay, VaultEntry } from "./vault/index.js";

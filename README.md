@@ -367,7 +367,7 @@ const [rows, vault] = anonymizeRecords(
 
 | 서브패스 | 내용 (대응 Python 모듈) |
 |---|---|
-| `ko-pii` | `Anonymizer` · `detectAll` · `ReversibleVault` · `AuditLog` · 암호화 Vault · `k_anonymity` · `score_combined_risk` |
+| `ko-pii` | `Anonymizer` · `detectAll` · `PreForwardAnonymizer` · `ReversibleVault` · `AuditLog` · 암호화 Vault · `k_anonymity` · `score_combined_risk` |
 | `ko-pii/io` | 파일 파서 + `readTextBounded` / `FileReadPolicy` (`ko_pii.io_`) |
 | `ko-pii/tabular` | `anonymizeRecords` · `mapColumns` · `classifySchemaColumns` (`ko_pii.tabular`) |
 | `ko-pii/batch` | 디렉토리 일괄·병렬 처리 (`ko_pii.batch`) |
