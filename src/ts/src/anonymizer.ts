@@ -5,10 +5,14 @@
  * Python 처럼 modes 래퍼(tokenize()/hashed()/fpe())가 아니라 applySubstitutions
  * 위에 repl 클로저를 얹어 DetectionRecord.token 을 태깅한다.
  */
+
 import { type CombinedRiskReport, riskLevelName, score_combined_risk } from "./analytics/index.js";
+import { ValueError } from "./core/errors.js";
 import { Action, type ModePolicy, ProcessingMode, policyFor } from "./core/modes.js";
 import { type DetectionResult, RiskLevel } from "./core/types.js";
 import { detectAll } from "./detect.js";
+import type { SecondaryDetector } from "./integrations/base.js";
+import { mergeDetections, toMergeMode } from "./integrations/hybrid.js";
 import { applySubstitutions } from "./modes/apply.js";
 import { FPE_BY_LABEL, fpeDefault } from "./modes/fpe.js";
 import { maskValue } from "./modes/partial.js";
@@ -46,6 +50,11 @@ export class Anonymizer {
   readonly vault: ReversibleVault;
   readonly include: string[] | null;
   readonly exclude: string[] | null;
+  /** Optional secondary detector (ML 어댑터 등) — 있으면 process() 가 결과를 병합한다. */
+  readonly secondaryDetector: SecondaryDetector | null;
+  readonly mergeMode: string;
+  /** role_split 모드에서 secondary 가 담당할 라벨 (null=기본 퍼지 10종). */
+  readonly roleSplitLabels: ReadonlySet<string> | null;
 
   constructor(
     mode: ProcessingMode = ProcessingMode.STRICT,
@@ -53,21 +62,45 @@ export class Anonymizer {
     vault?: ReversibleVault,
     include?: Iterable<string> | null,
     exclude?: Iterable<string> | null,
+    secondaryDetector: SecondaryDetector | null = null,
+    mergeMode = "union",
+    roleSplitLabels: Iterable<string> | null = null,
   ) {
     if (!STRATEGIES.has(strategy)) {
-      throw new Error(`Unknown strategy: ${strategy}`);
+      throw new ValueError(`Unknown strategy: ${strategy}`);
     }
     this.mode = mode;
     this.policy = policyFor(mode);
     this.strategy = strategy;
     this.vault = vault ?? new ReversibleVault();
-    this.include = include ? [...include] : null;
-    this.exclude = exclude ? [...exclude] : null;
+    // Python: `list(include) if include else None` — 빈 컬렉션도 None 이 된다.
+    const includeList = include ? [...include] : [];
+    const excludeList = exclude ? [...exclude] : [];
+    this.include = includeList.length > 0 ? includeList : null;
+    this.exclude = excludeList.length > 0 ? excludeList : null;
+    this.secondaryDetector = secondaryDetector;
+    this.mergeMode = mergeMode;
+    this.roleSplitLabels = roleSplitLabels !== null ? new Set(roleSplitLabels) : null;
   }
 
   process(text: string): AnonymizationResult {
     const primary = detectAll(text, this.include, this.exclude);
-    const decisions: DetectionRecord[] = primary.map((d) => ({
+    // Optional secondary detector (ML 어댑터 등) 가 있으면 결과 병합
+    let detections = primary;
+    if (this.secondaryDetector !== null) {
+      let secondary = [...this.secondaryDetector.detect(text)];
+      // Python: `if self.include:` — 빈 리스트는 생성자에서 이미 null 이 된다.
+      const { include, exclude } = this;
+      if (include) secondary = secondary.filter((s) => include.includes(s.label));
+      if (exclude) secondary = secondary.filter((s) => !exclude.includes(s.label));
+      detections = mergeDetections(
+        primary,
+        secondary,
+        toMergeMode(this.mergeMode),
+        this.roleSplitLabels,
+      );
+    }
+    const decisions: DetectionRecord[] = detections.map((d) => ({
       detection: d,
       action: this.policy.decide(d.riskLevel, d.confidence),
       token: null,
@@ -75,7 +108,7 @@ export class Anonymizer {
 
     const toBlock = decisions.filter((r) => r.action === Action.BLOCK);
     const replaced = this.apply(text, toBlock);
-    const combined = score_combined_risk(primary);
+    const combined = score_combined_risk(detections);
     const summary = this.buildSummary(decisions, combined);
     return {
       text: replaced,
@@ -121,7 +154,10 @@ export class Anonymizer {
     }
 
     if (this.strategy === "asterisk") {
-      const repl = (d: DetectionResult): string => "*".repeat(Math.max(1, d.end - d.start));
+      // Python `"*" * max(1, d.end - d.start)` 의 오프셋은 코드 포인트 — 아스트랄 문자가 든
+      // span 은 UTF-16 길이로 세면 별표가 2배가 되므로 코드 포인트 수로 센다.
+      const repl = (d: DetectionResult): string =>
+        "*".repeat(Math.max(1, [...text.slice(d.start, d.end)].length));
       return applySubstitutions(
         text,
         toBlock.map((r) => r.detection),
@@ -191,7 +227,7 @@ export class Anonymizer {
       const riskName = riskLevelName(r.detection.riskLevel);
       byRisk[riskName] = (byRisk[riskName] ?? 0) + 1;
       byLabel[r.detection.label] = (byLabel[r.detection.label] ?? 0) + 1;
-      const lb = r.detection.legal_basis ?? "—";
+      const lb = r.detection.legal_basis || "—"; // Python `or` — 빈 문자열도 "—"
       byLegal[lb] = (byLegal[lb] ?? 0) + 1;
     }
     return {

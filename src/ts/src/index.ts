@@ -8,7 +8,7 @@
  *   M3  io 서브패스   M4  cli / mcp 서브패스
  */
 
-export type { CombinedRiskReport, KAnonymityReport } from "./analytics/index.js";
+export type { CombinedRiskReport, Identifier, KAnonymityReport } from "./analytics/index.js";
 // analytics
 export {
   AttributeClass,
@@ -18,7 +18,7 @@ export {
   score_combined_risk,
 } from "./analytics/index.js";
 export type { AnonymizationResult, DetectionRecord } from "./anonymizer.js";
-export { Anonymizer } from "./anonymizer.js";
+export { Anonymizer, blockedItems, reviewItems } from "./anonymizer.js";
 export type { ModePolicy } from "./core/modes.js";
 export { Action, ProcessingMode, policyFor } from "./core/modes.js";
 export { resolveOverlaps } from "./core/overlap.js";
@@ -29,6 +29,15 @@ export { needsNormalization, normalizeUnicode, remapToSource } from "./core/unic
 // 검출
 export type { DetectAllOptions, Detector } from "./detect.js";
 export { DETECTORS, detectAll } from "./detect.js";
+// integrations (Python __all__: SecondaryDetector / MockSecondaryDetector / MergeMode /
+// merge_detections — get_privacy_filter_adapter 는 torch 의존이라 Python 전용)
+export type { SecondaryDetector } from "./integrations/index.js";
+export {
+  DEFAULT_ROLE_SPLIT_LABELS,
+  MergeMode,
+  MockSecondaryDetector,
+  mergeDetections,
+} from "./integrations/index.js";
 export { ALL_LABELS, GROUPS, LABEL_INFO } from "./labels.js";
 // 가명화 (Python __init__.py: tokenize / redact / hashed / partial / mask_value / fpe)
 export {

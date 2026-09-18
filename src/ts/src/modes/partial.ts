@@ -19,17 +19,53 @@ import type { DetectionResult } from "../core/types.js";
 import { surnamePrefixLen } from "../dictionaries/surnames.js";
 import { generalizeAddress } from "../generalization/address.js";
 import { applySubstitutions } from "./apply.js";
-import { keepDigits, ndToNumber } from "./unicodeDigits.js";
+import { codePoints, cpLength, foldNdDigits, keepDigits, ndToNumber } from "./unicodeDigits.js";
 
 export const MASK = "*";
 
+// Python ``len()``/슬라이스는 코드 포인트 단위다. 마스킹 결과의 길이·절단 위치는 관찰
+// 가능한 출력이므로 아스트랄 문자(이모지·수학 숫자)가 섞인 값은 코드 포인트 배열로 다룬다
+// (UTF-16 ``.length``/``.slice`` 는 길이가 달라지고 서로게이트를 반으로 자른다).
+
+/** Python ``MASK * len(text)`` 대응. */
+function maskAll(text: string): string {
+  return MASK.repeat(cpLength(text));
+}
+
+/** Python ``"*" * n`` 대응 — 음수 n 은 빈 문자열 (JS ``repeat`` 은 RangeError). */
+function stars(n: number, ch: string = MASK): string {
+  return ch.repeat(Math.max(0, n));
+}
+
+/**
+ * Python ``re`` 의 유니코드 ``\s`` 집합 (= ``str.isspace()``). JS ``\s`` 와 달리
+ * U+001C~U+001F·U+0085 를 포함하고 U+FEFF 는 제외한다.
+ */
+const PY_WS =
+  "[\\t\\n\\v\\f\\r\\x1c-\\x1f \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]";
+
+/** Python ``float // 5`` 대응 (양수 피제수) — CPython float_floor_div 의 fmod 기반 절차. */
+function pyFloorDiv5(x: number): number {
+  const mod = x % 5;
+  const div = (x - mod) / 5;
+  let floordiv = Math.floor(div);
+  if (div - floordiv > 0.5) floordiv += 1;
+  return floordiv;
+}
+
+/** ``int(x // 5) * 5`` 구간 하한과 상한을 정수 그대로(지수 표기 없이) 문자열화. */
+function bucket5(x: number, unit: string): string {
+  const lo = BigInt(pyFloorDiv5(x)) * 5n; // inf/NaN 은 RangeError — Python OverflowError/ValueError 대응
+  return `${lo}-${lo + 5n}${unit}`;
+}
+
 function maskRrn(text: string): string {
   // ``880101-1234568`` → ``880101-1******`` (생년 + gender 만 노출).
-  const digits = keepDigits(text);
-  if (digits.length !== 13) return MASK.repeat(text.length);
+  const digits = codePoints(keepDigits(text));
+  if (digits.length !== 13) return maskAll(text);
   const hasHyphen = text.includes("-");
-  const front = digits.slice(0, 6);
-  const gender = digits.charAt(6);
+  const front = digits.slice(0, 6).join("");
+  const gender = digits[6] ?? "";
   const maskedBack = MASK.repeat(6);
   return hasHyphen ? `${front}-${gender}${maskedBack}` : `${front}${gender}${maskedBack}`;
 }
@@ -45,7 +81,11 @@ function maskPhone(text: string): string {
   //   1588-1234       → 1588-****
   //   0504-1234-5678  → 0504-****-5678 (안심번호)
   const digits = keepDigits(text);
-  if (digits.length < 7) return MASK.repeat(text.length);
+  const dcp = codePoints(digits); // 자릿수·슬라이스는 코드 포인트 기준
+  const nDigits = dcp.length;
+  const head = (n: number): string => dcp.slice(0, n).join("");
+  const last4 = dcp.slice(-4).join("");
+  if (nDigits < 7) return maskAll(text);
   const hasPlus = text.startsWith("+");
   let sep = "";
   if (text.includes("-")) sep = "-";
@@ -54,72 +94,72 @@ function maskPhone(text: string): string {
 
   // +82 국가 코드
   if (hasPlus && digits.startsWith("82")) {
-    const rest = digits.slice(2);
-    if (rest.startsWith("2")) {
+    const rest = dcp.slice(2);
+    if (rest[0] === "2") {
       // 서울: +82-2-XXXX-XXXX (앞자리 2 = 02 의 leading 0 제거)
       const sub = rest.slice(1);
       const mid = MASK.repeat(Math.max(3, sub.length - 4));
-      return `+82${sep}2${sep}${mid}${sep}${sub.slice(-4)}`;
+      return `+82${sep}2${sep}${mid}${sep}${sub.slice(-4).join("")}`;
     }
     if (rest.length >= 9) {
       // 모바일 (10/11/16-19) 및 3자리 지역번호 (31~64, 70)
-      const area = rest.slice(0, 2);
+      const area = rest.slice(0, 2).join("");
       const sub = rest.slice(2);
       const mid = MASK.repeat(Math.max(3, sub.length - 4));
-      return `+82${sep}${area}${sep}${mid}${sep}${sub.slice(-4)}`;
+      return `+82${sep}${area}${sep}${mid}${sep}${sub.slice(-4).join("")}`;
     }
   }
 
   // 050X 안심번호 (12자리: 050X + 4 + 4)
-  if (digits.startsWith("050") && digits.length === 12) {
-    return `${digits.slice(0, 4)}${sep}${MASK.repeat(4)}${sep}${digits.slice(-4)}`;
+  if (digits.startsWith("050") && nDigits === 12) {
+    return `${head(4)}${sep}${MASK.repeat(4)}${sep}${last4}`;
   }
 
   // 서울 02 (2자리 지역번호)
-  if (digits.startsWith("02") && (digits.length === 9 || digits.length === 10)) {
-    const subLen = digits.length - 2;
-    return `02${sep}${MASK.repeat(subLen - 4)}${sep}${digits.slice(-4)}`;
+  if (digits.startsWith("02") && (nDigits === 9 || nDigits === 10)) {
+    const subLen = nDigits - 2;
+    return `02${sep}${MASK.repeat(subLen - 4)}${sep}${last4}`;
   }
 
   // 1588/1577/1644 형식 (8자리, 지역번호 없음)
-  if (digits.length === 8 && ["15", "16", "18"].includes(digits.slice(0, 2))) {
-    return `${digits.slice(0, 4)}${sep}${MASK.repeat(4)}`;
+  if (nDigits === 8 && ["15", "16", "18"].includes(head(2))) {
+    return `${head(4)}${sep}${MASK.repeat(4)}`;
   }
 
   // 모바일 (010-019) 및 3자리 지역번호 (031-064, 070)
-  if (digits.length >= 11) {
-    return `${digits.slice(0, 3)}${sep}${MASK.repeat(4)}${sep}${digits.slice(-4)}`;
+  if (nDigits >= 11) {
+    return `${head(3)}${sep}${MASK.repeat(4)}${sep}${last4}`;
   }
-  if (digits.length === 10) {
-    return `${digits.slice(0, 3)}${sep}${MASK.repeat(3)}${sep}${digits.slice(-4)}`;
+  if (nDigits === 10) {
+    return `${head(3)}${sep}${MASK.repeat(3)}${sep}${last4}`;
   }
-  if (digits.length === 9) {
-    return `${digits.slice(0, 2)}${sep}${MASK.repeat(3)}${sep}${digits.slice(-4)}`;
+  if (nDigits === 9) {
+    return `${head(2)}${sep}${MASK.repeat(3)}${sep}${last4}`;
   }
-  return MASK.repeat(text.length);
+  return maskAll(text);
 }
 
 function maskEmail(text: string): string {
   // ``user@example.com`` → ``u***@example.com`` (로컬 앞자만 노출).
-  if (!text.includes("@")) return MASK.repeat(text.length);
+  if (!text.includes("@")) return maskAll(text);
   const at = text.indexOf("@");
-  const local = text.slice(0, at);
+  const local = codePoints(text.slice(0, at));
   const domain = text.slice(at + 1);
   if (local.length === 0) return text;
-  if (local.length <= 1) return `${local}${MASK.repeat(3)}@${domain}`;
-  return `${local.charAt(0)}${MASK.repeat(Math.max(3, local.length - 1))}@${domain}`;
+  if (local.length <= 1) return `${local.join("")}${MASK.repeat(3)}@${domain}`;
+  return `${local[0] ?? ""}${MASK.repeat(Math.max(3, local.length - 1))}@${domain}`;
 }
 
 function maskCard(text: string): string {
   // ``1234-5678-9012-3456`` → ``1234-****-****-3456`` (BIN + 마지막 4).
-  const digits = keepDigits(text);
-  if (digits.length < 8) return MASK.repeat(text.length);
+  const digits = codePoints(keepDigits(text));
+  if (digits.length < 8) return maskAll(text);
   // 길이 보존하면서 중간만 가림
   const hasHyphen = text.includes("-");
   const hasSpace = text.includes(" ");
   const sep = hasHyphen ? "-" : hasSpace ? " " : "";
-  const front = digits.slice(0, 4);
-  const back = digits.slice(-4);
+  const front = digits.slice(0, 4).join("");
+  const back = digits.slice(-4).join("");
   const middleLen = digits.length - 8;
   if (sep) {
     // 4자리 그룹 형태로 재조합
@@ -139,37 +179,47 @@ function maskName(text: string): string {
   // ``홍길동`` → ``홍OO`` (성만 노출, 이름은 한국 표준 O 로 마스킹).
   let sp = surnamePrefixLen(text);
   if (sp === 0) sp = 1; // 폴백: 첫 글자만 노출
-  if (text.length <= sp) return text;
-  return text.slice(0, sp) + "O".repeat(text.length - sp);
+  const cps = codePoints(text);
+  if (cps.length <= sp) return text;
+  return cps.slice(0, sp).join("") + "O".repeat(cps.length - sp);
 }
 
 function maskAddress(text: string): string {
   // 주소: 시·도/시·군·구까지만 노출, 도로명 이하 마스킹.
   const g = generalizeAddress(text, "district");
-  return g !== text ? `${g} ${MASK.repeat(3)}` : MASK.repeat(text.length);
+  return g !== text ? `${g} ${MASK.repeat(3)}` : maskAll(text);
 }
 
 function maskAccount(text: string): string {
   // 계좌: 앞 4 + 끝 4 노출, 중간 마스킹.
-  const digits = keepDigits(text);
-  if (digits.length < 8) return MASK.repeat(text.length);
-  return `${digits.slice(0, 4)}${MASK.repeat(digits.length - 8)}${digits.slice(-4)}`;
+  const digits = codePoints(keepDigits(text));
+  if (digits.length < 8) return maskAll(text);
+  return `${digits.slice(0, 4).join("")}${MASK.repeat(digits.length - 8)}${digits.slice(-4).join("")}`;
 }
 
 function maskPassport(text: string): string {
   // 여권: prefix + 마지막 2자리 노출.
-  const m = /^([A-Z]{1,2})(\p{Nd}+)$/u.exec(text);
-  if (!m) return MASK.repeat(text.length);
+  // Python ``$`` 는 문자열 끝의 개행 직전에도 매칭한다 → ``\n?$``.
+  const m = /^([A-Z]{1,2})(\p{Nd}+)\n?$/u.exec(text);
+  if (!m) return maskAll(text);
   const prefix = m[1] ?? "";
-  const digits = m[2] ?? "";
-  return `${prefix}${MASK.repeat(digits.length - 2)}${digits.slice(-2)}`;
+  const digits = codePoints(m[2] ?? "");
+  // 숫자 1자리("M1")면 Python 은 ``"*" * -1 == ""`` — repeat 음수 가드.
+  return `${prefix}${stars(digits.length - 2)}${digits.slice(-2).join("")}`;
 }
 
 function maskDefault(text: string): string {
   // 기본: 전체 마스킹 (가능하면 양 끝 2자리는 노출).
-  if (text.length <= 4) return MASK.repeat(text.length);
-  return text.slice(0, 2) + MASK.repeat(text.length - 4) + text.slice(-2);
+  const cps = codePoints(text);
+  if (cps.length <= 4) return maskAll(text);
+  return cps.slice(0, 2).join("") + MASK.repeat(cps.length - 4) + cps.slice(-2).join("");
 }
+
+// Python ``\s`` 집합 + ``$`` 의 끝 개행 허용(``\n?$``)을 그대로 재현.
+const KOR_BIRTH = new RegExp(
+  `^(\\p{Nd}{2,4})${PY_WS}*년${PY_WS}*\\p{Nd}{1,2}${PY_WS}*월${PY_WS}*\\p{Nd}{1,2}${PY_WS}*일\\n?$`,
+  "u",
+);
 
 function maskBirth(text: string): string {
   // 생년월일: 연도만 노출, 월/일 마스킹.
@@ -180,15 +230,15 @@ function maskBirth(text: string): string {
   // "년생" 형태는 이미 연도만 → 그대로 두거나 마스킹 강도 낮음
   if (text.endsWith("년생")) return text;
   // 한국어: 1988년 X월 X일
-  const kor = /^(\p{Nd}{2,4})\s*년\s*\p{Nd}{1,2}\s*월\s*\p{Nd}{1,2}\s*일$/u.exec(text);
+  const kor = KOR_BIRTH.exec(text);
   if (kor) return `${kor[1]}년 ${MASK.repeat(2)}월 ${MASK.repeat(2)}일`;
   // 숫자 형식: 1988.01.01 / 1988-01-01 / 1988/01/01 / 88.01.01
-  const numeric = /^(\p{Nd}{2,4})([./-])\p{Nd}{1,2}\2\p{Nd}{1,2}$/u.exec(text);
+  const numeric = /^(\p{Nd}{2,4})([./-])\p{Nd}{1,2}\2\p{Nd}{1,2}\n?$/u.exec(text);
   if (numeric) {
     const sep = numeric[2] ?? "";
     return `${numeric[1]}${sep}${MASK.repeat(2)}${sep}${MASK.repeat(2)}`;
   }
-  return MASK.repeat(text.length);
+  return maskAll(text);
 }
 
 function maskEducation(text: string): string {
@@ -200,7 +250,7 @@ function maskEducation(text: string): string {
     if (text.endsWith(suf)) return `○${suf}`;
   }
   // 영문 약칭 (KAIST 등) → 전체 마스킹
-  return MASK.repeat(text.length);
+  return maskAll(text);
 }
 
 function maskMajor(text: string): string {
@@ -211,10 +261,10 @@ function maskMajor(text: string): string {
   for (const suf of ["학과", "학부", "전공", "학", "과"]) {
     if (text.endsWith(suf) && text.length > suf.length) {
       const stem = text.slice(0, -suf.length);
-      return "○".repeat(stem.length) + suf;
+      return "○".repeat(cpLength(stem)) + suf;
     }
   }
-  return MASK.repeat(text.length);
+  return maskAll(text);
 }
 
 function maskPosition(text: string): string {
@@ -227,12 +277,12 @@ function maskAge(text: string): string {
   const m = /(\p{Nd}+)/u.exec(text);
   const raw = m?.[1];
   if (raw !== undefined) {
-    const age = ndToNumber(raw);
-    if (age < 10) return "10대 미만";
-    const decade = Math.floor(age / 10) * 10;
+    const age = BigInt(foldNdDigits(raw)); // Python int() — 임의 정밀도
+    if (age < 10n) return "10대 미만";
+    const decade = (age / 10n) * 10n;
     return `${decade}대`;
   }
-  return MASK.repeat(text.length);
+  return maskAll(text);
 }
 
 function maskHeight(text: string): string {
@@ -243,10 +293,9 @@ function maskHeight(text: string): string {
     let h = ndToNumber(raw);
     // m 단위면 cm 로 변환
     if (h < 3) h *= 100;
-    const lo = Math.floor(h / 5) * 5;
-    return `${lo}-${lo + 5}cm`;
+    return bucket5(h, "cm");
   }
-  return MASK.repeat(text.length);
+  return maskAll(text);
 }
 
 function maskWeight(text: string): string {
@@ -255,10 +304,9 @@ function maskWeight(text: string): string {
   const raw = m?.[1];
   if (raw !== undefined) {
     const w = ndToNumber(raw);
-    const lo = Math.floor(w / 5) * 5;
-    return `${lo}-${lo + 5}kg`;
+    return bucket5(w, "kg");
   }
-  return MASK.repeat(text.length);
+  return maskAll(text);
 }
 
 type Masker = (text: string) => string;

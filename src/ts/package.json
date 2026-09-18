@@ -1,6 +1,6 @@
 {
   "name": "ko-pii",
-  "version": "0.1.0",
+  "version": "1.15.4",
   "description": "한국어 PII 검출 + 가역 가명화 라이브러리 (TypeScript 포트, 코어 의존성 0)",
   "license": "MIT",
   "author": "modak000",
@@ -26,11 +26,48 @@
       "types": "./dist/mcp/server.d.mts",
       "import": "./dist/mcp/server.mjs",
       "require": "./dist/mcp/server.cjs"
+    },
+    "./eval": {
+      "types": "./dist/eval/index.d.mts",
+      "import": "./dist/eval/index.mjs",
+      "require": "./dist/eval/index.cjs"
+    },
+    "./batch": {
+      "types": "./dist/batch.d.mts",
+      "import": "./dist/batch.mjs",
+      "require": "./dist/batch.cjs"
+    },
+    "./tabular": {
+      "types": "./dist/tabular.d.mts",
+      "import": "./dist/tabular.mjs",
+      "require": "./dist/tabular.cjs"
+    },
+    "./reporting": {
+      "types": "./dist/reporting/index.d.mts",
+      "import": "./dist/reporting/index.mjs",
+      "require": "./dist/reporting/index.cjs"
+    },
+    "./review": {
+      "types": "./dist/review/index.d.mts",
+      "import": "./dist/review/index.mjs",
+      "require": "./dist/review/index.cjs"
+    },
+    "./legal": {
+      "types": "./dist/legal/index.d.mts",
+      "import": "./dist/legal/index.mjs",
+      "require": "./dist/legal/index.cjs"
+    },
+    "./generalization": {
+      "types": "./dist/generalization/index.d.mts",
+      "import": "./dist/generalization/index.mjs",
+      "require": "./dist/generalization/index.cjs"
     }
   },
   "bin": {
     "ko-pii": "./dist/cli/bin.mjs",
-    "ko-pii-mcp-server": "./dist/mcp/bin.mjs"
+    "ko-pii-mcp-server": "./dist/mcp/bin.mjs",
+    "ko-pii-benchmark": "./dist/eval/benchmarkBin.mjs",
+    "ko-pii-klue-bench": "./dist/eval/klueBenchBin.mjs"
   },
   "files": [
     "dist"
@@ -61,6 +98,7 @@
     "@biomejs/biome": "^2.5.11",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/node": "^26.4.0",
+    "jszip": "^3.10.1",
     "tsdown": "^0.22.14",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
@@ -83,7 +121,6 @@
     "cfb": "^1.2.2",
     "fast-xml-parser": "^5.11.1",
     "iconv-lite": "^0.7.3",
-    "jszip": "^3.10.1",
     "unpdf": "^1.8.1"
   }
 }

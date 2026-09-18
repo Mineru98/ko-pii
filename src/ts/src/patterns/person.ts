@@ -10,6 +10,7 @@
  *
  * Legal basis: 개인정보보호법 제2조 (성명을 통한 개인 식별).
  */
+
 import {
   type AgencySentenceCache,
   makeNameCandidate,
@@ -20,6 +21,7 @@ import { NameDictionary } from "../context/nameDictionary.js";
 import { classifyNameOrigin } from "../context/nameOrigin.js";
 import { nameShapeBonus } from "../context/nameSyllables.js";
 import { stripTrailingParticle } from "../context/particles.js";
+import { pyFormatFixed } from "../core/pyFormat.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 import { isAgency } from "../dictionaries/agencies.js";
 import { normalizeAgency } from "../dictionaries/agencyAbbrev.js";
@@ -717,7 +719,7 @@ function _detectWithDict(text: string, nameDict: NameDictionary): DetectionResul
     const shapeBonus = nameShapeBonus(stem);
     if (shapeBonus > 0) {
       extraScore += shapeBonus;
-      extraSignals.push(`pos:name_likelihood(${shapeBonus.toFixed(2)})`);
+      extraSignals.push(`pos:name_likelihood(${pyFormatFixed(shapeBonus, 2)})`);
     }
     // 원본 토큰 끝(particle 포함) 다음 위치에서 나이/성별 단서
     const ageGender = _hasAgeOrGenderAfter(text, mStart + raw.length);

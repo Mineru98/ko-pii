@@ -123,15 +123,20 @@ const RISK_FLOOR_BY_LABEL: Readonly<Record<string, RiskLevel>> = {
   WEIGHT: RiskLevel.INFO,
 };
 
+/** Python ``dict.get(label)`` 대응 — 자기 키만 조회 (프로토타입 체인의 "constructor" 등 차단). */
+function ownGet<T>(table: Readonly<Record<string, T>>, label: string): T | null {
+  return Object.hasOwn(table, label) ? (table[label] ?? null) : null;
+}
+
 export function legalBasisFor(label: string): string | null {
-  return LEGAL_BASIS_BY_LABEL[label] ?? null;
+  return ownGet(LEGAL_BASIS_BY_LABEL, label);
 }
 
 export function categoryFor(label: string): string | null {
-  return CATEGORY_BY_LABEL[label] ?? null;
+  return ownGet(CATEGORY_BY_LABEL, label);
 }
 
 /** ``label`` 의 예상 최소 위험도 (리포트 등에서 사용). */
 export function riskFloorFor(label: string): RiskLevel | null {
-  return RISK_FLOOR_BY_LABEL[label] ?? null;
+  return ownGet(RISK_FLOOR_BY_LABEL, label);
 }

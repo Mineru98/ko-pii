@@ -34,21 +34,61 @@ export interface KAnonymityReport {
   rationale: string[];
 }
 
-/** Python `repr(str)` 동등물 — rationale에 리스트 표현이 그대로 들어가므로 표현 일치 필요. */
+/** Python ``str.isprintable()`` 이 False 인 문자 — repr 이 이스케이프하는 대상 (ASCII 공백 제외). */
+const PY_NON_PRINTABLE = /[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Cn}\p{Zl}\p{Zp}\p{Zs}]/u;
+
+/** Python `repr(str)` 동등물 — rationale에 리스트 표현이 그대로 들어가므로 표현 일치 필요.
+ * 작은따옴표만 있고 큰따옴표가 없으면 큰따옴표로 감싸고, 제어·비인쇄 문자는
+ * ``\n``/``\xNN``/``\uNNNN``/``\UNNNNNNNN`` 로 이스케이프한다 (CPython unicode_repr 규칙).
+ */
 function pyReprString(s: string): string {
-  return `'${s.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
+  const quote = s.includes("'") && !s.includes('"') ? '"' : "'";
+  let out = quote;
+  for (const ch of s) {
+    const cp = ch.codePointAt(0) ?? 0;
+    if (ch === quote || ch === "\\") out += `\\${ch}`;
+    else if (ch === "\n") out += "\\n";
+    else if (ch === "\r") out += "\\r";
+    else if (ch === "\t") out += "\\t";
+    else if (ch !== " " && PY_NON_PRINTABLE.test(ch)) {
+      if (cp < 0x100) out += `\\x${cp.toString(16).padStart(2, "0")}`;
+      else if (cp < 0x10000) out += `\\u${cp.toString(16).padStart(4, "0")}`;
+      else out += `\\U${cp.toString(16).padStart(8, "0")}`;
+    } else out += ch;
+  }
+  return out + quote;
 }
 
-/** Python `repr(list[str])` 동등물 — `['A', 'B']` 형태 (작은따옴표, `, ` 구분). */
+/** Python `repr(list[str])` 동등물 — `['A', 'B']` 형태 (`, ` 구분). */
 function pyListRepr(items: readonly string[]): string {
   return `[${items.map(pyReprString).join(", ")}]`;
 }
 
-/** 그룹 키 해시 — Python tuple 해시/동등성 대응.
- * 누락 키(undefined)와 null은 Python `rec.get(k)`의 None과 마찬가지로 동일 그룹으로 취급된다.
+let nanCounter = 0;
+
+/** 그룹 키 — Python tuple 해시/동등성 대응.
+ * - 누락 키(undefined)와 null 은 Python `rec.get(k)` 의 None 과 같이 동일 그룹.
+ * - Python 은 ``1 == True == 1.0``, ``0 == False`` 이므로 boolean 은 숫자로 접는다.
+ * - 문자열 ``"1"`` 과 숫자 ``1`` 은 다른 그룹.
+ * - 배열·객체는 Python 의 list/dict 처럼 해시 불가 → TypeError.
+ * - NaN 은 자기 자신과도 같지 않으므로 레코드마다 별도 그룹.
  */
 function groupKey(values: readonly unknown[]): string {
-  return JSON.stringify(values);
+  const parts = values.map((v) => {
+    if (v === null || v === undefined) return "N";
+    if (typeof v === "boolean") return `n:${v ? 1 : 0}`;
+    if (typeof v === "number") {
+      if (Number.isNaN(v)) {
+        nanCounter += 1;
+        return `nan:${nanCounter}`;
+      }
+      return `n:${v === 0 ? 0 : v}`; // -0 == 0
+    }
+    if (typeof v === "bigint") return `n:${v}`;
+    if (typeof v === "string") return `s:${JSON.stringify(v)}`;
+    throw new TypeError(`unhashable type: '${Array.isArray(v) ? "list" : "dict"}'`);
+  });
+  return JSON.stringify(parts);
 }
 
 /** Python sorted() 동등물 — 키는 ASCII 라벨이라 JS 기본 정렬과 동치. */

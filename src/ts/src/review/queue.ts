@@ -19,6 +19,7 @@ import { randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { DetectionRecord } from "../anonymizer.js";
+import { pyFloatRepr } from "../core/pyFormat.js";
 import type { DetectionResult } from "../core/types.js";
 import { pyIsoUtcNow } from "../vault/reversible.js";
 
@@ -151,14 +152,6 @@ function pyFloat(v: unknown): number {
   throw new TypeError(`float() argument must be a string or a real number, not '${t}'`);
 }
 
-/** Python float 직렬화 대응 — 정숫값 float 은 `1.0` 처럼. (Python repr 규약) */
-function pyFloatStr(v: number): string {
-  if (Number.isNaN(v)) return "NaN";
-  if (v === Number.POSITIVE_INFINITY) return "Infinity";
-  if (v === Number.NEGATIVE_INFINITY) return "-Infinity";
-  return Number.isInteger(v) ? `${v}.0` : String(v);
-}
-
 /** Python `json.dumps(item.to_dict(), ensure_ascii=False)` 바이트 동등 라인. */
 function serializeItem(item: ReviewItem): string {
   const d = item.toDict();
@@ -168,8 +161,8 @@ function serializeItem(item: ReviewItem): string {
     `, "doc": ${JSON.stringify(d.doc)}` +
     `, "label": ${JSON.stringify(d.label)}` +
     `, "text": ${JSON.stringify(d.text)}` +
-    `, "span": [${d.span[0]}, ${d.span[1]}]` +
-    `, "confidence": ${pyFloatStr(d.confidence)}` +
+    `, "span": [${d.span.join(", ")}]` +
+    `, "confidence": ${pyFloatRepr(d.confidence)}` +
     `, "evidence": ${pyJsonArray(d.evidence)}` +
     `, "legal_basis": ${opt(d.legal_basis)}` +
     `, "verdict": ${opt(d.verdict)}` +
@@ -219,7 +212,12 @@ export class ReviewQueue {
       const line = rawLine.trim();
       if (!line) continue;
       try {
-        this.items.push(ReviewItem.fromDict(JSON.parse(line) as Record<string, unknown>));
+        const parsed: unknown = JSON.parse(line);
+        if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+          // Python: d["id"] 가 list/str/int 에서 TypeError — 건너뛰지 않고 중단된다.
+          throw new TypeError("review queue line must be a JSON object");
+        }
+        this.items.push(ReviewItem.fromDict(parsed as Record<string, unknown>));
       } catch (e) {
         // Python: json.JSONDecodeError / KeyError 만 건너뛴다.
         if (e instanceof SyntaxError || e instanceof MissingKeyError) continue;
@@ -279,7 +277,8 @@ export class ReviewQueue {
       items.push(item);
       buffer += `${serializeItem(item)}\n`;
     }
-    if (buffer) appendFileSync(this.path, buffer, "utf8");
+    // Python `open(path, "a")` 는 records 가 비어도 빈 파일을 만든다.
+    appendFileSync(this.path, buffer, "utf8");
     return items;
   }
 
@@ -337,7 +336,7 @@ export class ReviewQueue {
     for (const it of this.items) {
       if (it.verdict === null) {
         stats.pending += 1;
-      } else if (it.verdict in stats) {
+      } else if (Object.hasOwn(stats, it.verdict)) {
         const key = it.verdict as keyof QueueStats;
         stats[key] += 1;
       }

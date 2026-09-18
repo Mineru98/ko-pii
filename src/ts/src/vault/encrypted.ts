@@ -18,8 +18,10 @@
  *
  * 복호화 실패 (잘못된 비밀번호) 시 Error 발생 (Python ValueError 대응).
  */
+
 import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
 import { closeSync, openSync, readFileSync, readSync, writeFileSync } from "node:fs";
+import { ValueError } from "../core/errors.js";
 import { ReversibleVault } from "./reversible.js";
 
 /** 8 bytes (대문자 KPIIVT + version 1.0). */
@@ -55,7 +57,7 @@ export function encryptWithFixedSaltNonce(
   kdfSalt: Buffer,
   nonce: Buffer,
 ): Buffer {
-  if (!password) throw new Error("password must be non-empty");
+  if (!password) throw new ValueError("password must be non-empty");
   const key = deriveKey(password, kdfSalt);
   const pt = typeof plaintext === "string" ? Buffer.from(plaintext, "utf8") : plaintext;
   const body = encryptRaw(key, nonce, pt, MAGIC);
@@ -65,9 +67,9 @@ export function encryptWithFixedSaltNonce(
 /** blob 복호화 (MAGIC 검사 + AAD=magic + 마지막 16바이트 auth tag 검증). 실패 시 Error. */
 export function decryptBlob(blob: Buffer, password: string): Buffer {
   const minLen = MAGIC.length + KDF_SALT_LEN + NONCE_LEN + TAG_LEN;
-  if (blob.length < minLen) throw new Error("vault file truncated or invalid");
+  if (blob.length < minLen) throw new ValueError("vault file truncated or invalid");
   if (!blob.subarray(0, MAGIC.length).equals(MAGIC)) {
-    throw new Error("not a ko-pii encrypted vault (magic mismatch)");
+    throw new ValueError("not a ko-pii encrypted vault (magic mismatch)");
   }
   const salt = blob.subarray(MAGIC.length, MAGIC.length + KDF_SALT_LEN);
   const nonceStart = MAGIC.length + KDF_SALT_LEN;
@@ -81,9 +83,9 @@ export function decryptBlob(blob: Buffer, password: string): Buffer {
   decipher.setAuthTag(tag);
   try {
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(`decryption failed (wrong password or corruption): ${msg}`);
+  } catch {
+    // Python: f"...: {e}" 에서 cryptography InvalidTag 의 str(e) 는 빈 문자열이다.
+    throw new ValueError("decryption failed (wrong password or corruption): ");
   }
 }
 
@@ -93,7 +95,7 @@ export function decryptBlob(blob: Buffer, password: string): Buffer {
  * use environment variables or a key management service in production.
  */
 export function saveEncrypted(vault: ReversibleVault, path: string, password: string): void {
-  if (!password) throw new Error("password must be non-empty");
+  if (!password) throw new ValueError("password must be non-empty");
   const salt = randomBytes(KDF_SALT_LEN);
   const nonce = randomBytes(NONCE_LEN);
   const key = deriveKey(password, salt);

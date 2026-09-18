@@ -17,6 +17,7 @@
  * - 0.20  토큰이 숫자/영문 포함
  */
 
+import { pyFormatFixed } from "../core/pyFormat.js";
 import { FIELD_LABELS_NAME } from "../dictionaries/generated/field_labels.js";
 import {
   isAgency,
@@ -102,17 +103,23 @@ function looksKorean(name: string): boolean {
 // 개별 신호 판정 (Python 비공개 헬퍼 대응)
 // ---------------------------------------------------------------------------
 
+/** FIELD_LABELS_NAME 의 결정적 순회 순서 — 아래 hasFieldLabelBefore 참조. */
+const FIELD_LABELS_BY_LENGTH: readonly string[] = [...FIELD_LABELS_NAME].sort((a, b) => {
+  const byLength = [...b].length - [...a].length;
+  if (byLength !== 0) return byLength;
+  return a < b ? -1 : a > b ? 1 : 0;
+});
+
 /** Look for a name-field label like "성명:" within `window` chars before.
  *
  * 반환값은 매칭된 라벨 (없으면 null).
  */
 export function hasFieldLabelBefore(text: string, start: number, window = 6): string | null {
   const head = text.slice(Math.max(0, start - window - 4), start);
-  // Python 의 FIELD_LABELS_NAME 은 frozenset — 순회 순서가 해시 시드마다 달라진다.
-  // TS 에서는 generated Set 의 삽입 순서(결정적)로 순회하며, 모호한 접미 쌍
-  // (고소인/피고소인, 평가자/피평가자, 면담자/피면담자, 추천인/피추천인) 은
-  // 어느 순서에서도 짧은 라벨이 먼저 매칭되어 결과가 동일하다.
-  for (const label of FIELD_LABELS_NAME) {
+  // Python 과 같은 결정적 순서: 가장 긴 라벨부터, 같은 길이는 코드 포인트 순
+  // (`sorted(FIELD_LABELS_NAME, key=lambda s: (-len(s), s))`). 접미가 겹치는 쌍
+  // (평가자/피평가자 등)에서 실제 필드명인 긴 쪽이 evidence 에 남는다.
+  for (const label of FIELD_LABELS_BY_LENGTH) {
     // Allow "성명:", "성명 :", "성명 ", etc.
     const idx = head.lastIndexOf(label);
     if (idx === -1) {
@@ -309,7 +316,7 @@ export function scoreCandidate(
   // Cumulative dictionary boost
   if (nameDictionaryBoost > 0) {
     score += nameDictionaryBoost;
-    ev.push(`pos:name_dict_boost(${nameDictionaryBoost.toFixed(2)})`);
+    ev.push(`pos:name_dict_boost(${pyFormatFixed(nameDictionaryBoost, 2)})`);
   }
 
   // Clamp to [0, 1]

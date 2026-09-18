@@ -12,7 +12,9 @@
  * 테이블 분석을 위한 정형 추출 (`readRecords`) + 단순 텍스트 추출 (`readText`)
  * 둘 다 제공.
  */
+
 import { pyIsAlpha } from "../core/strUtils.js";
+import { setField } from "./recordOrder.js";
 import type { XmlElement } from "./xmlEt.js";
 import { iterElements, parseXmlBytes, XmlParseError } from "./xmlEt.js";
 import type { ZipFile } from "./zipFile.js";
@@ -52,10 +54,10 @@ function cellValue(c: XmlElement, sst: string[]): string {
   if (tAttr === "s") {
     const v = findMainChild(c, "v");
     if (v === null || v.text === null) return "";
-    // Python int(v.text) — 공백 strip + 부호 허용, 실패 시 ""
-    const raw = v.text.trim();
-    if (!/^[+-]?[0-9]+$/.test(raw)) return "";
-    const idx = Number.parseInt(raw, 10);
+    // Python int(v.text) — 공백 strip + 부호 + 유니코드 십진 숫자(전각 １ 등) +
+    // 숫자 사이 밑줄 허용, 실패 시 ""
+    const idx = pyParseInt(v.text);
+    if (idx === null) return "";
     // Python list 인덱싱 — 음수는 뒤에서부터, 범위 밖은 ""
     const resolved = idx < 0 ? sst.length + idx : idx;
     return resolved >= 0 && resolved < sst.length ? (sst[resolved] ?? "") : "";
@@ -73,6 +75,35 @@ function cellValue(c: XmlElement, sst: string[]): string {
   }
   const v = findMainChild(c, "v");
   return v !== null && v.text !== null ? v.text : "";
+}
+
+/** Python `str.strip()` — str.isspace 집합 (JS trim 과 달리 U+FEFF 는 공백이 아니다). */
+const PY_SPACE_CLASS =
+  "[\t\n\v\f\r\x1c-\x1f \x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]";
+const PY_STRIP = new RegExp(`^${PY_SPACE_CLASS}+|${PY_SPACE_CLASS}+$`, "g");
+
+function pyStrip(s: string): string {
+  return s.replace(PY_STRIP, "");
+}
+
+/** 유니코드 십진 숫자(Nd) 한 글자의 값 — Nd 블록은 0~9 가 연속 배치된다. */
+function decimalDigitValue(ch: string): number {
+  const cp = ch.codePointAt(0) ?? 0;
+  let zero = cp;
+  // 같은 블록의 '0' 을 찾는다: 앞 글자가 Nd 가 아닐 때까지 (최대 9칸) 거슬러 올라간다.
+  for (let k = 0; k < 9 && /^\p{Nd}$/u.test(String.fromCodePoint(zero - 1)); k++) zero -= 1;
+  return cp - zero;
+}
+
+/** Python `int(text)` (10진) — 실패(ValueError) 시 null. */
+function pyParseInt(text: string): number | null {
+  const m = /^([+-]?)(\p{Nd}+(?:_\p{Nd}+)*)$/u.exec(pyStrip(text));
+  if (m === null) return null;
+  let value = 0;
+  for (const ch of m[2]!) {
+    if (ch !== "_") value = value * 10 + decimalDigitValue(ch);
+  }
+  return m[1] === "-" ? -value : value;
 }
 
 /** 셀 참조('C5')의 0-based 열 인덱스. 참조 없으면 -1.
@@ -138,7 +169,7 @@ export async function readText(path: string): Promise<string> {
 /** 첫 행을 헤더로, 이후 행을 ``{header: value}`` dict 리스트로 반환. */
 export async function readRecords(path: string): Promise<Record<string, string>[]> {
   const text = await readText(path);
-  const lines = text.split("\n").filter((ln) => ln.trim().length > 0);
+  const lines = text.split("\n").filter((ln) => pyStrip(ln).length > 0);
   if (lines.length === 0) return [];
   const headers = lines[0]!.split("\t");
   const records: Record<string, string>[] = [];
@@ -150,7 +181,7 @@ export async function readRecords(path: string): Promise<Record<string, string>[
     const record: Record<string, string> = {};
     // Python dict(zip(headers, cells[:len(headers)])) — 마지막 값이 이전 값을 덮음
     for (let i = 0; i < Math.min(headers.length, cells.length); i++) {
-      record[headers[i]!] = cells[i]!;
+      setField(record, headers[i]!, cells[i]!);
     }
     records.push(record);
   }

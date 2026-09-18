@@ -5,9 +5,8 @@
  * 악성 입력 방어 게이트 — 부정 사례(파일 크기/형식 불일치/zip bomb/DTD/심링크/
  * 경로 역주행/원본 변경)에서 Python 과 동일한 코드로 거부한다.
  *
- * zip 처리: JS 의 JSZip 은 flag_bits/external_attr/CRC 같은 중앙 디렉터리
- * 메타데이터를 노출하지 않으므로, 중앙 디렉터리를 직접 파싱한다 (순수 구현 +
- * Node zlib inflate). Python 실측 시맨틱:
+ * zip 처리: Python zipfile 의 판정을 옮긴 파서(zipFile.ts)를 일반 추출 경로와 공유한다 —
+ * 검증기와 추출기가 같은 바이트를 같은 규칙으로 본다. Python 실측 시맨틱:
  * - 시그니처 검사는 `zipfile.is_zipfile` 과 동일하게 EOCD 레코드 존재만 본다.
  *   CD 가 손상된 아카이브는 시그니처( format_mismatch) 가 아니라 아카이브 검증
  *   단계에서 invalid_archive 로 거부된다 (Python 실측).
@@ -18,12 +17,18 @@
  * 텍스트 추출은 dispatcher.read_text 로 위인한다 — Python 과 동일하게 모든 포맷의
  * raw 텍스트에 text_normalizer 정규화가 적용되고, docx/xlsx/hwpx 도 라우팅된다.
  */
+
 import { createHash } from "node:crypto";
 import type { BigIntStats } from "node:fs";
 import { lstatSync, readFileSync, statSync } from "node:fs";
 import { extname } from "node:path";
-import { crc32, inflateRawSync } from "node:zlib";
+import { ValueError } from "../core/errors.js";
 import { readText as dispatcherReadText } from "./dispatcher.js";
+import type { ZipEntryInfo } from "./zipFile.js";
+import { isZipfileEocd, parseCentralDirectory, readZipEntry, ZlibError } from "./zipFile.js";
+
+// 기존 공개 API 유지 — zip 파서는 비-bounded 추출 경로와 공유하려고 zipFile.ts 로 옮겼다.
+export { ZlibError };
 
 export const DEFAULT_BOUNDED_EXTENSIONS: readonly string[] = [
   ".txt",
@@ -94,16 +99,16 @@ export class FileReadPolicy {
       this.maxTextChars,
     ];
     if (integerLimits.some((value) => value < 1)) {
-      throw new Error("all bounded-read limits must be positive");
+      throw new ValueError("all bounded-read limits must be positive");
     }
     if (this.maxCompressionRatio < 1.0) {
-      throw new Error("max_compression_ratio must be at least 1.0");
+      throw new ValueError("max_compression_ratio must be at least 1.0");
     }
     if (this.allowedExtensions.length === 0) {
-      throw new Error("allowed_extensions must not be empty");
+      throw new ValueError("allowed_extensions must not be empty");
     }
     if (this.allowedExtensions.some((value) => !value.startsWith("."))) {
-      throw new Error("allowed_extensions entries must start with '.'");
+      throw new ValueError("allowed_extensions entries must start with '.'");
     }
   }
 }
@@ -119,160 +124,6 @@ export interface BoundedDocument {
 }
 
 // ---------------------------------------------------------------------------
-// zip 중앙 디렉터리 파서 (Python zipfile 대응 메타데이터 추출)
-// ---------------------------------------------------------------------------
-
-/** 구조적 손상 — Python zipfile.BadZipFile 대응 (invalid_archive 로 수렴). */
-class BadZipFile extends Error {}
-
-/** Python zlib.error 대응 — bounded 의 except 절 밖으로 탈출하는 손상 스트림. */
-export class ZlibError extends Error {}
-
-interface ZipEntryInfo {
-  name: string;
-  flagBits: number;
-  externalAttr: number;
-  crc: number;
-  compressedSize: number;
-  fileSize: number;
-  method: number;
-  localHeaderOffset: number;
-}
-
-interface Eocd {
-  cdOffset: number;
-  entryCount: number;
-}
-
-/** EOCD 탐색 — Python `_EndRecData`: 마지막 PK\x05\x06 에서 comment 길이 일치 확인. */
-function findEocd(buf: Buffer): Eocd {
-  const minOffset = Math.max(0, buf.length - (22 + 65535));
-  for (let i = buf.length - 22; i >= minOffset; i--) {
-    if (buf.readUInt32LE(i) !== 0x06054b50) continue;
-    const commentLen = buf.readUInt16LE(i + 20);
-    if (i + 22 + commentLen !== buf.length) continue;
-    let entryCount = buf.readUInt16LE(i + 10);
-    let cdSize = buf.readUInt32LE(i + 12);
-    let cdOffset = buf.readUInt32LE(i + 16);
-    if (cdOffset === 0xffffffff || cdSize === 0xffffffff || entryCount === 0xffff) {
-      // zip64: EOCD locator (PK\x06\x07) 바로 앞에 존재
-      if (i < 20 || buf.readUInt32LE(i - 20) !== 0x07064b50) throw new BadZipFile("bad zip64");
-      const z64Offset = buf.readBigUInt64LE(i - 20 + 8);
-      const z64 = Number(z64Offset);
-      if (z64 + 56 > buf.length || buf.readUInt32LE(z64) !== 0x06064b50) {
-        throw new BadZipFile("bad zip64 eocd");
-      }
-      entryCount = Number(buf.readBigUInt64LE(z64 + 32));
-      cdSize = Number(buf.readBigUInt64LE(z64 + 40));
-      cdOffset = Number(buf.readBigUInt64LE(z64 + 48));
-    }
-    return { cdOffset, entryCount };
-  }
-  throw new BadZipFile("end of central directory not found");
-}
-
-/** Python `zipfile.is_zipfile` — EOCD 레코드 존재만 확인 (`_check_zipfile`). */
-function isZipfileEocd(buf: Buffer): boolean {
-  try {
-    findEocd(buf);
-    return true;
-  } catch {
-    return false; // EOCD 부재 / 버퍼 과소 — Python _EndRecData falsy 대응
-  }
-}
-
-function parseCentralDirectory(buf: Buffer): ZipEntryInfo[] {
-  const eocd = findEocd(buf);
-  const infos: ZipEntryInfo[] = [];
-  let pos = eocd.cdOffset;
-  for (let n = 0; n < eocd.entryCount; n++) {
-    if (pos + 46 > buf.length || buf.readUInt32LE(pos) !== 0x02014b50) {
-      throw new BadZipFile("bad magic number for central directory");
-    }
-    const flagBits = buf.readUInt16LE(pos + 8);
-    const method = buf.readUInt16LE(pos + 10);
-    const crc = buf.readUInt32LE(pos + 16);
-    let compressedSize = buf.readUInt32LE(pos + 20);
-    let fileSize = buf.readUInt32LE(pos + 24);
-    const nameLen = buf.readUInt16LE(pos + 28);
-    const extraLen = buf.readUInt16LE(pos + 30);
-    const commentLen = buf.readUInt16LE(pos + 32);
-    const externalAttr = buf.readUInt32LE(pos + 38);
-    let localHeaderOffset = buf.readUInt32LE(pos + 42);
-    const nameBytes = buf.subarray(pos + 46, pos + 46 + nameLen);
-    // flag bit 0x800: utf-8 이름, 아니면 cp437 (ASCII 범위에서는 latin1과 동일)
-    const name =
-      (flagBits & 0x800) !== 0 ? nameBytes.toString("utf-8") : nameBytes.toString("latin1");
-    let extra = pos + 46 + nameLen;
-    const extraEnd = extra + extraLen;
-    // zip64 extended information extra field (0x0001)
-    while (extra + 4 <= extraEnd) {
-      const headerId = buf.readUInt16LE(extra);
-      const size = buf.readUInt16LE(extra + 2);
-      if (headerId === 0x0001) {
-        let field = extra + 4;
-        if (fileSize === 0xffffffff) {
-          fileSize = Number(buf.readBigUInt64LE(field));
-          field += 8;
-        }
-        if (compressedSize === 0xffffffff) {
-          compressedSize = Number(buf.readBigUInt64LE(field));
-          field += 8;
-        }
-        if (localHeaderOffset === 0xffffffff) {
-          localHeaderOffset = Number(buf.readBigUInt64LE(field));
-        }
-        break;
-      }
-      extra += 4 + size;
-    }
-    infos.push({
-      name,
-      flagBits,
-      externalAttr,
-      crc,
-      compressedSize,
-      fileSize,
-      method,
-      localHeaderOffset,
-    });
-    pos = pos + 46 + nameLen + extraLen + commentLen;
-  }
-  return infos;
-}
-
-/** 멤버 내용 읽기 (Python zipfile.ZipFile.read 대응) — stored/deflate만 지원. */
-function readZipEntry(buf: Buffer, info: ZipEntryInfo): Buffer {
-  const off = info.localHeaderOffset;
-  if (off + 30 > buf.length || buf.readUInt32LE(off) !== 0x04034b50) {
-    throw new BadZipFile("bad local header");
-  }
-  const nameLen = buf.readUInt16LE(off + 26);
-  const extraLen = buf.readUInt16LE(off + 28);
-  const dataStart = off + 30 + nameLen + extraLen;
-  const compressed = buf.subarray(dataStart, dataStart + info.compressedSize);
-  let data: Buffer;
-  if (info.method === 0) {
-    data = Buffer.from(compressed); // stored
-  } else if (info.method === 8) {
-    try {
-      data = inflateRawSync(compressed);
-    } catch (error) {
-      // Python 은 zlib.error 를 그대로 던진다 (bounded except 절에 없음 — 실측).
-      throw new ZlibError((error as Error).message);
-    }
-  } else {
-    // Python: "compression type X not supported" (NotImplementedError) → invalid_archive
-    throw new BadZipFile(`compression type ${info.method} not supported`);
-  }
-  // ZipFile.read 의 CRC-32 검증 (불일치 → BadZipFile → invalid_archive)
-  if (info.crc >>> 0 !== crc32(data) >>> 0) {
-    throw new BadZipFile(`Bad CRC-32 for file ${JSON.stringify(info.name)}`);
-  }
-  return data;
-}
-
-// ---------------------------------------------------------------------------
 // 검증 단계 (Python bounded.py 함수 대응)
 // ---------------------------------------------------------------------------
 
@@ -281,15 +132,42 @@ interface PathValidation {
   extension: string;
 }
 
+/** Python `path.stat()` 을 `except OSError` 로 감싼 것과 같다 — 어떤 실패든 undefined. */
 function statPath(path: string): BigIntStats | undefined {
-  return statSync(path, { bigint: true, throwIfNoEntry: false }) as BigIntStats | undefined;
+  try {
+    return statSync(path, { bigint: true, throwIfNoEntry: false }) as BigIntStats | undefined;
+  } catch {
+    return undefined; // ENOTDIR / EACCES / ELOOP …
+  }
+}
+
+/** Python `Path.is_symlink()` — lstat 이 실패하면(OSError) False. */
+function isSymlink(path: string): boolean {
+  try {
+    return lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink() === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Python `len(str)` — 코드 포인트 수 (서로게이트 쌍은 1로 센다). */
+function codePointLength(text: string): number {
+  let n = text.length;
+  for (let i = 0; i < text.length - 1; i++) {
+    const hi = text.charCodeAt(i);
+    if (hi >= 0xd800 && hi <= 0xdbff) {
+      const lo = text.charCodeAt(i + 1);
+      if (lo >= 0xdc00 && lo <= 0xdfff) {
+        n -= 1;
+        i += 1;
+      }
+    }
+  }
+  return n;
 }
 
 function validatePath(path: string, policy: FileReadPolicy): PathValidation {
-  if (
-    policy.rejectSymlinks &&
-    lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink() === true
-  ) {
+  if (policy.rejectSymlinks && isSymlink(path)) {
     reject("symlink_rejected", "symbolic links are not accepted");
   }
   const before = statPath(path);
@@ -429,6 +307,8 @@ function validateArchive(
   } catch (error) {
     if (error instanceof BoundedReadError) throw error;
     if (error instanceof ZlibError) throw error;
+    // 멤버 이름의 utf-8 디코드 실패도 Python except 절 밖이라 그대로 탈출한다 (실측).
+    if (error instanceof Error && error.name === "UnicodeDecodeError") throw error;
     // Python: (OSError, BadZipFile, RuntimeError, NotImplementedError, EOFError)
     // — zlib.error 는 여기 없이 탈출한다 (Python 실측).
     reject("invalid_archive", "document archive is invalid");
@@ -506,7 +386,7 @@ export async function readTextBounded(
     // 그 외 모든 예외는 extract_failed 로 수렴한다 (csv.Error 포함 — 실측).
     reject("extract_failed", "document text extraction failed");
   }
-  if (text.length > activePolicy.maxTextChars) {
+  if (codePointLength(text) > activePolicy.maxTextChars) {
     reject("extracted_text_too_large", "extracted text exceeds max_text_chars");
   }
 

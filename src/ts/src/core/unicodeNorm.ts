@@ -6,8 +6,8 @@
  * 문자 제거, 자릿수 분할 공백 붕괴, 라틴 호몰로그 숫자(l→1) 폴딩.
  *
  * TS 판 차이 (PORTING.md): 오프셋은 코드 포인트가 아닌 **UTF-16 코드 유닛** 기준.
- * 아스트랄 문자(이모지 등)는 서로게이트 단위로 처리되지만 결과 문자열은 Python 과
- * 동일하다. 골드 마스터 회귀가 문자열 등가성을 검증한다.
+ * 순회·판정은 Python 과 같이 코드 포인트 단위다 (아스트랄 숫자·결합표시 포함) — 결과
+ * 문자열은 Python 과 동일하고, 골드 마스터 회귀가 문자열 등가성을 검증한다.
  */
 
 import { pyIsAlpha, pyIsAscii, pyIsDigit, regexEscape } from "./strUtils.js";
@@ -19,10 +19,16 @@ const INVISIBLE =
   // biome-ignore lint/suspicious/noControlCharactersInRegex: 제어문자·제로폭 제거가 이 모듈의 기능 본질
   /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u206F\u2A74\uFEFF]/;
 
-// 결합표시(nonspacing marks) — 숫자 사이에 끼면 PII 를 쪼개는 우회. fast-path 별도 검사.
-const COMBINING_FAST =
-  // biome-ignore lint/suspicious/noMisleadingCharacterClass: NFD 분해형 한글 자모 범위 — 조합용 자모 우회 차단용
-  /[\u0300-\u036F\u0483-\u0489\u0591-\u05BD\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F]/;
+// 결합표시(ccc != 0) — 숫자 사이에 끼면 PII 를 쪼개는 우회. fast-path 별도 검사.
+// Python `_COMBINING` 과 같이 unicodedata 결합 클래스 전체(생성 테이블)에서 만든다 —
+// 손으로 나열한 BMP 범위만 보면 아스트랄 결합표시(U+1D165 등)가 빠른 경로로 샌다.
+const COMBINING_FAST = new RegExp(
+  `[${COMBINING_RANGES.map(([a, b]) => {
+    const lo = `\\u{${a.toString(16)}}`;
+    return a === b ? lo : `${lo}-\\u{${b.toString(16)}}`;
+  }).join("")}]`,
+  "u",
+);
 
 // 비ASCII 숫자 → ASCII 폴딩 테이블 (Python unicodedata 에서 생성 — 위 테이블 참조).
 const DIGIT_FOLD_MAP = new Map<string, string>(
@@ -38,16 +44,18 @@ for (const c of DASH_CHARS) CHAR_FOLD.set(c, "-");
 for (const c of SLASH_CHARS) CHAR_FOLD.set(c, "/");
 
 // fast-path 검사용: 모든 폴딩 대상 문자 하나의 클래스
-const FOLD_DIGIT = new RegExp(`[${[...CHAR_FOLD.keys()].map(regexEscape).join("")}]`);
+// u 플래그: 아스트랄 키(수학 숫자 등)를 서로게이트 반쪽이 아닌 코드 포인트로 매칭한다.
+const FOLD_DIGIT = new RegExp(`[${[...CHAR_FOLD.keys()].map(regexEscape).join("")}]`, "u");
 
 // 조합용 한글 자모(NFD 분해형). 단독 자모는 NFKC 가 안 바꾸므로 fast-path 에서 별도 검사.
 const CONJOINING_JAMO = /[\u1100-\u11FF\uA960-\uA97F\uD7B0-\uD7FF]/;
 
 /** 결합 클래스 코드포인트 여부 (생성 테이블 이분 탐색 — Python unicodedata 데이터). */
 function hasCombiningClass(ch: string): boolean {
-  if (ch.length !== 1) return false;
+  // ch 는 코드 포인트 1개(BMP 1유닛 또는 아스트랄 2유닛) — 아스트랄 결합표시도 판정한다.
   const cp = ch.codePointAt(0);
   if (cp === undefined) return false;
+  if (ch.length !== (cp > 0xffff ? 2 : 1)) return false;
   let lo = 0;
   let hi = COMBINING_RANGES.length - 1;
   while (lo <= hi) {
@@ -159,10 +167,17 @@ export function normalizeUnicode(text: string): [string, number[]] {
   const omap: number[] = [];
   const n = text.length;
   let i = 0;
+  // Python 은 코드 포인트 단위로 순회한다. UTF-16 유닛 단위로 돌면 서로게이트 반쪽에는
+  // NFKC/CHAR_FOLD 가 적용되지 않아 아스트랄 숫자(𝟗𝟎𝟎… 수학 숫자 등)가 폴딩되지 않고
+  // 검출을 우회한다. lone surrogate 는 폭 1 로 그대로 통과한다.
+  const cpAt = (pos: number): string => {
+    const cp = text.codePointAt(pos);
+    return cp !== undefined && cp > 0xffff ? text.slice(pos, pos + 2) : text.charAt(pos);
+  };
   while (i < n) {
-    const ch = text.charAt(i);
+    const ch = cpAt(i);
     if (INVISIBLE.test(ch)) {
-      i += 1;
+      i += ch.length;
       continue;
     }
     // 자릿수 분할 우회 구간 안의 ASCII 공백 — invisible 처럼 스킵하되 위치는 다음
@@ -172,19 +187,23 @@ export function normalizeUnicode(text: string): [string, number[]] {
       continue;
     }
     // 기본 문자 + 뒤따르는 결합표시/한글 자모를 한 클러스터로 묶어 NFKC.
-    let j = i + 1;
-    while (j < n && (hasCombiningClass(text.charAt(j)) || isConjoiningJamo(text.charAt(j)))) {
-      j += 1;
+    let j = i + ch.length;
+    while (j < n) {
+      const next = cpAt(j);
+      if (!hasCombiningClass(next) && !isConjoiningJamo(next)) break;
+      j += next.length;
     }
-    const baseIsAlpha = pyIsAlpha(text.charAt(i));
+    const baseIsAlpha = pyIsAlpha(ch);
     for (const fc of text.slice(i, j).normalize("NFKC")) {
       // 숫자/기호 베이스에 남는 결합표시·조합용 자모('9001ᄀ01' 우회)는 제거.
       // 문자 베이스(é, NFD 한글 등 정상 결합)는 보존.
       if (!baseIsAlpha && (hasCombiningClass(fc) || isConjoiningJamo(fc))) {
         continue;
       }
-      out.push(CHAR_FOLD.get(fc) ?? fc);
-      omap.push(i);
+      const folded = CHAR_FOLD.get(fc) ?? fc;
+      out.push(folded);
+      // offsetMap 은 출력 UTF-16 유닛마다 한 칸 (아스트랄 출력은 2유닛).
+      for (let k = 0; k < folded.length; k++) omap.push(i);
     }
     i = j;
   }

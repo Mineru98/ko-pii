@@ -8,6 +8,7 @@
 
 import { riskLevelName } from "../analytics/index.js";
 import { type AnonymizationResult, blockedItems, reviewItems } from "../anonymizer.js";
+import { pyFormatFixed } from "../core/pyFormat.js";
 import { pyIsoUtcNow } from "../vault/reversible.js";
 import { formatSummaryText } from "./summaryText.js";
 
@@ -35,7 +36,7 @@ export function generateCertificate(
       const risk = riskLevelName(d.riskLevel);
       const token = rec.token || "(no-token)";
       parts.push(
-        `  - ${d.label} @[${d.start}:${d.end}] → ${token} (risk=${risk}, conf=${d.confidence.toFixed(2)})`,
+        `  - ${d.label} @[${d.start}:${d.end}] → ${token} (risk=${risk}, conf=${pyFormatFixed(d.confidence, 2)})`,
       );
     }
     parts.push("");
@@ -48,7 +49,7 @@ export function generateCertificate(
       const d = rec.detection;
       const risk = riskLevelName(d.riskLevel);
       parts.push(
-        `  - ${d.label} @[${d.start}:${d.end}] '${d.text}' (risk=${risk}, conf=${d.confidence.toFixed(2)})`,
+        `  - ${d.label} @[${d.start}:${d.end}] '${d.text}' (risk=${risk}, conf=${pyFormatFixed(d.confidence, 2)})`,
       );
     }
     parts.push("");

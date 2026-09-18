@@ -8,10 +8,12 @@
  * (`./argparse.js`) — npm 의존성 추가로 코어 "의존성 0" 약속이 깨지지 않도록.
  * 종료 코드는 main() 이 반환하고 process.exit 는 bin 래퍼(통합 담당)가 호출한다.
  */
+
 import { existsSync, writeFileSync } from "node:fs";
 import { Anonymizer } from "../anonymizer.js";
 import { processPaths } from "../batch.js";
 import { ProcessingMode } from "../core/modes.js";
+import { pyFormatFixed } from "../core/pyFormat.js";
 import { readText } from "../io/dispatcher.js";
 import { AuditLog } from "../vault/audit.js";
 import { isEncryptedFile, loadEncrypted, saveEncrypted } from "../vault/encrypted.js";
@@ -309,7 +311,7 @@ async function runBatch(args: CliNamespace): Promise<number> {
     `\n[배치 완료] 총 ${summary.totalFiles}개 / 성공 ${summary.succeeded} / ` +
       `실패 ${summary.failed} / 검출 ${summary.totalDetections} / ` +
       `차단 ${summary.totalBlocked} / 검토 ${summary.totalReview} / ` +
-      `${summary.elapsedS.toFixed(2)}초\n`,
+      `${pyFormatFixed(summary.elapsedS, 2)}초\n`,
   );
   if (args.json_summary) {
     // Python dataclasses.asdict(FileResult) 필드 순서(snake_case) 유지

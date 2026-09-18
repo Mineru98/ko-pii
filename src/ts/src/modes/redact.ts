@@ -7,6 +7,7 @@
  * Legal basis: 개인정보보호법 비식별 조치 가이드라인 — 가명처리(가역) 와 비식별
  * (비가역) 구분.
  */
+import { ValueError } from "../core/errors.js";
 import type { DetectionResult } from "../core/types.js";
 import { applySubstitutions } from "./apply.js";
 
@@ -66,12 +67,16 @@ export function redact(
   maskChar = "*",
 ): string {
   if (style !== "label" && style !== "asterisk" && style !== "fixed") {
-    throw new Error(`Unknown redact style: ${style}`);
+    throw new ValueError(`Unknown redact style: ${style}`);
   }
 
   const replace = (d: DetectionResult): string => {
     if (style === "label") return `[${labelToHangul(d.label)}]`;
-    if (style === "asterisk") return maskChar.repeat(Math.max(1, d.end - d.start));
+    if (style === "asterisk") {
+      // Python 의 end - start 는 코드 포인트 수 — UTF-16 오프셋 차가 아니라 span 의
+      // 코드 포인트 수만큼 채워야 아스트랄 문자(수학 숫자·이모지)에서 출력이 같다.
+      return maskChar.repeat(Math.max(1, [...text.slice(d.start, d.end)].length));
+    }
     return "***";
   };
 

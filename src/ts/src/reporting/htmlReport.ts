@@ -12,9 +12,11 @@
  *
  * 핵심 원칙: **단일 파일**, 외부 CSS·JS 없음, 어디서나 열림.
  */
+
 import { riskLevelName } from "../analytics/index.js";
 import type { AnonymizationResult, DetectionRecord } from "../anonymizer.js";
 import { Action } from "../core/modes.js";
+import { pyFormatFixed } from "../core/pyFormat.js";
 import { compareCodePoints } from "./summary.js";
 
 const CATEGORY_COLORS: Readonly<Record<string, string>> = {
@@ -87,9 +89,9 @@ function annotateHtml(text: string, detections: DetectionRecord[], withMarking =
         `data-label="${htmlEscape(d.label)}" ` +
         `data-action="${action}" ` +
         `data-risk="${risk}" ` +
-        `data-conf="${d.confidence.toFixed(2)}"` +
+        `data-conf="${pyFormatFixed(d.confidence, 2)}"` +
         `${tokenAttr} ` +
-        `title="${htmlEscape(d.label)} | risk=${risk} | conf=${d.confidence.toFixed(2)} | ` +
+        `title="${htmlEscape(d.label)} | risk=${risk} | conf=${pyFormatFixed(d.confidence, 2)} | ` +
         `action=${action} | ${htmlEscape(d.legal_basis ?? "")}">` +
         `${htmlEscape(d.text)}` +
         `</span>${markBtns}`,
@@ -205,7 +207,7 @@ export function generateHtmlReport(
         `<div class="cat-name">${htmlEscape(lbl)}</div>` +
         `<div class="cat-count">${n} 건</div>` +
         '<div class="cat-bar"><div class="cat-bar-inner" ' +
-        `style="background:${color};width:${pct.toFixed(1)}%"></div></div>` +
+        `style="background:${color};width:${pyFormatFixed(pct, 1)}%"></div></div>` +
         "</div>",
     );
   }

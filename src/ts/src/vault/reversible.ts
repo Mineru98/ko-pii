@@ -36,8 +36,12 @@
  *   (JS `JSON.stringify` 는 공백이 없어 .kvault 평문이 달라진다).
  * - 키 순서는 Python dataclass/dict 삽입 순서와 동일하게 유지한다.
  */
+
 import { createHash, pbkdf2Sync, randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
+import { ValueError } from "../core/errors.js";
+import { pyFloatRepr } from "../core/pyFormat.js";
+import { foldNdDigits } from "../modes/unicodeDigits.js";
 import type { AuditLog } from "./audit.js";
 
 export const SCHEMA_VERSION = 1;
@@ -52,47 +56,62 @@ export const FP_SCHEME_KDF = "pbkdf2-sha256-v2";
 /**
  * Python `json.dumps(ensure_ascii=False)` 와 바이트 동일한 직렬화 (포팅 보조).
  *
- * - `indent` 가 숫자면 Python `json.dumps(indent=n)` 와 동일한 들여쓰기 출력
- *   (JS `JSON.stringify(v, null, n)` 과 포맷이 일치한다).
+ * - `indent` 가 숫자면 Python `json.dumps(indent=n)` 와 동일한 들여쓰기 출력. `indent=0`
+ *   은 Python 처럼 줄바꿈만 넣는다 (`JSON.stringify(v, null, 0)` 은 한 줄이라 다르다).
  * - `indent` 가 null 이면 Python 기본 compact 구분자 `", "` / `": "` 를 쓴다.
+ * - 숫자: 정수가 아닌 값·`-0`·지수 표기 구간은 Python `repr(float)` (`1e-07`, `-0.0`,
+ *   `1e+21`, `NaN`, `Infinity`) 로 쓴다.
+ *   **알려진 한계**: JS 는 `1.0` 과 `1` 을 구분하지 못하므로 정숫값 float 은 `1` 로
+ *   나온다 (Python 은 `1.0`). 2^53 을 넘는 정수도 JS number 로는 정확히 담지 못한다.
  *
  * `undefined` 값은 Python 직렬화 불가 항목과 마찬가지로 vault 스키마에 넣지 않는다.
  */
 export function pyJsonDumps(value: unknown, indent: number | null = 2): string {
-  if (indent !== null) return JSON.stringify(value, null, indent);
-  return encodeCompact(value);
+  return encodeJson(value, indent === null ? null : Math.max(0, indent), 0);
 }
 
-function encodeCompact(value: unknown): string {
-  if (value === null) return "null";
+function encodeNumber(v: number): string {
+  if (Number.isInteger(v) && !Object.is(v, -0) && Math.abs(v) < 1e16) return String(v);
+  return pyFloatRepr(v);
+}
+
+function encodeJson(value: unknown, indent: number | null, level: number): string {
+  if (value === null || value === undefined) return "null";
   if (typeof value === "string") return JSON.stringify(value);
-  if (typeof value === "number") return String(value);
+  if (typeof value === "number") return encodeNumber(value);
+  if (typeof value === "bigint") return value.toString();
   if (typeof value === "boolean") return value ? "true" : "false";
+  const open = indent === null ? "" : `\n${" ".repeat(indent * (level + 1))}`;
+  const close = indent === null ? "" : `\n${" ".repeat(indent * level)}`;
+  const sep = indent === null ? ", " : `,${open}`;
   if (Array.isArray(value)) {
     if (value.length === 0) return "[]";
-    return `[${value.map(encodeCompact).join(", ")}]`;
+    return `[${open}${value.map((v) => encodeJson(v, indent, level + 1)).join(sep)}${close}]`;
   }
-  const entries = Object.entries(value as Record<string, unknown>);
+  const entries = Object.entries(value as Record<string, unknown>).filter(
+    ([, v]) => v !== undefined,
+  );
   if (entries.length === 0) return "{}";
-  const body = entries.map(([k, v]) => `${JSON.stringify(k)}: ${encodeCompact(v)}`);
-  return `{${body.join(", ")}}`;
+  const body = entries.map(([k, v]) => `${JSON.stringify(k)}: ${encodeJson(v, indent, level + 1)}`);
+  return `{${open}${body.join(sep)}${close}}`;
 }
 
 /** `datetime.now(timezone.utc).isoformat()` 대응 ("+00:00" 접미사).
- * Python 은 마이크로초, JS Date 는 밀리초 정밀도 — 초 소수부는 밀리초(있을 때만)로
- * 재현한다 (Python 도 microsecond==0 이면 소수부를 생략). */
+ * Python 은 마이크로초, JS Date 는 밀리초 정밀도 — 초 소수부는 밀리초 + "000" 의
+ * 6자리로 재현한다 (Python 도 microsecond==0 이면 소수부를 생략). */
 export function pyIsoUtcNow(): string {
   return pyIsoUtc(new Date());
 }
 
-/** 주어진 시각을 Python isoformat UTC 형식("YYYY-MM-DDTHH:MM:SS[.mmm]+00:00")으로. */
+/** 주어진 시각을 Python isoformat UTC 형식("YYYY-MM-DDTHH:MM:SS[.mmm000]+00:00")으로. */
 export function pyIsoUtc(d: Date): string {
   const pad2 = (n: number) => String(n).padStart(2, "0");
   const base =
     `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}` +
     `T${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`;
   const ms = d.getUTCMilliseconds();
-  const frac = ms === 0 ? "" : `.${String(ms).padStart(3, "0")}`;
+  // Python 은 마이크로초 6자리 — JS 정밀도(ms) 뒤를 0 으로 채워 자릿수를 맞춘다.
+  const frac = ms === 0 ? "" : `.${String(ms).padStart(3, "0")}000`;
   return `${base}${frac}+00:00`;
 }
 
@@ -213,7 +232,7 @@ export class ReversibleVault {
 
   /** Return a stable token for (label, original). Creates one on first use. */
   tokenFor(label: string, original: string): string {
-    const key = `${label}\u0000${original}`;
+    const key = pairKey(label, original);
     const existing = this.reverse.get(key);
     if (existing !== undefined) return existing;
     const next = (this.counters.get(label) ?? 0) + 1;
@@ -341,45 +360,49 @@ export class ReversibleVault {
   /** Unsupported schema_version 인 경우 Error 발생 (Python ValueError 대응). */
   static fromDict(payload: Record<string, unknown>): ReversibleVault {
     if (payload.schema_version !== SCHEMA_VERSION) {
-      throw new Error(`Unsupported vault schema_version: ${payload.schema_version}`);
+      throw new ValueError(`Unsupported vault schema_version: ${payload.schema_version}`);
     }
     const salt = payload.salt;
     if (typeof salt !== "string") {
       throw new Error(`vault payload missing salt: ${JSON.stringify(payload.salt)}`);
     }
     const v = new ReversibleVault({ salt });
-    if (typeof payload.created_at === "string") v.createdAt = payload.created_at;
-    // 강화 전(legacy) vault 는 fingerprint_scheme 필드가 없음 → SHA-256 v1 유지
+    // Python 은 값의 타입을 검사하지 않고 그대로 받는다(`payload.get(...)`) — 키 존재 여부만 본다.
+    if (Object.hasOwn(payload, "created_at")) v.createdAt = payload.created_at as string;
+    // 강화 전(legacy) vault 는 fingerprint_scheme 필드가 *없음* → SHA-256 v1 유지
     // (불려온 vault 의 hashed/FPE 출력 일관성 보존). secret_key 는 env 에서.
-    v.fpScheme =
-      typeof payload.fingerprint_scheme === "string"
-        ? payload.fingerprint_scheme
-        : FP_SCHEME_LEGACY;
-    if (typeof payload.fingerprint_iterations === "number") {
-      v.fpIterations = payload.fingerprint_iterations;
+    // 필드가 있으면 null 이라도 그대로 — legacy 가 아니므로 KDF 경로를 탄다 (Python 동일).
+    v.fpScheme = Object.hasOwn(payload, "fingerprint_scheme")
+      ? (payload.fingerprint_scheme as string)
+      : FP_SCHEME_LEGACY;
+    if (Object.hasOwn(payload, "fingerprint_iterations")) {
+      v.fpIterations = pyInt(payload.fingerprint_iterations); // Python int(...)
     }
-    const entries = payload.entries;
-    if (entries !== undefined && entries !== null) {
-      for (const [token, data] of Object.entries(entries as Record<string, unknown>)) {
-        const d = (data ?? {}) as Record<string, unknown>;
-        const entry = new VaultEntry(
-          token,
-          requiredString(d, "label"),
-          requiredString(d, "original"),
-          requiredNumber(d, "risk_level"),
-          typeof d.legal_basis === "string" ? d.legal_basis : null,
-          typeof d.first_seen_offset === "number" ? d.first_seen_offset : -1,
-          Array.isArray(d.occurrences) ? d.occurrences.map(Number) : [],
-          isPlainObject(d.extra) ? { ...d.extra } : {},
-        );
-        v.entriesMap.set(token, entry);
-        v.reverse.set(`${entry.label}\u0000${entry.original}`, token);
-        // Maintain counters so future stores don't collide.
-        const n = parseTokenCounter(token);
-        if (n === null) continue;
-        const cur = v.counters.get(entry.label) ?? 0;
-        if (n > cur) v.counters.set(entry.label, n);
-      }
+    const entries = Object.hasOwn(payload, "entries") ? payload.entries : {};
+    if (!isPlainObject(entries)) {
+      // Python: `None.items()` → AttributeError
+      throw new TypeError("vault payload 'entries' must be an object");
+    }
+    for (const [token, data] of Object.entries(entries)) {
+      if (!isPlainObject(data)) throw new TypeError(`vault entry must be an object: ${token}`);
+      const d = data;
+      const entry = new VaultEntry(
+        token,
+        requiredField(d, "label") as string,
+        requiredField(d, "original") as string,
+        requiredField(d, "risk_level") as number,
+        (d.legal_basis ?? null) as string | null,
+        (Object.hasOwn(d, "first_seen_offset") ? d.first_seen_offset : -1) as number,
+        pyList(d.occurrences, Object.hasOwn(d, "occurrences")) as number[],
+        pyDict(d.extra, Object.hasOwn(d, "extra")),
+      );
+      v.entriesMap.set(token, entry);
+      v.reverse.set(pairKey(entry.label, entry.original), token);
+      // Maintain counters so future stores don't collide.
+      const n = parseTokenCounter(token);
+      if (n === null) continue;
+      const cur = v.counters.get(entry.label) ?? 0;
+      if (n > cur) v.counters.set(entry.label, n);
     }
     return v;
   }
@@ -402,7 +425,7 @@ export class ReversibleVault {
    * 같은 값은 메모이즈되어 KDF 비용이 *고유 값당 1회* 로 제한된다.
    */
   fingerprint(label: string, original: string): string {
-    const cacheKey = `${label}\u0000${original}`;
+    const cacheKey = pairKey(label, original);
     const cached = this.fpCache.get(cacheKey);
     if (cached !== undefined) return cached;
     let fp: string;
@@ -426,16 +449,65 @@ export class ReversibleVault {
   }
 }
 
-function requiredString(d: Record<string, unknown>, key: string): string {
-  const v = d[key];
-  if (typeof v !== "string") throw new Error(`vault entry missing string field: ${key}`);
-  return v;
+/** (label, original) 복합 키 — Python tuple 키 대응. 구분자 결합은 값에 구분자가 들어 있으면
+ * 충돌하므로(`("A\0B","C")` vs `("A","B\0C")`) JSON 배열로 인코딩한다. */
+function pairKey(label: string, original: string): string {
+  return JSON.stringify([label, original]);
 }
 
-function requiredNumber(d: Record<string, unknown>, key: string): number {
-  const v = d[key];
-  if (typeof v !== "number") throw new Error(`vault entry missing number field: ${key}`);
-  return v;
+/** Python `data[key]` 대응 — 키가 없으면 예외(KeyError), 있으면 타입 검사 없이 그대로. */
+function requiredField(d: Record<string, unknown>, key: string): unknown {
+  if (!Object.hasOwn(d, key)) throw new Error(`vault entry missing field: ${key}`);
+  return d[key];
+}
+
+/** Python `list(x)` 대응 (키 없음 → []). */
+function pyList(x: unknown, present: boolean): unknown[] {
+  if (!present) return [];
+  if (Array.isArray(x)) return [...x];
+  if (typeof x === "string") return [...x];
+  if (isPlainObject(x)) return Object.keys(x);
+  throw new TypeError("object is not iterable");
+}
+
+/** Python `dict(x)` 대응 (키 없음 → {}). */
+function pyDict(x: unknown, present: boolean): Record<string, unknown> {
+  if (!present) return {};
+  if (isPlainObject(x)) return { ...x };
+  if (Array.isArray(x) && x.length === 0) return {};
+  throw new TypeError("cannot convert value to dict");
+}
+
+/** Python `str.strip()`/`int()` 이 걷어내는 공백 집합. */
+const PY_WS_CLASS =
+  "[\\t\\n\\v\\f\\r\\x1c-\\x1f \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]";
+const PY_WS_TRIM = new RegExp(`^${PY_WS_CLASS}+|${PY_WS_CLASS}+$`, "g");
+
+/** Python `str.strip()` 대응 — JS `trim()` 과 공백 집합이 다르다 (U+001C~1F·U+0085 포함, U+FEFF 제외). */
+export function pyStrip(text: string): string {
+  return text.replace(PY_WS_TRIM, "");
+}
+
+/** Python `int(str)` 리터럴 파싱 — 공백 제거, 부호, Nd 숫자(전각 등), 숫자 사이 단일 `_`. 실패 시 null. */
+function pyParseIntLiteral(text: string): number | null {
+  const t = pyStrip(text);
+  if (!/^[+-]?\p{Nd}+(?:_\p{Nd}+)*$/u.test(t)) return null;
+  return Number(foldNdDigits(t).replaceAll("_", ""));
+}
+
+/** Python `int(x)` 대응 — float 은 0 방향 절사, 문자열은 정수 리터럴, bool 은 0/1. */
+function pyInt(x: unknown): number {
+  if (typeof x === "number") {
+    if (!Number.isFinite(x)) throw new ValueError("cannot convert float NaN/infinity to integer");
+    return Math.trunc(x);
+  }
+  if (typeof x === "boolean") return x ? 1 : 0;
+  if (typeof x === "string") {
+    const n = pyParseIntLiteral(x);
+    if (n === null) throw new ValueError(`invalid literal for int() with base 10: '${x}'`);
+    return n;
+  }
+  throw new TypeError("int() argument must be a string or a real number");
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -447,8 +519,8 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 function parseTokenCounter(token: string): number | null {
   const cut = token.lastIndexOf("_");
   const tail = (cut >= 0 ? token.slice(cut + 1) : token).replace(/>+$/, "");
-  if (!/^[+-]?\d+$/.test(tail)) return null;
-  return Number.parseInt(tail, 10);
+  // Python int() 는 앞뒤 공백·전각 숫자를 허용한다 ("<A_ 12 >" → 12, "<A_５>" → 5).
+  return pyParseIntLiteral(tail);
 }
 
 /** 16바이트 랜덤 salt hex (Python `_random_salt` 대응). */

@@ -18,7 +18,7 @@
  */
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
-import { pyIsoUtcNow, pyJsonDumps } from "./reversible.js";
+import { pyIsoUtcNow, pyJsonDumps, pyStrip } from "./reversible.js";
 
 /** 한 줄 감사 기록 (replay 반환 형태). */
 export type AuditEntry = Record<string, unknown>;
@@ -51,7 +51,8 @@ export class AuditLog {
 
   constructor(path: string, defaultActor?: string | null, options: AuditLogOptions = {}) {
     this.path = path;
-    this.defaultActor = defaultActor ?? detectActor();
+    // Python `default_actor or self._detect_actor()` — 빈 문자열도 자동 탐지로 대체.
+    this.defaultActor = defaultActor || detectActor();
     this.nowFn = options.now ?? pyIsoUtcNow;
   }
 
@@ -66,7 +67,7 @@ export class AuditLog {
       action,
       token: opts.token ?? null,
       label: opts.label ?? null,
-      actor: opts.actor ?? this.defaultActor,
+      actor: opts.actor || this.defaultActor, // Python `actor or default` — "" 도 기본값
       context: opts.context ?? null,
     };
     // Python `if extra:` — 빈 dict/null 은 기록하지 않는다.
@@ -94,16 +95,43 @@ export class AuditLog {
   }
 }
 
+const NONFINITE_SENTINEL = "\u0000kpii-nonfinite:";
+const STRING_OR_NONFINITE = /"(?:[^"\\]|\\.)*"|-?Infinity|NaN/g;
+
+/**
+ * Python `json.loads` 대응 — 표준 JSON 에 더해 `NaN`/`Infinity`/`-Infinity` 토큰을 받는다
+ * (Python `json.dumps` 가 기본으로 내보내므로 Python 이 쓴 로그에 나타날 수 있다).
+ */
+function pyJsonLoads(line: string): unknown {
+  try {
+    return JSON.parse(line);
+  } catch (e) {
+    if (!/NaN|Infinity/.test(line)) throw e;
+  }
+  // 문자열 리터럴 밖의 비유한 토큰만 센티널 문자열로 바꿔 파싱한 뒤 숫자로 되돌린다.
+  const patched = line.replace(STRING_OR_NONFINITE, (m) =>
+    m.startsWith('"') ? m : JSON.stringify(`${NONFINITE_SENTINEL}${m}`),
+  );
+  return JSON.parse(patched, (_k, v) =>
+    typeof v === "string" && v.startsWith(NONFINITE_SENTINEL)
+      ? Number(v.slice(NONFINITE_SENTINEL.length))
+      : v,
+  );
+}
+
 /** JSONL 로그를 dict 리스트로 로드 (분석·감사용). 부분 손상 라인은 건너뛴다. */
 export function replay(path: string): AuditEntry[] {
   const out: AuditEntry[] = [];
   if (!existsSync(path)) return out;
   const content = readFileSync(path, "utf8");
-  for (const raw of content.split("\n")) {
-    const line = raw.trim();
+  // Python 텍스트 모드(universal newlines): \n, \r\n, \r 모두 줄 구분.
+  for (const raw of content.split(/\r\n|\r|\n/)) {
+    // Python `str.strip()` — JS `trim()` 과 달리 BOM(U+FEFF)은 걷어내지 않는다. 따라서 BOM 으로
+    // 시작하는 첫 줄은 Python 에서 JSONDecodeError 로 버려지고, 여기서도 JSON.parse 가 거부한다.
+    const line = pyStrip(raw);
     if (!line) continue;
     try {
-      out.push(JSON.parse(line) as AuditEntry);
+      out.push(pyJsonLoads(line) as AuditEntry);
     } catch {
       // 부분 손상 라인 무시
     }

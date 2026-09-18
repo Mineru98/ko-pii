@@ -27,12 +27,14 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { basename, dirname, join as pathJoin, resolve as pathResolve } from "node:path";
+import { basename, dirname, resolve as pathResolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
 import { riskLevelName } from "./analytics/index.js";
 import { Anonymizer } from "./anonymizer.js";
+import { ValueError } from "./core/errors.js";
 import { Action, ProcessingMode } from "./core/modes.js";
+import { pyFormatFixed } from "./core/pyFormat.js";
 import { regexEscape } from "./core/strUtils.js";
 import { readText } from "./io/dispatcher.js";
 import { ReversibleVault, type VaultDict, type VaultEntryDict } from "./vault/reversible.js";
@@ -241,25 +243,34 @@ export function fnmatchTranslate(pat: string): RegExp {
   return new RegExp(`^(?:${out.join("")})$`, "s");
 }
 
+/**
+ * Python ``os.path.join(a, b)`` (posix) — node ``path.join`` 과 달리 정규화하지 않는다
+ * ("./in" + "a.txt" → "./in/a.txt", "in//" + "a.txt" → "in//a.txt").
+ */
+function pathJoin(a: string, b: string): string {
+  if (b.startsWith("/")) return b;
+  if (a === "" || a.endsWith("/")) return a + b;
+  return `${a}/${b}`;
+}
+
 /** 숨김 파일 규칙 — Python glob: 패턴 세그먼트가 `.` 로 시작하지 않으면 숨김 제외. */
 function isHidden(x: string): boolean {
   return x.startsWith(".");
 }
 
 /** 디렉터리 재귀 나열 — Python glob `_rlistdir` (symlink 디렉터리도 따라감). */
-function rlistdir(path: string, out: string[], prefix: string): void {
+function rlistdir(path: string, out: string[]): void {
   let entries: string[];
   try {
-    entries = readdirSync(path);
+    entries = readdirSync(path === "" ? "." : path);
   } catch {
     return; // OSError → 무시
   }
   for (const name of entries) {
-    const full = prefix === "" ? name : `${prefix}/${name}`;
+    if (isHidden(name)) continue; // Python _rlistdir: include_hidden=False 면 숨김 제외
+    const full = pathJoin(path, name);
     out.push(full);
-    if (isDir(path === "" ? name : `${path}/${name}`)) {
-      rlistdir(`${path}/${name}`, out, full);
-    }
+    if (isDir(full)) rlistdir(full, out);
   }
 }
 
@@ -267,7 +278,7 @@ function rlistdir(path: string, out: string[], prefix: string): void {
 function globSegment1(dir: string, pattern: string): string[] {
   let names: string[];
   try {
-    names = readdirSync(dir);
+    names = readdirSync(dir === "" ? "." : dir);
   } catch {
     return [];
   }
@@ -285,7 +296,8 @@ function globSegment1(dir: string, pattern: string): string[] {
 export function pyGlob(pattern: string, recursive: boolean): string[] {
   const parts = pattern.split("/");
   const isAbsolute = pattern.startsWith("/");
-  let base = isAbsolute ? "/" : ".";
+  // 상대 패턴의 base 는 "" — Python glob 처럼 "./" 접두를 원문 그대로 보존한다.
+  let base = isAbsolute ? "/" : "";
   let idx = 0;
   // 선행 고정 세그먼트 소비
   for (; idx < parts.length; idx++) {
@@ -293,7 +305,7 @@ export function pyGlob(pattern: string, recursive: boolean): string[] {
     if (seg === "" && !isAbsolute) continue; // "//" 등 빈 세그먼트 무시
     if (seg === "" && isAbsolute && idx === 0) continue;
     if (hasMagic(seg)) break;
-    base = base === "/" ? `/${seg}` : pathJoin(base, seg);
+    base = pathJoin(base, seg);
   }
   if (idx >= parts.length) {
     // 매직 없는 패턴 — 존재하면 그대로 (Python glob 계약)
@@ -303,7 +315,7 @@ export function pyGlob(pattern: string, recursive: boolean): string[] {
       return [];
     }
   }
-  if (!isDir(base)) return [];
+  if (!isDir(base === "" ? "." : base)) return [];
 
   let candidates: string[] = [base];
   for (; idx < parts.length; idx++) {
@@ -312,13 +324,12 @@ export function pyGlob(pattern: string, recursive: boolean): string[] {
       const expanded: string[] = [];
       for (const dir of candidates) {
         expanded.push(dir);
-        const prefix = dir === "/" ? "" : dir;
-        rlistdir(dir === "/" ? "/" : dir, expanded, prefix);
+        rlistdir(dir, expanded);
       }
       candidates = expanded;
       if (idx === parts.length - 1) {
         // `**` 가 마지막이면 모든 하위 항목(파일+디렉터리) 반환
-        return [...new Set(candidates)];
+        return [...new Set(candidates)].filter((c) => c !== "");
       }
       continue;
     }
@@ -347,7 +358,11 @@ function walkFiles(root: string, add: (p: string) => void): void {
     return; // OSError — os.walk 도 무시하고 진행
   }
   for (const entry of entries) {
-    if (entry.isFile()) add(pathJoin(root, entry.name));
+    // os.walk 는 symlink 파일을 files 에 포함한다 (디렉터리 symlink 만 따라가지 않음).
+    // 대상이 파일인지는 add 쪽 isFile(stat) 이 판정한다.
+    if (entry.isFile() || (entry.isSymbolicLink() && !isDir(pathJoin(root, entry.name)))) {
+      add(pathJoin(root, entry.name));
+    }
   }
   for (const entry of entries) {
     // Dirent 는 lstat 기반 — symlink 디렉터리는 따라가지 않는다 (followlinks=False)
@@ -364,7 +379,8 @@ export function collectFiles(
   recursive = true,
   extensions?: ReadonlySet<string> | null,
 ): string[] {
-  const exts = extensions ?? DEFAULT_EXTENSIONS;
+  // Python: `extensions or DEFAULT_EXTENSIONS` — 빈 집합도 기본값으로 대체된다.
+  const exts = extensions && extensions.size > 0 ? extensions : DEFAULT_EXTENSIONS;
   const seen = new Set<string>();
   const out: string[] = [];
 
@@ -429,7 +445,7 @@ export interface SingleResult {
 /** Python ``ValueError: '<v>' is not a valid ProcessingMode`` 대응. */
 function toProcessingMode(value: string): ProcessingMode {
   if (!(Object.values(ProcessingMode) as string[]).includes(value)) {
-    throw new Error(`'${value}' is not a valid ProcessingMode`);
+    throw new ValueError(`'${value}' is not a valid ProcessingMode`);
   }
   return value as ProcessingMode;
 }
@@ -507,7 +523,7 @@ function printProgress(done: number, total: number, r: FileResult): void {
   const name = basename(r.inputPath).slice(0, 40);
   const status = r.error ? "ERR" : `${r.detections}d/${r.blocked}b/${r.review}r`;
   process.stderr.write(
-    `\r[${done}/${total}] ${pct.toFixed(1).padStart(5)}%  ${name.padEnd(40)}  ${status.padEnd(20)}`,
+    `\r[${done}/${total}] ${pyFormatFixed(pct, 1).padStart(5)}%  ${name.padEnd(40)}  ${status.padEnd(20)}`,
   );
 }
 
@@ -557,8 +573,13 @@ function runPool(
   progress: boolean,
   total: number,
 ): Promise<PoolOutcome> {
+  // Python Pool 은 빈 iterable 에 즉시 끝난다 — 워커가 0개면 exit 이벤트도 없어 영원히 미해결.
+  if (tasks.length === 0) return Promise.resolve({ results: [], vaultDicts: [] });
   return new Promise<PoolOutcome>((resolve, reject) => {
-    const workerPath = new URL("./batchWorker.ts", import.meta.url);
+    // 소스 실행(.ts, tsx 로더 필요) 과 빌드 산출물(dist/batchWorker.mjs|cjs) 을 구분한다.
+    const selfExt = /\.[cm]?[jt]s$/.exec(new URL(import.meta.url).pathname)?.[0] ?? ".ts";
+    const fromSource = selfExt.endsWith("ts");
+    const workerPath = new URL(`./batchWorker${selfExt}`, import.meta.url);
     const results: FileResult[] = [];
     const vaultDicts: VaultDict[] = [];
     const workers: Worker[] = [];
@@ -574,7 +595,7 @@ function runPool(
     };
 
     const spawnWorker = (): void => {
-      const w = new Worker(workerPath, { execArgv: workerExecArgv() });
+      const w = new Worker(workerPath, fromSource ? { execArgv: workerExecArgv() } : {});
       workers.push(w);
       w.on(
         "message",
@@ -705,10 +726,13 @@ export async function processPaths(
   // Python 은 mode.value 접근에서 잘못된 모드에 즉시 실패한다 (파일별 에러가 아니라
   // 호출 수준 예외) — 진입 시 동일하게 검증한다.
   if (!(Object.values(ProcessingMode) as string[]).includes(modeValue)) {
-    throw new Error(`'${modeValue}' is not a valid ProcessingMode`);
+    throw new ValueError(`'${modeValue}' is not a valid ProcessingMode`);
   }
-  const includeList = include && [...include].length > 0 ? [...include] : null;
-  const excludeList = exclude && [...exclude].length > 0 ? [...exclude] : null;
+  // 1회용 이터러블(generator)도 안전하도록 한 번만 소비한다.
+  const includeArr = include ? [...include] : [];
+  const excludeArr = exclude ? [...exclude] : [];
+  const includeList = includeArr.length > 0 ? includeArr : null;
+  const excludeList = excludeArr.length > 0 ? excludeArr : null;
 
   const files = collectFiles(inputs, recursive, extensions);
   const summary: BatchSummary = {

@@ -97,7 +97,9 @@ export function is_re_identifiable(rpt: CombinedRiskReport): boolean {
 
 /** 라벨을 속성 클래스로 분류. 매핑에 없는 라벨은 GENERAL. */
 export function classify_attribute(label: string): AttributeClass {
-  const cls = _LABEL_TO_CLASS[label];
+  // Python dict.get 은 자기 키만 본다 — 객체 리터럴 조회는 프로토타입 체인("constructor",
+  // "toString", "__proto__")까지 보므로 Object.hasOwn 으로 막는다.
+  const cls = Object.hasOwn(_LABEL_TO_CLASS, label) ? _LABEL_TO_CLASS[label] : undefined;
   return cls ?? AttributeClass.GENERAL;
 }
 

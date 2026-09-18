@@ -5,6 +5,8 @@
  * 까지 남기는 두 모드를 지원.
  */
 
+import { ValueError } from "../core/errors.js";
+
 const CITY_PATTERN = /([가-힣]+(?:특별시|광역시|특별자치도|특별자치시|도))/;
 const DISTRICT_PATTERN = /([가-힣]+(?:시|군|구))/;
 
@@ -15,7 +17,7 @@ const DISTRICT_PATTERN = /([가-힣]+(?:시|군|구))/;
  */
 export function generalizeAddress(addr: string, level = "city"): string {
   if (level !== "city" && level !== "district") {
-    throw new Error(`Unknown level: ${level}`);
+    throw new ValueError(`Unknown level: ${level}`);
   }
   const city = CITY_PATTERN.exec(addr);
   const cityText = city?.[1];

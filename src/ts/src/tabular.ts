@@ -10,10 +10,13 @@
  * 법적 근거: 개인정보보호법 제28조의2~5 (가명정보 처리 특례). 구조 보존이
  * 분석 호환성에 직결.
  */
+
 import { Anonymizer } from "./anonymizer.js";
+import { ValueError } from "./core/errors.js";
 import { ProcessingMode } from "./core/modes.js";
 import { RiskLevel } from "./core/types.js";
 import type { CsvRecord } from "./io/csvReader.js";
+import { recordEntries, recordKeys, setField } from "./io/recordOrder.js";
 import { legalBasisFor, riskFloorFor } from "./legal/mapping.js";
 import { FPE_BY_LABEL, fpeDefault } from "./modes/fpe.js";
 import { maskValue } from "./modes/partial.js";
@@ -192,9 +195,19 @@ export interface SchemaColumnClassification {
   ambiguous: boolean;
 }
 
+/** Python str.isspace() / re `\s` 문자 클래스 — JS `\s` 와 달리 U+001C–1F·U+0085 포함, U+FEFF 제외. */
+const PY_WS =
+  "[\\t\\n\\u000b\\u000c\\r\\u001c-\\u001f \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]";
+const RE_PY_WS_RUN = new RegExp(`${PY_WS}+`, "g");
+const RE_PY_STRIP = new RegExp(`^${PY_WS}+|${PY_WS}+$`, "g");
+
+function pyStrip(s: string): string {
+  return s.replace(RE_PY_STRIP, "");
+}
+
 /** 공백·괄호 등 정규화. (Python `_normalize_header`) */
 function normalizeHeader(h: string): string {
-  return h.replace(/\s+/g, "").trim();
+  return pyStrip(h.replace(RE_PY_WS_RUN, ""));
 }
 
 function normalizeSchemaHeader(header: string): string {
@@ -222,7 +235,7 @@ export function classifySchemaColumns(
 
   const classifications: Record<string, SchemaColumnClassification> = {};
   for (const header of headers) {
-    if (typeof header !== "string" || !header.trim()) continue;
+    if (typeof header !== "string" || !pyStrip(header)) continue;
     const normalized = normalizeSchemaHeader(header);
     const matches = aliases.get(normalized);
     if (matches === undefined) continue;
@@ -296,7 +309,7 @@ function forceAnonymizeCell(
     return `[${labelToHangul(label)}]`;
   }
   if (strategy === "asterisk") {
-    return "*".repeat(value.length);
+    return "*".repeat([...value].length); // Python len() = 코드 포인트 수
   }
   if (strategy === "partial") {
     return maskValue(label, value);
@@ -365,11 +378,11 @@ export function anonymizeValue(
     throw new TypeError(`value must be str, got ${pyTypeName(value)}`);
   }
   if (typeof label !== "string" || !label.trim()) {
-    throw new Error("label must be a non-empty string");
+    throw new ValueError("label must be a non-empty string");
   }
   const strategy = options.strategy ?? "tokenize";
   if (!VALID_STRATEGIES.has(strategy)) {
-    throw new Error(`Unknown strategy: ${strategy}`);
+    throw new ValueError(`Unknown strategy: ${strategy}`);
   }
   // Python `vault or ReversibleVault()` — ReversibleVault.__len__ 때문에 *빈*
   // vault 도 falsy 로 평가되어 새 vault 로 대체된다 (실측 확인).
@@ -423,7 +436,7 @@ export function anonymizeRecords(
     // PII 컬럼이 미매핑돼 평문 통과한다 (#10).
     const allKeys = new Set<string>();
     for (const r of records) {
-      for (const k of Object.keys(r)) {
+      for (const k of recordKeys(r)) {
         if (typeof k === "string") allKeys.add(k);
       }
     }
@@ -434,22 +447,32 @@ export function anonymizeRecords(
   const auto = newAnonymizer(mode, strategy, activeVault);
   const out: CsvRecord[] = [];
   for (const rec of records) {
+    // 헤더는 임의 문자열 — "__proto__"/"constructor" 같은 키가 프로토타입 체인을
+    // 타지 않도록 own-property 로만 읽고 쓴다.
+    // 순회·대입 모두 삽입 순서 기준(recordOrder) — 정수형 헤더도 Python dict 순서를 따른다.
     const newRec: CsvRecord = {};
-    for (const [header, value] of Object.entries(rec)) {
+    const put = (key: string, cell: CsvRecord[string]): void => setField(newRec, key, cell);
+    for (const [header, value] of recordEntries(rec)) {
       if (Array.isArray(value)) {
         // csv.DictReader restkey: 헤더보다 셀이 많은 ragged row 의 초과 셀이
         // list 로 수집됨. 정상 컬럼이 아니라 *초과 셀* 이므로 자동 검출로
         // 스캔해 평문 PII 통과를 막는다 (#11).
-        newRec[header] = value.map((v) => (typeof v === "string" && v ? auto.process(v).text : v));
+        put(
+          header,
+          value.map((v) => (typeof v === "string" && v ? auto.process(v).text : v)),
+        );
         continue;
       }
-      const label = activeColumnMap?.[header];
+      const label =
+        activeColumnMap && Object.hasOwn(activeColumnMap, header)
+          ? activeColumnMap[header]
+          : undefined;
       if (label === undefined || !label || !value) {
-        newRec[header] = value;
+        put(header, value);
         continue;
       }
       // 컬럼 매핑 = 명시적 라벨 단언 → 검출기 임계값 우회
-      newRec[header] = forceAnonymizeCell(value as string, label, strategy, activeVault);
+      put(header, forceAnonymizeCell(value as string, label, strategy, activeVault));
     }
     out.push(newRec);
   }

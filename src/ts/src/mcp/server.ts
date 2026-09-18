@@ -30,6 +30,7 @@ import { z } from "zod";
 import { riskLevelName, score_combined_risk } from "../analytics/index.js";
 import { Anonymizer } from "../anonymizer.js";
 import { ProcessingMode } from "../core/modes.js";
+import { pyFloatRepr } from "../core/pyFormat.js";
 import { detectAll } from "../detect.js";
 import { pyJsonDumps, ReversibleVault } from "../vault/reversible.js";
 import { VERSION } from "../version.js";
@@ -53,6 +54,24 @@ function textResult(
 }
 
 /**
+ * detect_pii 전용 — Python 의 confidence 는 float 이라 `1.0` 으로 직렬화된다
+ * (JS 는 `1`). confidence 값만 호출별 임의 토큰으로 표시한 뒤 Python repr 로 치환한다
+ * (본문 text 와 충돌하지 않도록 토큰은 매번 새로 만든다).
+ */
+function detectTextResult(payload: unknown): { content: { type: "text"; text: string }[] } {
+  const mark = randomUUID();
+  const json = JSON.stringify(
+    payload,
+    (key, value) =>
+      key === "confidence" && typeof value === "number" ? `${mark}${pyFloatRepr(value)}` : value,
+    2,
+  );
+  return {
+    content: [{ type: "text", text: json.replaceAll(new RegExp(`"${mark}([^"]*)"`, "g"), "$1") }],
+  };
+}
+
+/**
  * ko-pii MCP 서버 인스턴스 생성 + 도구 4개 등록.
  * stdio 대신 InMemoryTransport 로 연결해 테스트할 수 있다 (tests/unit/mcp-server.test.ts).
  */
@@ -70,7 +89,7 @@ export function buildMcpServer(): McpServer {
     },
     async ({ text }) => {
       const detections = detectAll(text);
-      return textResult({
+      return detectTextResult({
         count: detections.length,
         detections: detections.map((d) => ({
           label: d.label,

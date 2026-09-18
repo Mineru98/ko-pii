@@ -1,5 +1,7 @@
 /** Luhn algorithm (ISO/IEC 7812 mod-10 check) — 카드번호 검증용. */
 
+import { ValueError } from "../core/errors.js";
+
 /** 숫자 문자열이 Luhn 검사를 통과하는지. */
 export function isValid(digits: string): boolean {
   if (!/^[0-9]+$/.test(digits) || digits.length < 2) return false;
@@ -17,7 +19,7 @@ export function isValid(digits: string): boolean {
 
 /** *payload* + check_digit 이 유효해지는 check digit 반환. */
 export function computeCheckDigit(payload: string): number {
-  if (!/^[0-9]+$/.test(payload)) throw new Error("expected numeric string");
+  if (!/^[0-9]+$/.test(payload)) throw new ValueError("expected numeric string");
   let total = 0;
   for (let i = 0; i < payload.length; i++) {
     let d = Number(payload[payload.length - 1 - i]);

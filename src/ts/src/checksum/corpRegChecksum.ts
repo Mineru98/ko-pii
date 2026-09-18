@@ -5,11 +5,14 @@
  * weights (1,2) 교대 가중합(자릿수 축약 없음), check = (10 - sum % 10) % 10.
  * 예: 삼성전자 130111-0006246 → check digit 6.
  */
+
+import { ValueError } from "../core/errors.js";
+
 const WEIGHTS = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2] as const;
 
 export function computeCheckDigit(twelveDigits: string): number {
   if (twelveDigits.length !== 12 || !/^[0-9]+$/.test(twelveDigits)) {
-    throw new Error("expected a 12-digit numeric string");
+    throw new ValueError("expected a 12-digit numeric string");
   }
   let total = 0;
   for (let i = 0; i < 12; i++) {

@@ -26,11 +26,19 @@ export const SUPPORTED_EXTENSIONS: readonly string[] = [
   ".pdf",
 ];
 
+/** Python `os.path.splitext(path)[1].lower()` (posixpath `_splitext`). */
 export function extensionOf(path: string): string {
-  const idx = path.lastIndexOf(".");
-  // Python os.path.splitext: 확장자가 없거나 점만 있으면 빈 문자열
-  if (idx <= 0) return "";
-  return path.slice(idx).toLowerCase();
+  const sepIndex = path.lastIndexOf("/");
+  const dotIndex = path.lastIndexOf(".");
+  // 점이 마지막 디렉터리 구분자보다 앞이면 확장자가 아니다 ("dir.d/file")
+  if (dotIndex <= sepIndex) return "";
+  // basename 의 선행 점들은 건너뛴다 — ".csv", "..csv" 는 확장자 없는 숨김 파일
+  let nameIndex = sepIndex + 1;
+  while (nameIndex < dotIndex) {
+    if (path[nameIndex] !== ".") return path.slice(dotIndex).toLowerCase();
+    nameIndex += 1;
+  }
+  return "";
 }
 
 export async function readText(path: string): Promise<string> {

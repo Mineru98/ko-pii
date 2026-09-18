@@ -28,8 +28,16 @@ const SPACED_FIELD = /(?<![0-9A-Za-z-])([0-9](?: [0-9-]){4,})(?![0-9A-Za-z-]| [0
 
 // 확장: "49 9 - 8 7- 0 3 8" (하이픈 양쪽에 공백이 불균일)
 // 숫자/하이픈이 공백으로 구분되되 하이픈 앞뒤 공백이 있거나 없을 수 있음
-const SPACED_FIELD_WITH_HYPHEN =
-  /(?<![0-9A-Za-z-])([0-9][0-9 ]{2,}\s*-\s*[0-9 ]{1,}\s*-?\s*[0-9 ]{2,}[0-9])(?![0-9])/g;
+// 이 패턴만 Python 원본이 ``\d``/``\s`` 를 쓴다. dispatcher 는 NFKC 폴딩 없이 raw 텍스트를
+// 넘기므로 PORTING.md 의 "\d → [0-9]" 동등 전제가 성립하지 않는다 — 전각 숫자(１２３)도
+// Python 처럼 축소해야 한다. ``\d`` = 유니코드 Nd, ``\s`` = Python str.isspace 집합
+// (U+001C–001F·U+0085 포함, JS ``\s`` 와 달리 U+FEFF 제외).
+const PY_SPACE =
+  "[\\t\\n\\v\\f\\r\\x1c-\\x1f \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]";
+const SPACED_FIELD_WITH_HYPHEN = new RegExp(
+  `(?<![0-9A-Za-z-])(\\p{Nd}[\\p{Nd} ]{2,}${PY_SPACE}*-${PY_SPACE}*[\\p{Nd} ]{1,}${PY_SPACE}*-?${PY_SPACE}*[\\p{Nd} ]{2,}\\p{Nd})(?![0-9])`,
+  "gu",
+);
 
 /** 칸별 공백 패턴의 공백을 제거하고 offset 맵 반환. */
 function collapseSpacedField(text: string): [string, number[]] {

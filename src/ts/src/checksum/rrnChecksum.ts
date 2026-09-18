@@ -5,12 +5,15 @@
  * 2020-10 이후 신규 RRN 은 뒷자리가 무작위라 체크섬 실패를 "RRN 아님"이 아닌
  * 신뢰도 감쇠 신호로 취급할 것 (patterns/rrn 참조).
  */
+
+import { ValueError } from "../core/errors.js";
+
 const WEIGHTS = [2, 3, 4, 5, 6, 7, 8, 9, 2, 3, 4, 5] as const;
 
 /** 첫 12자리에 대한 기대 check digit 반환. */
 export function computeCheckDigit(twelveDigits: string): number {
   if (twelveDigits.length !== 12 || !/^[0-9]+$/.test(twelveDigits)) {
-    throw new Error("expected a 12-digit numeric string");
+    throw new ValueError("expected a 12-digit numeric string");
   }
   let total = 0;
   for (let i = 0; i < 12; i++) {

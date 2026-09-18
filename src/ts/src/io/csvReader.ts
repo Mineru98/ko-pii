@@ -12,7 +12,9 @@
  * - `DictReader`: 첫 행 = 헤더, 짧은 행 restval(null), 긴 행 restkey(Python None →
  *   TS 에서는 빈 문자열 키 "" 로 표현) 버킷.
  */
+
 import { readText as plainReadText } from "./plain.js";
+import { setField } from "./recordOrder.js";
 
 /** Python csv.Error 대응. */
 export class CsvError extends Error {
@@ -98,6 +100,11 @@ function countChar(s: string, ch: string): number {
   let count = 0;
   for (const c of s) if (c === ch) count += 1;
   return count;
+}
+
+/** Python `str.count(sub)` — 겹치지 않는 부분문자열 개수. */
+function countSubstring(s: string, sub: string): number {
+  return s.split(sub).length - 1;
 }
 
 /**
@@ -461,7 +468,8 @@ function guessDelimiter(
 
     if (delims.size === 1) {
       const delim = [...delims.keys()][0]!;
-      const skipinitialspace = countChar(lines[0]!, delim) === countChar(lines[0]!, `${delim} `);
+      const skipinitialspace =
+        countChar(lines[0]!, delim) === countSubstring(lines[0]!, `${delim} `);
       return [delim, skipinitialspace];
     }
 
@@ -476,7 +484,7 @@ function guessDelimiter(
   if (delims.size > 1) {
     for (const d of PREFERRED) {
       if (delims.has(d)) {
-        const skipinitialspace = countChar(lines[0]!, d) === countChar(lines[0]!, `${d} `);
+        const skipinitialspace = countChar(lines[0]!, d) === countSubstring(lines[0]!, `${d} `);
         return [d, skipinitialspace];
       }
     }
@@ -488,13 +496,16 @@ function guessDelimiter(
     (a, b) => a[0][0] - b[0][0] || a[0][1] - b[0][1] || (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0),
   );
   const delim = items[items.length - 1]![1];
-  const skipinitialspace = countChar(lines[0]!, delim) === countChar(lines[0]!, `${delim} `);
+  const skipinitialspace = countChar(lines[0]!, delim) === countSubstring(lines[0]!, `${delim} `);
   return [delim, skipinitialspace];
 }
 
 // ---------------------------------------------------------------------------
 // csv reader (CPython _csv.c 상태 머신) + DictReader
 // ---------------------------------------------------------------------------
+
+/** Python `csv.field_size_limit()` 기본값. */
+const FIELD_SIZE_LIMIT = 131072;
 
 enum ParserState {
   START_RECORD,
@@ -511,9 +522,22 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
   let fields: string[] = [];
   let cur = "";
   let state = ParserState.START_RECORD;
+  let curLen = 0; // 코드 포인트 수 (Python field_len)
   const saveField = (): void => {
     fields.push(cur);
     cur = "";
+    curLen = 0;
+  };
+  /** CPython `parse_add_char` — 필드가 field_size_limit 에 닿으면 csv.Error. */
+  const addChar = (ch: string): void => {
+    const code = ch.charCodeAt(0);
+    if (!(code >= 0xdc00 && code <= 0xdfff)) {
+      if (curLen >= FIELD_SIZE_LIMIT) {
+        throw new CsvError(`field larger than field limit (${FIELD_SIZE_LIMIT})`);
+      }
+      curLen += 1;
+    }
+    cur += ch;
   };
   const finishRecord = (): void => {
     records.push(fields);
@@ -524,11 +548,13 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
   for (const line of lines) {
     let done = false;
     for (let i = 0; i <= line.length && !done; i++) {
-      const c = i < line.length ? line[i]! : "\0";
+      // 줄 끝 표식은 문자가 아니라 위치로 판정한다 — 데이터 안의 실제 NUL 은 일반 문자다.
+      const atEnd = i >= line.length;
+      const c = atEnd ? "" : line[i]!;
       const isEol = c === "\n" || c === "\r";
       switch (state) {
         case ParserState.START_RECORD: {
-          if (c === "\0") {
+          if (atEnd) {
             // empty line — record returned with accumulated (empty) fields
             done = true;
             finishRecord();
@@ -543,10 +569,10 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
           break;
         }
         case ParserState.START_FIELD: {
-          if (isEol || c === "\0") {
+          if (isEol || atEnd) {
             // save empty field - return [fields]
             saveField();
-            if (c === "\0") {
+            if (atEnd) {
               finishRecord();
               state = ParserState.START_RECORD;
               done = true;
@@ -569,15 +595,15 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
             // ignore space at start of field
             break;
           }
-          cur += c;
+          addChar(c);
           state = ParserState.IN_FIELD;
           break;
         }
         case ParserState.IN_FIELD: {
-          if (isEol || c === "\0") {
+          if (isEol || atEnd) {
             // end of line - return [fields]
             saveField();
-            if (c === "\0") {
+            if (atEnd) {
               finishRecord();
               state = ParserState.START_RECORD;
               done = true;
@@ -591,11 +617,11 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
             state = ParserState.START_FIELD;
             break;
           }
-          cur += c;
+          addChar(c);
           break;
         }
         case ParserState.IN_QUOTED_FIELD: {
-          if (c === "\0") {
+          if (atEnd) {
             // 줄 경계 통과 — 다음 줄에서 계속 (multiline quoted cell)
             break;
           }
@@ -603,14 +629,14 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
             state = d.doublequote ? ParserState.QUOTE_IN_QUOTED_FIELD : ParserState.IN_FIELD;
             break;
           }
-          cur += c;
+          addChar(c);
           break;
         }
         case ParserState.QUOTE_IN_QUOTED_FIELD: {
-          if (isEol || c === "\0") {
+          if (isEol || atEnd) {
             // end of line - return [fields]
             saveField();
-            if (c === "\0") {
+            if (atEnd) {
               finishRecord();
               state = ParserState.START_RECORD;
               done = true;
@@ -621,7 +647,7 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
           }
           if (d.quotechar !== "" && c === d.quotechar) {
             // double quotes - copy quoted char
-            cur += d.quotechar;
+            addChar(d.quotechar);
             state = ParserState.IN_QUOTED_FIELD;
             break;
           }
@@ -632,7 +658,7 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
             break;
           }
           // strict=False: illegal character - add to field
-          cur += c;
+          addChar(c);
           state = ParserState.IN_FIELD;
           break;
         }
@@ -640,7 +666,7 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
           if (isEol) {
             break;
           }
-          if (c === "\0") {
+          if (atEnd) {
             finishRecord();
             state = ParserState.START_RECORD;
             done = true;
@@ -681,11 +707,12 @@ function dictReaderRecords(rows: string[][]): CsvRecord[] {
     if (row.length === 0) continue; // 빈 행 스킵
     const record: CsvRecord = {};
     const common = Math.min(fieldnames.length, row.length);
-    for (let i = 0; i < common; i++) record[fieldnames[i]!] = row[i]!;
+    // setField: Python dict 삽입 순서 보존(정수형 헤더) + "__proto__" 헤더 안전 대입
+    for (let i = 0; i < common; i++) setField(record, fieldnames[i]!, row[i]!);
     if (fieldnames.length < row.length) {
-      record[RESTKEY] = row.slice(fieldnames.length);
+      setField(record, RESTKEY, row.slice(fieldnames.length));
     } else if (fieldnames.length > row.length) {
-      for (let i = row.length; i < fieldnames.length; i++) record[fieldnames[i]!] = null;
+      for (let i = row.length; i < fieldnames.length; i++) setField(record, fieldnames[i]!, null);
     }
     // Python `any(row.values())` — None/""/빈 배열은 거짓
     const any = Object.values(record).some((v) =>
