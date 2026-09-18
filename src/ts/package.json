@@ -4,6 +4,15 @@
   "description": "한국어 PII 검출 + 가역 가명화 라이브러리 (TypeScript 포트, 코어 의존성 0)",
   "license": "MIT",
   "author": "modak000",
+  "homepage": "https://github.com/Marker-Inc-Korea/ko-pii#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Marker-Inc-Korea/ko-pii.git",
+    "directory": "src/ts"
+  },
+  "bugs": {
+    "url": "https://github.com/Marker-Inc-Korea/ko-pii/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -79,6 +88,7 @@
     "lint": "biome check src tests",
     "format": "biome format --write src tests",
     "typecheck": "tsc --noEmit",
+    "package": "node tools/package.mjs",
     "goldmaster": "python3 ../../tools/gen-gold-master.py",
     "dicts": "python3 ../../tools/convert-dicts.py",
     "unicode-tables": "node ../../tools/gen-unicode-tables.mjs",
