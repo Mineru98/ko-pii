@@ -14,8 +14,8 @@ frozenset/set/dict/tuple/str 상수만 변환하고 함수·클래스·비공개
 """
 from __future__ import annotations
 
-import json
 import importlib
+import json
 import sys
 import types as pytypes
 from pathlib import Path
