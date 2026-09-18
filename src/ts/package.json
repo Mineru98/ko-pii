@@ -1,6 +1,6 @@
 {
   "name": "ko-pii",
-  "version": "1.15.4",
+  "version": "1.16.0",
   "description": "한국어 PII 검출 + 가역 가명화 라이브러리 (TypeScript 포트, 코어 의존성 0)",
   "license": "MIT",
   "author": "Marker-Inc-Korea",
