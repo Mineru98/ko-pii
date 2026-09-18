@@ -15,6 +15,9 @@
       fieldset { border: 1px solid #ddd; border-radius: 8px; margin: 0 0 8px; }
       fieldset label, .check { display: inline-block; margin: 2px 8px 2px 0; }
       .check { display: block; }
+      .check.off { color: #999; }
+      .model { margin: 2px 0 8px 22px; font-size: 0.85em; color: #555; }
+      .model button { margin: 4px 4px 0 0; }
       button.primary { width: 100%; margin-top: 8px; padding: 12px; font-size: 1.1em; border: 0; border-radius: 8px; background: #e67e22; color: #fff; cursor: pointer; }
       details { border: 1px solid #ddd; border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; }
       .examples button { display: block; width: 100%; text-align: left; margin: 4px 0; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -24,7 +27,7 @@
     <h1>ko-pii 실시간 PII 비교 데모</h1>
     <p>
       한국어 문서의 개인정보를 검출하고 비교합니다.
-      <a href="https://github.com/modak000/ko-pii">GitHub</a> ·
+      <a href="https://github.com/Mineru98/ko-pii">GitHub</a> ·
       <a href="https://pypi.org/project/ko-pii/">PyPI</a>
     </p>
     <blockquote>
@@ -39,8 +42,13 @@
       </div>
       <div class="col">
         <fieldset id="mode"><legend>가명화 모드</legend></fieldset>
-        <label class="check"><input type="checkbox" id="show-openai" /> openai/privacy-filter 비교</label>
-        <label class="check"><input type="checkbox" id="show-presidio" /> Microsoft Presidio 비교</label>
+        <label class="check"><input type="checkbox" id="show-openai" disabled /> openai/privacy-filter 비교</label>
+        <div class="model">
+          <div id="openai-status">GPU 확인 중…</div>
+          <button id="openai-download" type="button" disabled>모델 다운로드 (약 900MB)</button>
+          <button id="openai-delete" type="button" disabled>모델 삭제</button>
+        </div>
+        <label class="check off"><input type="checkbox" id="show-presidio" disabled /> Microsoft Presidio 비교 (브라우저 미지원)</label>
         <button class="primary" id="run" type="button">검출</button>
       </div>
     </div>

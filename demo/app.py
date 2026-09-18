@@ -9,6 +9,7 @@ Optional (비교 모델):
     pip install presidio-analyzer spacy
     python -m spacy download ko_core_news_sm
 """
+
 from __future__ import annotations
 
 import html
@@ -16,23 +17,33 @@ import time
 from dataclasses import dataclass
 
 import gradio as gr
-
 from ko_pii import Anonymizer, ProcessingMode
-from ko_pii.detect import detect_all
 from ko_pii.core.types import DetectionResult
+from ko_pii.detect import detect_all
 
 # ── 색상 팔레트 (카테고리별) ──────────────────────────────────────
 COLORS = {
-    "RRN": "#e74c3c", "FRN": "#e74c3c", "PASSPORT": "#e74c3c",
+    "RRN": "#e74c3c",
+    "FRN": "#e74c3c",
+    "PASSPORT": "#e74c3c",
     "DRIVER_LICENSE": "#e74c3c",
-    "PERSON": "#3498db", "NATIONALITY": "#1abc9c",
-    "PHONE": "#e67e22", "EMAIL": "#e67e22", "FAX": "#e67e22",
+    "PERSON": "#3498db",
+    "NATIONALITY": "#1abc9c",
+    "PHONE": "#e67e22",
+    "EMAIL": "#e67e22",
+    "FAX": "#e67e22",
     "ADDRESS": "#9b59b6",
-    "CARD": "#c0392b", "ACCOUNT": "#c0392b",
-    "BUSINESS_REG": "#7f8c8d", "CORP_REG": "#7f8c8d",
-    "DT_BIRTH": "#2ecc71", "AGE": "#2ecc71",
-    "HEIGHT": "#16a085", "WEIGHT": "#16a085",
-    "EDUCATION": "#8e44ad", "MAJOR": "#8e44ad", "POSITION": "#8e44ad",
+    "CARD": "#c0392b",
+    "ACCOUNT": "#c0392b",
+    "BUSINESS_REG": "#7f8c8d",
+    "CORP_REG": "#7f8c8d",
+    "DT_BIRTH": "#2ecc71",
+    "AGE": "#2ecc71",
+    "HEIGHT": "#16a085",
+    "WEIGHT": "#16a085",
+    "EDUCATION": "#8e44ad",
+    "MAJOR": "#8e44ad",
+    "POSITION": "#8e44ad",
 }
 DEFAULT_COLOR = "#95a5a6"
 
@@ -54,14 +65,14 @@ def _highlight_html(text: str, detections: list[DetectionResult], engine: str) -
     last = 0
     for d in dets:
         if d.start > last:
-            parts.append(html.escape(text[last:d.start]))
+            parts.append(html.escape(text[last : d.start]))
         color = _color(d.label)
-        span_text = html.escape(text[d.start:d.end])
+        span_text = html.escape(text[d.start : d.end])
         parts.append(
             f'<span style="background:{color}22;border:1px solid {color};'
             f'border-radius:3px;padding:1px 4px" title="{d.label} ({d.confidence:.0%})">'
             f'{span_text}<sup style="color:{color};font-size:0.7em;font-weight:bold">'
-            f'{d.label}</sup></span>'
+            f"{d.label}</sup></span>"
         )
         last = d.end
     if last < len(text):
@@ -71,6 +82,7 @@ def _highlight_html(text: str, detections: list[DetectionResult], engine: str) -
 
     # 요약
     from collections import Counter
+
     counts = Counter(d.label for d in dets)
     summary = " / ".join(f"{k}:{v}" for k, v in counts.most_common())
 
@@ -93,6 +105,7 @@ def _get_openai():
     if _openai_detector is None:
         try:
             from ko_pii.eval.model_comparison import HFPrivacyDetector
+
             _openai_detector = HFPrivacyDetector(
                 "openai/privacy-filter", backend="torch", device="cpu"
             )
@@ -106,6 +119,7 @@ def _get_presidio():
     if _presidio_analyzer is None:
         try:
             from presidio_analyzer import AnalyzerEngine
+
             _presidio_analyzer = AnalyzerEngine()
         except Exception:
             return None
@@ -116,16 +130,22 @@ def _openai_detect(text: str) -> list[DetectionResult]:
     det = _get_openai()
     if det is None:
         return []
-    from ko_pii.eval.model_comparison import OPENAI_TO_KPII
     from ko_pii.core.types import RiskLevel
+    from ko_pii.eval.model_comparison import OPENAI_TO_KPII
+
     results = []
     for s in det.detect(text):
         mapped = OPENAI_TO_KPII.get(s.label, s.label)
-        results.append(DetectionResult(
-            label=mapped, text=text[s.start:s.end].strip(),
-            start=s.start, end=s.end,
-            risk_level=RiskLevel.MEDIUM, confidence=0.8,
-        ))
+        results.append(
+            DetectionResult(
+                label=mapped,
+                text=text[s.start : s.end].strip(),
+                start=s.start,
+                end=s.end,
+                risk_level=RiskLevel.MEDIUM,
+                confidence=0.8,
+            )
+        )
     return results
 
 
@@ -134,19 +154,30 @@ def _presidio_detect(text: str) -> list[DetectionResult]:
     if analyzer is None:
         return []
     from ko_pii.core.types import RiskLevel
+
     PRESIDIO_MAP = {
-        "PERSON": "PERSON", "PHONE_NUMBER": "PHONE", "EMAIL_ADDRESS": "EMAIL",
-        "LOCATION": "ADDRESS", "DATE_TIME": "DT_BIRTH", "URL": "URL",
-        "CREDIT_CARD": "CARD", "IP_ADDRESS": "IP",
+        "PERSON": "PERSON",
+        "PHONE_NUMBER": "PHONE",
+        "EMAIL_ADDRESS": "EMAIL",
+        "LOCATION": "ADDRESS",
+        "DATE_TIME": "DT_BIRTH",
+        "URL": "URL",
+        "CREDIT_CARD": "CARD",
+        "IP_ADDRESS": "IP",
     }
     results = []
     for r in analyzer.analyze(text=text, language="ko"):
         label = PRESIDIO_MAP.get(r.entity_type, r.entity_type)
-        results.append(DetectionResult(
-            label=label, text=text[r.start:r.end].strip(),
-            start=r.start, end=r.end,
-            risk_level=RiskLevel.MEDIUM, confidence=r.score,
-        ))
+        results.append(
+            DetectionResult(
+                label=label,
+                text=text[r.start : r.end].strip(),
+                start=r.start,
+                end=r.end,
+                risk_level=RiskLevel.MEDIUM,
+                confidence=r.score,
+            )
+        )
     return results
 
 
@@ -160,7 +191,7 @@ def process(text: str, mode: str, show_openai: bool, show_presidio: bool):
     t0 = time.time()
     kpii_dets = detect_all(text)
     kpii_time = time.time() - t0
-    kpii_html = _highlight_html(text, kpii_dets, f"ko-pii ({kpii_time*1000:.0f}ms)")
+    kpii_html = _highlight_html(text, kpii_dets, f"ko-pii ({kpii_time * 1000:.0f}ms)")
 
     # 가명화
     anon = Anonymizer(mode=ProcessingMode[mode])
@@ -173,7 +204,9 @@ def process(text: str, mode: str, show_openai: bool, show_presidio: bool):
         openai_dets = _openai_detect(text)
         openai_time = time.time() - t0
         if openai_dets:
-            openai_html = _highlight_html(text, openai_dets, f"openai/PF ({openai_time*1000:.0f}ms)")
+            openai_html = _highlight_html(
+                text, openai_dets, f"openai/PF ({openai_time * 1000:.0f}ms)"
+            )
         else:
             openai_html = "<div style='padding:12px;color:#999'>openai/privacy-filter 미설치 (pip install ko-pii[ml])</div>"
     else:
@@ -185,7 +218,9 @@ def process(text: str, mode: str, show_openai: bool, show_presidio: bool):
         presidio_dets = _presidio_detect(text)
         presidio_time = time.time() - t0
         if presidio_dets:
-            presidio_html = _highlight_html(text, presidio_dets, f"Presidio ({presidio_time*1000:.0f}ms)")
+            presidio_html = _highlight_html(
+                text, presidio_dets, f"Presidio ({presidio_time * 1000:.0f}ms)"
+            )
         else:
             presidio_html = "<div style='padding:12px;color:#999'>Presidio 미설치 (pip install presidio-analyzer spacy)</div>"
     else:
@@ -196,7 +231,8 @@ def process(text: str, mode: str, show_openai: bool, show_presidio: bool):
 
 # ── 예시 텍스트 ──────────────────────────────────────────────────
 EXAMPLES = [
-    ["""서울특별시 종로구청 민원실 회신문
+    [
+        """서울특별시 종로구청 민원실 회신문
 
 (수신) 김민지 귀하 (010-1234-5678, mjkim@seoul.go.kr)
 (주민등록번호) 880101-2123456
@@ -204,19 +240,31 @@ EXAMPLES = [
 (차량번호) 12가1234
 
 처리 담당자는 종로구청 환경위생과 박철수 주임 (02-2148-1234) 이며
-회신 기한은 2024년 3월 15일입니다.""", "STRICT", True, True],
-
-    ["""환자명: 홍길동 (1990.03.15생, 34세)
+회신 기한은 2024년 3월 15일입니다.""",
+        "STRICT",
+        True,
+        True,
+    ],
+    [
+        """환자명: 홍길동 (1990.03.15생, 34세)
 주민번호: 900315-1234567
 연락처: 010-9876-5432
 주소: 경기도 성남시 분당구 판교로 235 102동 1501호
 진단: 고혈압 (I10), 당뇨병 (E11)
-처방전번호: RX-2024-0315-001""", "STRICT", True, True],
-
-    ["""거주지국 대한민국 거주지국코드 KR
+처방전번호: RX-2024-0315-001""",
+        "STRICT",
+        True,
+        True,
+    ],
+    [
+        """거주지국 대한민국 거주지국코드 KR
 사업자등록번호 120-81-47521
 계좌번호: 110-123-456789 (국민은행)
-여권번호 M12345678""", "BALANCED", False, False],
+여권번호 M12345678""",
+        "BALANCED",
+        False,
+        False,
+    ],
 ]
 
 
@@ -225,7 +273,7 @@ with gr.Blocks(title="ko-pii 실시간 PII 비교 데모") as demo:
     gr.Markdown(
         "# ko-pii 실시간 PII 비교 데모\n"
         "한국어 문서의 개인정보를 검출하고 비교합니다. "
-        "[GitHub](https://github.com/modak000/ko-pii) · "
+        "[GitHub](https://github.com/Marker-Inc-Korea/ko-pii) · "
         "[PyPI](https://pypi.org/project/ko-pii/)\n\n"
         "> ML 없이 룰+체크섬+사전만으로 동작하는 ko-pii와 "
         "openai/privacy-filter(660M ML), Microsoft Presidio를 나란히 비교합니다."
@@ -241,7 +289,8 @@ with gr.Blocks(title="ko-pii 실시간 PII 비교 데모") as demo:
         with gr.Column(scale=1):
             mode = gr.Radio(
                 ["PARANOID", "STRICT", "BALANCED", "PERMISSIVE", "AUDIT"],
-                value="STRICT", label="가명화 모드"
+                value="STRICT",
+                label="가명화 모드",
             )
             show_openai = gr.Checkbox(label="openai/privacy-filter 비교", value=False)
             show_presidio = gr.Checkbox(label="Microsoft Presidio 비교", value=False)

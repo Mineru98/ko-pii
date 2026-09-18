@@ -57,7 +57,11 @@ const BOX_STYLE =
   "border:1px solid #ddd;border-radius:8px;background:#fafafa;min-height:100px";
 
 /** 검출 결과를 HTML 하이라이트로 변환 — app.py `_highlight_html` 대응. */
-export function highlightHtml(text: string, detections: DetectionResult[], engine: string): string {
+export function highlightHtml(
+  text: string,
+  detections: Pick<DetectionResult, "label" | "start" | "end" | "confidence">[],
+  engine: string,
+): string {
   if (detections.length === 0) {
     const escaped = pyHtmlEscape(text).replaceAll("\n", "<br>");
     return `<div style='${BOX_STYLE}'>${escaped}<br><br><b>${engine}:</b> 검출 없음</div>`;
@@ -93,15 +97,16 @@ export function highlightHtml(text: string, detections: DetectionResult[], engin
   return `<div style='${BOX_STYLE}'>${body}<br><br><b>${engine}:</b> ${dets.length}건 (${summary})</div>`;
 }
 
-const note = (msg: string): string => `<div style='padding:12px;color:#999'>${msg}</div>`;
+export const note = (msg: string): string => `<div style='padding:12px;color:#999'>${msg}</div>`;
 
 export type ProcessOutput = [kpii: string, openai: string, presidio: string, anon: string];
 
 /**
  * app.py `process` 대응.
  *
- * openai/privacy-filter 와 Presidio 는 Python 전용 비교 엔진이라 브라우저에는 없다 —
- * app.py 가 해당 패키지 미설치일 때 내는 출력과 같다.
+ * 이 함수 안에서는 openai/privacy-filter 와 Presidio 를 돌리지 않는다 — app.py 가 해당 패키지
+ * 미설치일 때 내는 출력과 같다(패리티 기준). 브라우저의 openai 칸은 main.ts 가 openai.ts(WebGPU)
+ * 결과로 따로 채우고, Presidio 는 UI 에서 비활성이다.
  */
 export function process(
   text: string,
