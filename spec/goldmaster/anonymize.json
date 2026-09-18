@@ -8561,6 +8561,810 @@
         "by_label": {},
         "by_legal_basis": {}
       }
+    },
+    {
+      "id": "field_label_suffix_overlap",
+      "strategy": "tokenize",
+      "text_in": "피평가자: 윤하늘\n직급: 차장",
+      "text_out": "피평가자: <PERSON_1>\n직급: 차장",
+      "records": [
+        {
+          "label": "PERSON",
+          "action": "BLOCK",
+          "token": "<PERSON_1>",
+          "start": 6,
+          "end": 9
+        },
+        {
+          "label": "POSITION",
+          "action": "REVIEW",
+          "token": null,
+          "start": 14,
+          "end": 16
+        }
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": [
+          "준식별자 2종 결합 → 재식별 가능성 있음"
+        ],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": [
+          "PERSON",
+          "POSITION"
+        ],
+        "sensitive_attributes": [],
+        "total": 2,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 1,
+          "REVIEW": 1
+        },
+        "by_risk": {
+          "HIGH": 1,
+          "LOW": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "POSITION": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 2
+        }
+      }
+    },
+    {
+      "id": "field_label_suffix_overlap",
+      "strategy": "redact",
+      "text_in": "피평가자: 윤하늘\n직급: 차장",
+      "text_out": "피평가자: [성명]\n직급: 차장",
+      "records": [
+        {
+          "label": "PERSON",
+          "action": "BLOCK",
+          "token": null,
+          "start": 6,
+          "end": 9
+        },
+        {
+          "label": "POSITION",
+          "action": "REVIEW",
+          "token": null,
+          "start": 14,
+          "end": 16
+        }
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": [
+          "준식별자 2종 결합 → 재식별 가능성 있음"
+        ],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": [
+          "PERSON",
+          "POSITION"
+        ],
+        "sensitive_attributes": [],
+        "total": 2,
+        "mode": "STRICT",
+        "strategy": "redact",
+        "by_action": {
+          "BLOCK": 1,
+          "REVIEW": 1
+        },
+        "by_risk": {
+          "HIGH": 1,
+          "LOW": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "POSITION": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 2
+        }
+      }
+    },
+    {
+      "id": "field_label_suffix_overlap",
+      "strategy": "asterisk",
+      "text_in": "피평가자: 윤하늘\n직급: 차장",
+      "text_out": "피평가자: ***\n직급: 차장",
+      "records": [
+        {
+          "label": "PERSON",
+          "action": "BLOCK",
+          "token": null,
+          "start": 6,
+          "end": 9
+        },
+        {
+          "label": "POSITION",
+          "action": "REVIEW",
+          "token": null,
+          "start": 14,
+          "end": 16
+        }
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": [
+          "준식별자 2종 결합 → 재식별 가능성 있음"
+        ],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": [
+          "PERSON",
+          "POSITION"
+        ],
+        "sensitive_attributes": [],
+        "total": 2,
+        "mode": "STRICT",
+        "strategy": "asterisk",
+        "by_action": {
+          "BLOCK": 1,
+          "REVIEW": 1
+        },
+        "by_risk": {
+          "HIGH": 1,
+          "LOW": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "POSITION": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 2
+        }
+      }
+    },
+    {
+      "id": "field_label_suffix_overlap",
+      "strategy": "hashed",
+      "text_in": "피평가자: 윤하늘\n직급: 차장",
+      "text_out": "피평가자: <PERSON:186f695034ce>\n직급: 차장",
+      "records": [
+        {
+          "label": "PERSON",
+          "action": "BLOCK",
+          "token": "<PERSON:186f695034ce>",
+          "start": 6,
+          "end": 9
+        },
+        {
+          "label": "POSITION",
+          "action": "REVIEW",
+          "token": null,
+          "start": 14,
+          "end": 16
+        }
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": [
+          "준식별자 2종 결합 → 재식별 가능성 있음"
+        ],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": [
+          "PERSON",
+          "POSITION"
+        ],
+        "sensitive_attributes": [],
+        "total": 2,
+        "mode": "STRICT",
+        "strategy": "hashed",
+        "by_action": {
+          "BLOCK": 1,
+          "REVIEW": 1
+        },
+        "by_risk": {
+          "HIGH": 1,
+          "LOW": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "POSITION": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 2
+        }
+      }
+    },
+    {
+      "id": "field_label_suffix_overlap",
+      "strategy": "partial",
+      "text_in": "피평가자: 윤하늘\n직급: 차장",
+      "text_out": "피평가자: 윤OO\n직급: 차장",
+      "records": [
+        {
+          "label": "PERSON",
+          "action": "BLOCK",
+          "token": "윤OO",
+          "start": 6,
+          "end": 9
+        },
+        {
+          "label": "POSITION",
+          "action": "REVIEW",
+          "token": null,
+          "start": 14,
+          "end": 16
+        }
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": [
+          "준식별자 2종 결합 → 재식별 가능성 있음"
+        ],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": [
+          "PERSON",
+          "POSITION"
+        ],
+        "sensitive_attributes": [],
+        "total": 2,
+        "mode": "STRICT",
+        "strategy": "partial",
+        "by_action": {
+          "BLOCK": 1,
+          "REVIEW": 1
+        },
+        "by_risk": {
+          "HIGH": 1,
+          "LOW": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "POSITION": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 2
+        }
+      }
+    },
+    {
+      "id": "field_label_suffix_overlap",
+      "strategy": "fpe",
+      "text_in": "피평가자: 윤하늘\n직급: 차장",
+      "text_out": "피평가자: 쮛퉸퐙\n직급: 차장",
+      "records": [
+        {
+          "label": "PERSON",
+          "action": "BLOCK",
+          "token": "쮛퉸퐙",
+          "start": 6,
+          "end": 9
+        },
+        {
+          "label": "POSITION",
+          "action": "REVIEW",
+          "token": null,
+          "start": 14,
+          "end": 16
+        }
+      ],
+      "summary": {
+        "combined_risk": "MEDIUM",
+        "combined_rationale": [
+          "준식별자 2종 결합 → 재식별 가능성 있음"
+        ],
+        "distinct_identifiers": [],
+        "distinct_quasi_identifiers": [
+          "PERSON",
+          "POSITION"
+        ],
+        "sensitive_attributes": [],
+        "total": 2,
+        "mode": "STRICT",
+        "strategy": "fpe",
+        "by_action": {
+          "BLOCK": 1,
+          "REVIEW": 1
+        },
+        "by_risk": {
+          "HIGH": 1,
+          "LOW": 1
+        },
+        "by_label": {
+          "PERSON": 1,
+          "POSITION": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제2조": 2
+        }
+      }
+    },
+    {
+      "id": "astral_math_digits",
+      "strategy": "tokenize",
+      "text_in": "주민 𝟗𝟎𝟎𝟏𝟎𝟏-𝟏𝟐𝟑𝟒𝟓𝟔𝟕 확인",
+      "text_out": "주민 <RRN_1> 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": "<RRN_1>",
+          "start": 3,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_math_digits",
+      "strategy": "redact",
+      "text_in": "주민 𝟗𝟎𝟎𝟏𝟎𝟏-𝟏𝟐𝟑𝟒𝟓𝟔𝟕 확인",
+      "text_out": "주민 [주민등록번호] 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": null,
+          "start": 3,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "redact",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_math_digits",
+      "strategy": "asterisk",
+      "text_in": "주민 𝟗𝟎𝟎𝟏𝟎𝟏-𝟏𝟐𝟑𝟒𝟓𝟔𝟕 확인",
+      "text_out": "주민 ************** 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": null,
+          "start": 3,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "asterisk",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_math_digits",
+      "strategy": "hashed",
+      "text_in": "주민 𝟗𝟎𝟎𝟏𝟎𝟏-𝟏𝟐𝟑𝟒𝟓𝟔𝟕 확인",
+      "text_out": "주민 <RRN:9a5a495df5ad> 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": "<RRN:9a5a495df5ad>",
+          "start": 3,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "hashed",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_math_digits",
+      "strategy": "partial",
+      "text_in": "주민 𝟗𝟎𝟎𝟏𝟎𝟏-𝟏𝟐𝟑𝟒𝟓𝟔𝟕 확인",
+      "text_out": "주민 𝟗𝟎𝟎𝟏𝟎𝟏-𝟏****** 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": "𝟗𝟎𝟎𝟏𝟎𝟏-𝟏******",
+          "start": 3,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "partial",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_math_digits",
+      "strategy": "fpe",
+      "text_in": "주민 𝟗𝟎𝟎𝟏𝟎𝟏-𝟏𝟐𝟑𝟒𝟓𝟔𝟕 확인",
+      "text_out": "주민 773514-𝟏908176 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": "773514-𝟏908176",
+          "start": 3,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "fpe",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_combining_split",
+      "strategy": "tokenize",
+      "text_in": "값 8𝅥80101-1234568 확인",
+      "text_out": "값 <RRN_1> 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": "<RRN_1>",
+          "start": 2,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "tokenize",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_combining_split",
+      "strategy": "redact",
+      "text_in": "값 8𝅥80101-1234568 확인",
+      "text_out": "값 [주민등록번호] 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": null,
+          "start": 2,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "redact",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_combining_split",
+      "strategy": "asterisk",
+      "text_in": "값 8𝅥80101-1234568 확인",
+      "text_out": "값 *************** 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": null,
+          "start": 2,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "asterisk",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_combining_split",
+      "strategy": "hashed",
+      "text_in": "값 8𝅥80101-1234568 확인",
+      "text_out": "값 <RRN:bd96e104d4a5> 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": "<RRN:bd96e104d4a5>",
+          "start": 2,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "hashed",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_combining_split",
+      "strategy": "partial",
+      "text_in": "값 8𝅥80101-1234568 확인",
+      "text_out": "값 880101-1****** 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": "880101-1******",
+          "start": 2,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "partial",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
+    },
+    {
+      "id": "astral_combining_split",
+      "strategy": "fpe",
+      "text_in": "값 8𝅥80101-1234568 확인",
+      "text_out": "값 567396-1982307 확인",
+      "records": [
+        {
+          "label": "RRN",
+          "action": "BLOCK",
+          "token": "567396-1982307",
+          "start": 2,
+          "end": 17
+        }
+      ],
+      "summary": {
+        "combined_risk": "CRITICAL",
+        "combined_rationale": [
+          "식별자 1종 등장: RRN → 즉시 식별 가능"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [],
+        "sensitive_attributes": [],
+        "total": 1,
+        "mode": "STRICT",
+        "strategy": "fpe",
+        "by_action": {
+          "BLOCK": 1
+        },
+        "by_risk": {
+          "CRITICAL": 1
+        },
+        "by_label": {
+          "RRN": 1
+        },
+        "by_legal_basis": {
+          "개인정보보호법 제24조의2": 1
+        }
+      }
     }
   ]
 }

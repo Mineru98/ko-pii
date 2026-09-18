@@ -1058,6 +1058,106 @@
       "id": "whitespace",
       "text": "   \n\t  ",
       "detections": []
+    },
+    {
+      "id": "field_label_suffix_overlap",
+      "text": "피평가자: 윤하늘\n직급: 차장",
+      "detections": [
+        {
+          "label": "PERSON",
+          "text": "윤하늘",
+          "start": 6,
+          "end": 9,
+          "risk_level": 4,
+          "confidence": 0.7000000000000001,
+          "evidence": [
+            "pos:surname(윤)",
+            "pos:field_label(피평가자)",
+            "pos:name_likelihood(0.05)",
+            "origin:korean"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "일반개인정보",
+            "particle": null,
+            "origin": "korean"
+          }
+        },
+        {
+          "label": "POSITION",
+          "text": "차장",
+          "start": 14,
+          "end": 16,
+          "risk_level": 2,
+          "confidence": 0.85,
+          "evidence": [
+            "pattern:position",
+            "keyword:직급",
+            "domain:gov"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "준식별자",
+            "domain": "gov"
+          }
+        }
+      ]
+    },
+    {
+      "id": "astral_math_digits",
+      "text": "주민 𝟗𝟎𝟎𝟏𝟎𝟏-𝟏𝟐𝟑𝟒𝟓𝟔𝟕 확인",
+      "detections": [
+        {
+          "label": "RRN",
+          "text": "𝟗𝟎𝟎𝟏𝟎𝟏-𝟏𝟐𝟑𝟒𝟓𝟔𝟕",
+          "start": 3,
+          "end": 17,
+          "risk_level": 5,
+          "confidence": 0.7,
+          "evidence": [
+            "pattern:rrn",
+            "date_valid:1990-01-01",
+            "checksum:invalid_or_post_2020"
+          ],
+          "legal_basis": "개인정보보호법 제24조의2",
+          "extra": {
+            "front": "900101",
+            "back": "1234567",
+            "birth_date": "1990-01-01",
+            "gender_digit": 1,
+            "checksum_valid": false,
+            "category": "고유식별정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "astral_combining_split",
+      "text": "값 8𝅥80101-1234568 확인",
+      "detections": [
+        {
+          "label": "RRN",
+          "text": "8𝅥80101-1234568",
+          "start": 2,
+          "end": 17,
+          "risk_level": 5,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:rrn",
+            "date_valid:1988-01-01",
+            "checksum:valid"
+          ],
+          "legal_basis": "개인정보보호법 제24조의2",
+          "extra": {
+            "front": "880101",
+            "back": "1234568",
+            "birth_date": "1988-01-01",
+            "gender_digit": 1,
+            "checksum_valid": true,
+            "category": "고유식별정보"
+          }
+        }
+      ]
     }
   ]
 }

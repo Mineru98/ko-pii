@@ -46,7 +46,10 @@ def _has_field_label_before(text: str, start: int, window: int = 6) -> str | Non
     from ko_pii.dictionaries.field_labels import FIELD_LABELS_NAME
     head = text[max(0, start - window - 4): start]
     # Strip whitespace and common separators
-    for label in FIELD_LABELS_NAME:
+    # frozenset 순회 순서는 PYTHONHASHSEED 마다 달라 "평가자"/"피평가자" 처럼 접미가 겹치는
+    # 라벨에서 evidence 가 실행마다 바뀌었다. 가장 긴 라벨부터 결정적으로 본다
+    # (긴 쪽이 실제 필드명 — TS 포트·골드마스터와 1:1 을 위해서도 필요).
+    for label in sorted(FIELD_LABELS_NAME, key=lambda s: (-len(s), s)):
         # Allow "성명:", "성명 :", "성명 ", etc.
         idx = head.rfind(label)
         if idx == -1:

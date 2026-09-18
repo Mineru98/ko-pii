@@ -141,6 +141,18 @@
     {
       "id": "whitespace",
       "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "field_label_suffix_overlap",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PERSON_1>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"윤하늘\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 6,\n      \"occurrences\": [\n        6\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": null,\n        \"origin\": \"korean\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "astral_math_digits",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<RRN_1>\": {\n      \"label\": \"RRN\",\n      \"original\": \"𝟗𝟎𝟎𝟏𝟎𝟏-𝟏𝟐𝟑𝟒𝟓𝟔𝟕\",\n      \"risk_level\": 5,\n      \"legal_basis\": \"개인정보보호법 제24조의2\",\n      \"first_seen_offset\": 3,\n      \"occurrences\": [\n        3\n      ],\n      \"extra\": {\n        \"front\": \"900101\",\n        \"back\": \"1234567\",\n        \"birth_date\": \"1990-01-01\",\n        \"gender_digit\": 1,\n        \"checksum_valid\": false,\n        \"category\": \"고유식별정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "astral_combining_split",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<RRN_1>\": {\n      \"label\": \"RRN\",\n      \"original\": \"8𝅥80101-1234568\",\n      \"risk_level\": 5,\n      \"legal_basis\": \"개인정보보호법 제24조의2\",\n      \"first_seen_offset\": 2,\n      \"occurrences\": [\n        2\n      ],\n      \"extra\": {\n        \"front\": \"880101\",\n        \"back\": \"1234568\",\n        \"birth_date\": \"1988-01-01\",\n        \"gender_digit\": 1,\n        \"checksum_valid\": true,\n        \"category\": \"고유식별정보\"\n      }\n    }\n  }\n}"
     }
   ]
 }

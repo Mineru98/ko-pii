@@ -38,11 +38,27 @@ _INVISIBLE = re.compile(
 # \uACB0\uD569\uD45C\uC2DC(nonspacing marks) \u2014 \uC22B\uC790 \uC0AC\uC774\uC5D0 \uB07C\uBA74 PII \uB97C \uCABC\uAC1C\uB294 \uC6B0\uD68C. \uD074\uB7EC\uC2A4\uD130 NFKC
 # \uB2E8\uACC4\uC5D0\uC11C \uBB38\uC790\uC5D4 \uBCF4\uC874(\u00E9)\u00B7\uC22B\uC790\uC5D4 \uC81C\uAC70. fast-path \uAC00 \uACB0\uD569\uD45C\uC2DC \uD14D\uC2A4\uD2B8(\uC774\uBBF8 NFKC \uB77C\uB3C4)\uB97C
 # \uAC74\uB108\uB6F0\uC9C0 \uC54A\uB3C4\uB85D \uBCC4\uB3C4 \uAC80\uC0AC\uD55C\uB2E4.
-_COMBINING = re.compile(
-    r"[\u0300-\u036F\u0483-\u0489\u0591-\u05BD\u0610-\u061A"
-    r"\u064B-\u065F\u0670\u06D6-\u06DC\u1AB0-\u1AFF\u1DC0-\u1DFF"
-    r"\u20D0-\u20FF\uFE20-\uFE2F]"
-)
+def _build_combining_re() -> "re.Pattern[str]":
+    """결합 클래스(ccc != 0) 코드 포인트 전체의 문자 클래스.
+
+    빠른 경로 판정을 느린 경로(``unicodedata.combining``)와 같은 기준으로 맞춘다.
+    손으로 나열한 BMP 범위만 보던 때는 아스트랄 결합표시(U+1D165 등)를 숫자 사이에
+    끼우면 빠른 경로로 빠져 PII 가 검출되지 않았다. 결합표시는 BMP·SMP 에만 있으므로
+    미할당 평면(3~13)은 건너뛴다 (import 비용 절감).
+    """
+    parts: list[str] = []
+    start = -1
+    for cp in range(0x30000):
+        if unicodedata.combining(chr(cp)):
+            if start < 0:
+                start = cp
+        elif start >= 0:
+            parts.append(f"{chr(start)}-{chr(cp - 1)}" if cp - 1 > start else chr(start))
+            start = -1
+    return re.compile("[" + "".join(re.escape(x) if len(x) == 1 else x for x in parts) + "]")
+
+
+_COMBINING = _build_combining_re()
 
 # \uBE44ASCII \uC22B\uC790 \u2192 ASCII \uC22B\uC790 \uD3F4\uB529. NFKC \uB294 \uC774\uB4E4\uC744 \uD3B4\uC9C0 \uC54A\uC73C\uBBC0\uB85C(\uC815\uADDC\uD615) \uC9C1\uC811 \uB9E4\uD551\uD55C\uB2E4.
 # \uC8FC\uBBFC/\uC0AC\uC5C5\uC790/\uCE74\uB4DC \uBC88\uD638\uB97C Arabic-Indic \uC22B\uC790\uB85C \uC801\uC740 \uAC80\uCD9C \uC6B0\uD68C\uB97C \uCC28\uB2E8. 1:1 \uCE58\uD658\uC774\uB77C

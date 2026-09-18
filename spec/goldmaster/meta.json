@@ -48,6 +48,9 @@
     "doc_id_gov",
     "personal_attrs",
     "empty",
-    "whitespace"
+    "whitespace",
+    "field_label_suffix_overlap",
+    "astral_math_digits",
+    "astral_combining_split"
   ]
 }

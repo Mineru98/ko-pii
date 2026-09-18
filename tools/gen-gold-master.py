@@ -93,6 +93,14 @@ FIXTURES: list[dict[str, str]] = [
     {"id": "personal_attrs", "text": "학력: 서울대학교 졸업, 전공: 컴퓨터공학과, 직책: 팀장, 나이 35세, 신장 175cm, 체중 70kg"},
     {"id": "empty", "text": ""},
     {"id": "whitespace", "text": "   \n\t  "},
+    # 접미가 겹치는 필드 라벨(평가자/피평가자) — evidence 는 가장 긴 라벨로 결정적이어야 한다.
+    {"id": "field_label_suffix_overlap", "text": "피평가자: 윤하늘\n직급: 차장"},
+    # 아스트랄 수학 숫자(U+1D7CE~) — 코드 포인트 단위 폴딩 + offset 역매핑.
+    {"id": "astral_math_digits", "text": "주민 " + "".join(
+        chr(0x1D7CE + int(c)) if c.isdigit() else c for c in "900101-1234567"
+    ) + " 확인"},
+    # 아스트랄 결합표시(U+1D165)로 숫자열 분할 — 빠른 경로로 새지 않아야 한다.
+    {"id": "astral_combining_split", "text": "값 8" + chr(0x1D165) + "80101-1234568 확인"},
 ]
 
 
