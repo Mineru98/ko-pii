@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ko-pii 실시간 PII 비교 데모</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 16px; color: #222; }
+      blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid #ddd; color: #555; }
+      .row { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+      .col { flex: 1; min-width: 260px; }
+      .col.wide { flex: 2; }
+      label.block { display: block; font-size: 0.85em; color: #555; margin-bottom: 4px; }
+      textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
+      fieldset { border: 1px solid #ddd; border-radius: 8px; margin: 0 0 8px; }
+      fieldset label, .check { display: inline-block; margin: 2px 8px 2px 0; }
+      .check { display: block; }
+      button.primary { width: 100%; margin-top: 8px; padding: 12px; font-size: 1.1em; border: 0; border-radius: 8px; background: #e67e22; color: #fff; cursor: pointer; }
+      details { border: 1px solid #ddd; border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; }
+      .examples button { display: block; width: 100%; text-align: left; margin: 4px 0; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    </style>
+  </head>
+  <body>
+    <h1>ko-pii 실시간 PII 비교 데모</h1>
+    <p>
+      한국어 문서의 개인정보를 검출하고 비교합니다.
+      <a href="https://github.com/modak000/ko-pii">GitHub</a> ·
+      <a href="https://pypi.org/project/ko-pii/">PyPI</a>
+    </p>
+    <blockquote>
+      ML 없이 룰+체크섬+사전만으로 동작하는 ko-pii와 openai/privacy-filter(660M ML), Microsoft
+      Presidio를 나란히 비교합니다.
+    </blockquote>
+
+    <div class="row">
+      <div class="col wide">
+        <label class="block" for="text-input">텍스트 입력</label>
+        <textarea id="text-input" rows="8" placeholder="개인정보가 포함된 한국어 텍스트를 입력하세요..."></textarea>
+      </div>
+      <div class="col">
+        <fieldset id="mode"><legend>가명화 모드</legend></fieldset>
+        <label class="check"><input type="checkbox" id="show-openai" /> openai/privacy-filter 비교</label>
+        <label class="check"><input type="checkbox" id="show-presidio" /> Microsoft Presidio 비교</label>
+        <button class="primary" id="run" type="button">검출</button>
+      </div>
+    </div>
+
+    <div class="row"><div class="col"><label class="block">ko-pii (룰 기반)</label><div id="kpii-out"></div></div></div>
+    <div class="row">
+      <div class="col"><label class="block">openai/privacy-filter</label><div id="openai-out"></div></div>
+      <div class="col"><label class="block">Presidio</label><div id="presidio-out"></div></div>
+    </div>
+
+    <details>
+      <summary>가명화 결과</summary>
+      <label class="block" for="anon-out">가명화된 텍스트</label>
+      <textarea id="anon-out" rows="8" readonly></textarea>
+    </details>
+
+    <div class="examples">
+      <label class="block">예시 텍스트</label>
+      <div id="examples"></div>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

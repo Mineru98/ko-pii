@@ -1,0 +1,15 @@
+{
+  "name": "ko-pii-demo-web",
+  "private": true,
+  "type": "module",
+  "description": "demo/app.py 의 브라우저판 — ko-pii TS 라이브러리 기반. 도구는 src/ts/node_modules 를 쓴다 (먼저 src/ts 에서 npm install).",
+  "scripts": {
+    "dev": "../../src/ts/node_modules/.bin/vite --config vite.config.mjs",
+    "build": "../../src/ts/node_modules/.bin/vite build --config vite.config.mjs",
+    "preview": "../../src/ts/node_modules/.bin/vite preview --config vite.config.mjs --port 5173",
+    "typecheck": "../../src/ts/node_modules/.bin/tsc -p tsconfig.json --noEmit",
+    "parity:gen": "../../.venv/bin/python parity/gen_reference.py",
+    "parity": "../../src/ts/node_modules/.bin/tsx parity/check.ts",
+    "parity:browser": "node parity/browser.mjs"
+  }
+}
