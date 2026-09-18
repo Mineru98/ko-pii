@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-09-02
+
 ### Added
 
 - SQL 정책 컴파일용 `classify_schema_columns()`를 추가했습니다. 기존 표 처리의 부분 문자열
@@ -13,6 +15,15 @@
   추가했습니다.
 - 신뢰하지 않는 문서의 파일·ZIP 멤버·압축 해제량·압축률·XML DTD·엔티티·추출 문자 수를
   제한하고 콘텐츠 없는 provenance를 반환하는 `read_text_bounded()`를 추가했습니다.
+- 전송 조각 사이에 나뉜 식별자를 놓치지 않도록 원문을 먼저 내보내지 않고 bounded buffer에서
+  완성한 뒤 한 번에 가명화하는 `PreForwardAnonymizer`를 추가했습니다.
+- TypeScript 포트(`src/ts`)를 npm 패키지 `ko-pii`로 게시했습니다 (Node 20+, ESM·CJS 듀얼).
+  검출 엔진·가명화 6전략·Vault·파일 I/O·CLI·MCP 서버를 포함하며, Python이 생성한 골드 마스터
+  벡터로 검출 span·가명화 출력·Vault 바이트를 대조합니다. `PreForwardAnonymizer`도 같은
+  동작으로 포함하고, 버퍼 길이는 Python `len()`과 같게 코드 포인트로 셉니다.
+- npm 배포용 타르볼을 만들고 검증하는 `npm run package`(`src/ts/tools/package.mjs`)를
+  추가했습니다. 게이트 → 빌드 → `npm pack` → 내용 검증 → 설치 스모크까지 수행하고 게시는
+  하지 않습니다.
 
 ### Documentation
 
@@ -20,6 +31,8 @@
 - 폐기된 자기 주입 벤치마크의 “운영 가능” 주장을 제거하고, 공개 측정값을 분포별 참고
   근거로 제한하는 도메인 승격 기준으로 교체했습니다.
 - 데이터셋과 조건을 생략한 “정확도 1위” 표현을 제거했습니다.
+- README(한국어·영문)에 TypeScript 설치·빠른 시작·API·MCP 서버와 Python/TypeScript 패리티
+  표를 추가하고, `src/ts/README.md`를 npm 페이지용 사용자 문서로 개편했습니다.
 
 ## [1.15.4] - 2026-07-28
 
