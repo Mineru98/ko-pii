@@ -4,11 +4,13 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/ko-pii.svg)](https://pypi.org/project/ko-pii/)
+[![Node 20+](https://img.shields.io/badge/node-20%2B-339933.svg)](https://nodejs.org/)
+[![npm](https://img.shields.io/npm/v/ko-pii.svg)](https://www.npmjs.com/package/ko-pii)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Demo](https://img.shields.io/badge/demo-HuggingFace-yellow.svg)](https://huggingface.co/spaces/modak000/ko-pii-demo)
 [![Software: Stable](https://img.shields.io/badge/software-stable-1f6f43)](CHANGELOG.md)
 
-**한국어 문서의 개인정보를 검출하고 가역적으로 가명화하는 Python 라이브러리.** 외부 ML 의존성 없이 룰 + 사전 + 체크섬만으로 동작. 공공 문서에서 특히 강하며, 어떤 ML 파이프라인의 전처리 레이어로도 활용 가능.
+**한국어 문서의 개인정보를 검출하고 가역적으로 가명화하는 Python · TypeScript 라이브러리.** 외부 ML 의존성 없이 룰 + 사전 + 체크섬만으로 동작. 공공 문서에서 특히 강하며, 어떤 ML 파이프라인의 전처리 레이어로도 활용 가능.
 
 > **공개 측정값은 제품 자격증명이 아니라 분포별 참고 근거입니다.** KDPII 대화체
 > 4,891건에서 F1 0.66, 행정·서식형 생성 평가셋 540건에서 F1 0.79를 기록했습니다.
@@ -41,6 +43,21 @@ print(result.text)
 
 print(result.vault.reveal("<RRN_1>"))            # 880101-1234568 (권한자만 복원)
 print(result.combined_risk.combined_risk.name)   # CRITICAL
+```
+
+TypeScript(Node 20+)도 같은 입력에 같은 결과를 냅니다 — Python 이 생성한 골드 마스터 벡터로 검출 span·가명화 출력·Vault 바이트까지 대조합니다 ([다중 언어 구현](#다중-언어-구현-python--typescript)).
+
+```ts
+import { Anonymizer, ProcessingMode, RiskLevel } from "ko-pii";
+
+const result = new Anonymizer(ProcessingMode.STRICT, "tokenize").process(
+  "신청인 홍길동 (880101-1234568) 연락처 010-1234-5678",
+);
+console.log(result.text);
+// 신청인 <PERSON_1> (<RRN_1>) 연락처 <PHONE_1>
+
+console.log(result.vault?.reveal("<RRN_1>"));                  // 880101-1234568
+console.log(RiskLevel[result.combined_risk!.combined_risk]);   // CRITICAL
 ```
 
 ### 가명화 전후 비교
@@ -93,7 +110,8 @@ redact (카테고리명 치환):
 10. [부가 기능](#부가-기능)
 11. [FAQ](#faq)
 12. [개발](#개발)
-13. [라이선스](#라이선스)
+13. [다중 언어 구현 (Python + TypeScript)](#다중-언어-구현-python--typescript)
+14. [라이선스](#라이선스)
 
 ---
 
@@ -117,7 +135,7 @@ ko-pii 는 RAG 의 **인제스트(벡터 DB 진입 전)와 검색(LLM 전달 전
 - **결정적 검출** — 룰 + 사전 + 체크섬. 주민등록번호·카드·사업자번호 등 형식 유효
   식별자를 같은 정책으로 재현 가능하게 검증
 - **우회 차단** — 전각 숫자(`０１０`)·제로폭 문자 삽입 등 유니코드 우회를 정규화로 무력화 (검출 offset 은 원본 보존)
-- **외부 의존성 없음** — Python 표준 라이브러리만 사용. 오프라인/폐쇄망 동작, GPU 불필요
+- **외부 의존성 없음** — Python 은 표준 라이브러리만, TypeScript 는 코어 런타임 의존성 0 (파일 파서는 `ko-pii/io` 서브패스로 분리). 오프라인/폐쇄망 동작, GPU 불필요
 - **전처리 레이어** — `DetectionResult` (label/start/end/text/confidence) 표준 객체 출력. ML 파이프라인 앞단에 끼워넣기 편함
 - **가역 가명화 + Vault** — 토큰 ↔ 원본 매핑을 별도 저장소에 분리, 복원 가능
 - **법적 근거 자동 부착** — 각 검출에 개인정보보호법 조항 자동 부착 (감사 추적)
@@ -162,6 +180,18 @@ pip install "ko-pii[security]"   # Vault AES-256-GCM
 ```
 
 **Python 3.10 이상.** 코어는 표준 라이브러리만 사용.
+
+TypeScript / Node.js:
+
+```bash
+npm install ko-pii
+```
+
+**Node 20 이상.** ESM·CJS 듀얼 패키지 + 타입 선언 포함. 파일 파서(HWP/HWPX/DOCX/XLSX/PDF)와 Vault 암호화(AES-256-GCM, `node:crypto`)는 extras 없이 기본 포함입니다. MCP 서버를 쓸 때만 선택 peer 를 추가합니다:
+
+```bash
+npm install @modelcontextprotocol/sdk zod   # ko-pii-mcp-server / "ko-pii/mcp" 사용 시
+```
 
 ---
 
@@ -291,6 +321,8 @@ KPII_VAULT_PASSWORD=secret ko-pii doc.hwp \
     --vault vault.kvault --audit-log audit.jsonl
 ```
 
+`npm install -g ko-pii`(또는 `npx ko-pii`)로 설치한 TypeScript CLI 도 같은 옵션·출력·종료 코드를 씁니다 (Python CLI 와 E2E 34케이스 동일).
+
 ### Python API
 
 ```python
@@ -303,6 +335,64 @@ print(result.text)                       # 가명화된 텍스트
 print(result.vault.reveal("<RRN_1>"))    # 원본 복원 (권한자만)
 print(result.summary["by_label"])        # {"RRN": 1, "PHONE": 1, "PERSON": 1}
 ```
+
+### TypeScript API
+
+Python 공개 API 와 1:1 대응입니다. 함수·메서드는 camelCase(`detectAll`, `reviewItems`), 생성자 인자는 위치 인자(`mode, strategy, vault, include, exclude, ...`)이고, 직렬화되는 결과 필드(`combined_risk`, `summary.by_label`, `legal_basis`)는 Python JSON 과 호환되도록 snake_case 를 유지합니다.
+
+```ts
+import { Anonymizer, ProcessingMode, detectAll, reviewItems, saveEncrypted } from "ko-pii";
+import { readText } from "ko-pii/io";                 // HWP/HWPX/DOCX/XLSX/PDF/CSV/TXT (비동기)
+import { anonymizeRecords } from "ko-pii/tabular";
+
+const anon = new Anonymizer(ProcessingMode.STRICT, "tokenize");
+const result = anon.process(await readText("notice.hwpx"));
+
+console.log(result.text);                        // 가명화된 텍스트
+console.log(result.summary.by_label);            // { RRN: 1, PHONE: 1, PERSON: 1 }
+console.log(reviewItems(result));                // confidence 낮아 REVIEW 분류된 검출
+saveEncrypted(result.vault!, "vault.kvault", process.env.KPII_VAULT_PASSWORD!);  // Python 과 상호 복호화 가능
+
+for (const d of detectAll("신청인 880101-1234568")) {
+  console.log(d.label, d.text, d.confidence, d.legal_basis);
+}
+// RRN 880101-1234568 1 개인정보보호법 제24조의2
+
+const [rows, vault] = anonymizeRecords(
+  [{ 성명: "홍길동", 주민번호: "880101-1234568" }],
+  { strategy: "tokenize" },
+);
+// [{ 성명: "<PERSON_1>", 주민번호: "<RRN_1>" }]
+```
+
+| 서브패스 | 내용 (대응 Python 모듈) |
+|---|---|
+| `ko-pii` | `Anonymizer` · `detectAll` · `ReversibleVault` · `AuditLog` · 암호화 Vault · `k_anonymity` · `score_combined_risk` |
+| `ko-pii/io` | 파일 파서 + `readTextBounded` / `FileReadPolicy` (`ko_pii.io_`) |
+| `ko-pii/tabular` | `anonymizeRecords` · `mapColumns` · `classifySchemaColumns` (`ko_pii.tabular`) |
+| `ko-pii/batch` | 디렉토리 일괄·병렬 처리 (`ko_pii.batch`) |
+| `ko-pii/review` · `ko-pii/reporting` · `ko-pii/legal` · `ko-pii/generalization` | 검토 큐 · HTML 리포트 · 법령 근거 · 일반화 |
+| `ko-pii/mcp` | MCP 서버 빌더 (`buildMcpServer`) |
+| `ko-pii/eval` | KDPII·KLUE 벤치마크 하니스 |
+
+> **오프셋 단위:** TypeScript 의 `start`/`end` 는 UTF-16 코드 유닛, Python 은 코드 포인트입니다. 이모지 등 BMP 밖 문자가 없으면 수치가 같고, 양쪽 모두 `text.slice(start, end) === detection.text` 가 성립합니다.
+
+### MCP 서버
+
+`detect_pii` · `anonymize` · `reveal` · `combined_risk` 4개 도구를 stdio MCP 서버로 제공합니다. Python(`pip install "ko-pii[mcp]"`)과 TypeScript 모두 `ko-pii-mcp-server` 명령이며 도구 출력은 바이트 단위로 같습니다.
+
+```json
+{
+  "mcpServers": {
+    "ko-pii": {
+      "command": "npx",
+      "args": ["-y", "-p", "ko-pii", "-p", "@modelcontextprotocol/sdk", "-p", "zod", "ko-pii-mcp-server"]
+    }
+  }
+}
+```
+
+> npm 판은 MCP SDK 와 zod 가 선택 peer 라 자동 설치되지 않습니다 — 위처럼 `-p` 로 함께 지정하거나 프로젝트에 직접 설치하세요.
 
 ### 결합 위험도 + k-익명성
 
@@ -545,6 +635,8 @@ for r in detect("신청인 880101-1234568"):
 | XLSX | stdlib (`zipfile` + `xml`) | sharedStrings + sheet XML |
 | PDF | [pdfplumber](https://pypi.org/project/pdfplumber/) (우선) / [pypdf](https://pypi.org/project/pypdf/) (fallback) | 텍스트 레이어만 추출 (스캔 PDF는 OCR 필요) |
 
+TypeScript `ko-pii/io` 는 같은 포맷을 [cfb](https://www.npmjs.com/package/cfb)(HWP OLE) · [fast-xml-parser](https://www.npmjs.com/package/fast-xml-parser)(HWPX/DOCX/XLSX, ZIP 은 자체 파서) · [unpdf](https://www.npmjs.com/package/unpdf)(PDF) · [iconv-lite](https://www.npmjs.com/package/iconv-lite)(cp949)로 읽으며, 추출 결과는 Python 골드 벡터 10 포맷과 일치합니다.
+
 > **PDF 참고:** PDF는 글자 좌표 기반이라 칸별 공백·줄바꿈 삽입이 흔합니다. ko-pii는 내장 정규화 엔진(`text_normalizer`)으로 PII 패턴 중간의 불필요 공백/줄바꿈을 자동 보정합니다. pdfplumber가 pypdf보다 레이아웃 분석이 우수하므로 pdfplumber 설치를 권장합니다.
 
 신뢰하지 않는 RAG 문서를 처리할 때는 일반 `read_text()` 대신 파일 크기, ZIP 멤버 수,
@@ -681,17 +773,39 @@ pip install -e ".[dev]"
 pytest    # 전체 테스트 통과
 ```
 
+TypeScript:
+
+```bash
+cd src/ts
+npm install
+npm test             # vitest (골드 마스터 회귀 포함)
+npm run typecheck && npm run lint
+npm run sync:check   # 생성물·골드 벡터가 Python 원본과 동기화됐는지 검증
+npm run package      # 게이트 → 빌드 → npm pack → 타르볼 검증 → 설치 스모크 (게시는 하지 않음)
+```
+
 상세 문서: [`docs/`](docs/) 디렉토리 참조.
 
 ## 다중 언어 구현 (Python + TypeScript)
 
 ko-pii 는 하나의 라이브러리를 여러 언어로 동일하게 구현하는 polyglot monorepo 다.
-Python(`src/python/ko_pii`, PyPI)이 캐노컬 구현이고, TypeScript(`src/ts/`, npm)가 이를 재구현한다.
-두 구현의 동일성은 공유 계약으로 보장한다 — 자세한 설계는 [`ARCHITECTURE.md`](ARCHITECTURE.md) 참조.
+Python(`src/python/ko_pii`, PyPI)이 캐노니컬 구현이고, TypeScript(`src/ts/`, npm)가 이를 재구현한다.
+두 구현의 동일성은 공유 계약으로 보장한다 — 자세한 설계는 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
+포팅 규칙은 [`src/ts/PORTING.md`](src/ts/PORTING.md) 참조.
+
+| 영역 | Python | TypeScript | 동일성 검증 |
+|---|:-:|:-:|---|
+| 검출 엔진 (33 카테고리) | ✓ | ✓ | 골드 마스터 검출 span 전부 일치 |
+| 가명화 6전략 · Vault · analytics | ✓ | ✓ | 가명화 출력·Vault JSON 일치, `.kvault` 바이트 동일 + 양방향 복호화 |
+| 파일 I/O (HWP/HWPX/DOCX/XLSX/PDF/CSV) · bounded read | ✓ | ✓ | 골드 추출 벡터 10 포맷 일치 |
+| CLI · 배치 · 검토 큐 · HTML 리포트 | ✓ | ✓ | CLI E2E 34케이스 stdout/stderr/rc 동일, HTML 리포트 바이트 동일 |
+| MCP 서버 | ✓ | ✓ | 도구 출력 바이트 동일 |
+| secondary detector 병합 (`MergeMode`, `role_split`) | ✓ | ✓ | 통합 픽스처 |
+| HF 토큰 NER 어댑터 · 문서 분류기 · LlamaIndex/LangChain 연동 | ✓ | — | torch 의존 — Python 전용 (TS 는 `SecondaryDetector` 인터페이스로 직접 주입) |
 
 - `spec/goldmaster/` — Python 이 생성한 고정 컨포먼스 벡터 (수동 편집 금지)
 - `tools/` — 다중 언어 코드젠 (사전·골드 벡터·유니코드 테이블, `--check` 게이트 지원)
-- `tests/unit/test_cross_language_sync.py` — 생성물/벡터 드리프트 가드
+- `src/python/tests/unit/test_cross_language_sync.py` — 생성물/벡터 드리프트 가드
 
 동작·데이터 변경은 항상 Python 을 먼저 수정하고 재생성 → diff 리뷰 → 각 언어 정렬 순서로 진행한다.
 
