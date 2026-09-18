@@ -8,3 +8,11 @@ export class ValueError extends Error {
     this.name = "ValueError";
   }
 }
+
+/** Python ``IndexError`` 대응 (예: ``"abc"[5]`` → ``IndexError: string index out of range``). */
+export class IndexError extends Error {
+  constructor(message?: string) {
+    super(message);
+    this.name = "IndexError";
+  }
+}

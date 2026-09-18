@@ -11,8 +11,15 @@
  * (``x * 10**digits`` 로 판정하면 8.345 같은 비-tie 가 곱셈 반올림으로 tie 처럼 보인다.)
  */
 export function pyFormatFixed(x: number, digits: number): string {
+  if (Number.isNaN(x)) return "nan";
+  if (!Number.isFinite(x)) return x > 0 ? "inf" : "-inf";
+  const zeros = digits > 0 ? `.${"0".repeat(digits)}` : "";
+  // -0.0: Python 은 부호를 보존한다("-0.00"), toFixed 는 버린다.
+  if (Object.is(x, -0)) return `-0${zeros}`;
+  // |x| >= 1e21: toFixed 는 지수 표기로 넘어간다. 이 크기의 double 은 정수이므로 BigInt 로 편다.
+  if (Math.abs(x) >= 1e21) return `${BigInt(x).toString()}${zeros}`;
   const fixed = x.toFixed(digits);
-  if (!Number.isFinite(x) || digits < 1) return fixed;
+  // tie 판정은 digits=0 에도 적용된다 (0.5 → "0", 2.5 → "2").
   const dyadic = x * 2 ** (digits + 1);
   if (!Number.isInteger(dyadic) || dyadic % 2 === 0) return fixed;
   // tie: toFixed 는 절댓값이 큰 쪽을 골랐다. 마지막 자릿수가 홀수면 한 단계 내린 쪽이

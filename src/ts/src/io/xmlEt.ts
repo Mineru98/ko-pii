@@ -265,8 +265,11 @@ function assertExpatWellFormed(xml: string): void {
 
 /** XML 문자열 파싱 — ET.fromstring 대응. 실패 시 XmlParseError. */
 export function parseXmlFromString(source: string): XmlElement {
+  // 선언 위치 등은 *원문* 기준으로도 본다 — DOCTYPE 을 잘라낸 뒤에만 검사하면
+  // `<!DOCTYPE…><?xml …?><root>` (expat: 선언이 맨 앞이 아님) 가 통과해 버린다.
+  assertExpatWellFormed(source);
   const xml = expandInternalEntities(source);
-  assertExpatWellFormed(xml);
+  if (xml !== source) assertExpatWellFormed(xml);
   const verdict = XMLValidator.validate(xml);
   if (verdict !== true) {
     const err = verdict as { err?: { msg?: string } };
@@ -304,8 +307,60 @@ function sniffUtf16(b: Uint8Array): "utf-16le" | "utf-16be" | null {
 // 내부 일반 엔티티 (<!DOCTYPE d [<!ENTITY e "…">]>) — ET(expat) 는 확장한다
 // ---------------------------------------------------------------------------
 
-/** 확장 결과 상한 — expat 의 billion-laughs 방어(증폭 한도)에 대응하는 안전장치. */
-const MAX_ENTITY_EXPANSION_CHARS = 8 * 1024 * 1024;
+// expat(2.4+) 의 billion-laughs 방어 — Python 3.12 / expat 2.7.3 실측으로 확인한 규칙:
+//   direct   = 입력 문서 바이트 수
+//   indirect = 엔티티를 펼치며 expat 이 *처리한* 대체 텍스트 바이트의 합 (출력 길이가 아니다 —
+//              값이 "" 인 엔티티를 10배씩 참조하는 폭탄도 처리량으로 잡힌다)
+//   direct+indirect 가 활성화 임계(8MiB)를 넘고 (direct+indirect)/direct 가 100 을 넘으면 ParseError.
+const AMPLIFICATION_ACTIVATION_BYTES = 8 * 1024 * 1024;
+const AMPLIFICATION_MAX_FACTOR = 100;
+
+type EntitySegment = string | { ref: string };
+
+/** 텍스트를 리터럴 조각과 (선언된) 엔티티 참조로 나눈다. 주석·CDATA·PI 안의 '&' 는 참조가 아니다. */
+function splitEntityRefs(text: string, entities: ReadonlyMap<string, string>): EntitySegment[] {
+  const segments: EntitySegment[] = [];
+  let literalStart = 0;
+  let i = 0;
+  const n = text.length;
+  let amp = -1;
+  let lt = -1;
+  while (i < n) {
+    // 앞선 탐색 결과가 아직 유효하면 다시 훑지 않는다 (태그가 많은 문서에서 이차 시간 방지)
+    if (amp < i) amp = text.indexOf("&", i);
+    if (amp < 0) break;
+    if (lt >= 0 && lt < i) lt = text.indexOf("<", i);
+    else if (lt < 0 && i === 0) lt = text.indexOf("<");
+    if (lt >= 0 && lt < amp) {
+      let stop = lt + 1;
+      for (const [open, close] of [
+        ["<!--", "-->"],
+        ["<![CDATA[", "]]>"],
+        ["<?", "?>"],
+      ] as const) {
+        if (text.startsWith(open, lt)) {
+          const closeAt = text.indexOf(close, lt + open.length);
+          stop = closeAt < 0 ? n : closeAt + close.length;
+          break;
+        }
+      }
+      i = stop;
+      continue;
+    }
+    const semi = text.indexOf(";", amp + 1);
+    const name = semi < 0 ? "" : text.slice(amp + 1, semi);
+    if (name === "" || /[#&\s<]/.test(name) || name in NAMED_ENTITIES || !entities.has(name)) {
+      i = amp + 1;
+      continue;
+    }
+    if (amp > literalStart) segments.push(text.slice(literalStart, amp));
+    segments.push({ ref: name });
+    i = semi + 1;
+    literalStart = i;
+  }
+  if (literalStart < n) segments.push(text.slice(literalStart));
+  return segments;
+}
 
 /** 엔티티 값 리터럴의 숫자 문자 참조는 선언 시점에 풀린다 (XML 4.5). 일반 참조는 그대로 둔다. */
 function normalizeEntityValue(value: string): string {
@@ -365,47 +420,69 @@ function expandInternalEntities(xml: string): string {
 
   const body = xml.slice(0, start) + xml.slice(end + 1);
   if (entities.size === 0) return body;
-  let budget = MAX_ENTITY_EXPANSION_CHARS;
-  const expand = (text: string, stack: readonly string[]): string => {
-    let out = "";
-    let i = 0;
-    while (i < text.length) {
-      // 주석·CDATA·PI 안의 '&' 는 참조가 아니다
-      let skipped = false;
-      for (const [open, close] of [
-        ["<!--", "-->"],
-        ["<![CDATA[", "]]>"],
-        ["<?", "?>"],
-      ] as const) {
-        if (text.startsWith(open, i)) {
-          const closeAt = text.indexOf(close, i + open.length);
-          const stop = closeAt < 0 ? text.length : closeAt + close.length;
-          out += text.slice(i, stop);
-          i = stop;
-          skipped = true;
-          break;
-        }
-      }
-      if (skipped) continue;
-      const m = text[i] === "&" ? /^&([^#;&\s<]+);/.exec(text.slice(i, i + 256)) : null;
-      const name = m?.[1];
-      const value =
-        name !== undefined && !(name in NAMED_ENTITIES) ? entities.get(name) : undefined;
-      if (m === null || name === undefined || value === undefined) {
-        out += text[i];
-        i += 1;
+  const bodySegments = splitEntityRefs(body, entities);
+  if (bodySegments.every((seg) => typeof seg === "string")) return body;
+
+  // 1) 본문에서 도달 가능한 엔티티를 명시 스택 DFS 로 후위 순회 — 재귀 없음(수만 단 체인도
+  //    Python 처럼 결과를 낸다), 순환은 방문 상태로 검출, 엔티티마다 한 번만 방문(메모이즈).
+  const segmentsOf = new Map<string, EntitySegment[]>();
+  const state = new Map<string, 1 | 2>(); // 1 = 펼치는 중, 2 = 완료
+  const postOrder: string[] = [];
+  const refsOf = (segs: EntitySegment[]): string[] =>
+    segs.flatMap((seg) => (typeof seg === "string" ? [] : [seg.ref]));
+  for (const root of refsOf(bodySegments)) {
+    if (state.has(root)) continue;
+    const work: Array<{ name: string; refs: string[]; next: number }> = [];
+    const enter = (name: string): void => {
+      const segs = splitEntityRefs(entities.get(name) ?? "", entities);
+      segmentsOf.set(name, segs);
+      state.set(name, 1);
+      work.push({ name, refs: refsOf(segs), next: 0 });
+    };
+    enter(root);
+    while (work.length > 0) {
+      const top = work[work.length - 1];
+      if (top === undefined) break;
+      if (top.next >= top.refs.length) {
+        state.set(top.name, 2);
+        postOrder.push(top.name);
+        work.pop();
         continue;
       }
-      if (stack.includes(name)) throw new XmlParseError("recursive entity reference");
-      const expanded = expand(value, [...stack, name]);
-      budget -= expanded.length;
-      if (budget < 0) throw new XmlParseError("limit on input amplification factor breached");
-      out += expanded;
-      i += m[0].length;
+      const child = top.refs[top.next] ?? "";
+      top.next += 1;
+      const childState = state.get(child);
+      if (childState === 1) throw new XmlParseError("recursive entity reference");
+      if (childState === undefined) enter(child);
     }
-    return out;
-  };
-  return expand(body, []);
+  }
+
+  // 2) 엔티티별 처리 바이트(cost) — 자기 값 + 참조한 엔티티들의 cost. 문자열을 만들기 *전에*
+  //    증폭 한도를 판정하므로 폭탄은 메모리·시간을 쓰기 전에 거부된다.
+  const cost = new Map<string, number>();
+  for (const name of postOrder) {
+    let bytes = Buffer.byteLength(entities.get(name) ?? "", "utf-8");
+    for (const ref of refsOf(segmentsOf.get(name) ?? [])) bytes += cost.get(ref) ?? 0;
+    cost.set(name, bytes);
+  }
+  const direct = Buffer.byteLength(xml, "utf-8");
+  let indirect = 0;
+  for (const ref of refsOf(bodySegments)) {
+    indirect += cost.get(ref) ?? 0;
+    const total = direct + indirect;
+    if (total > AMPLIFICATION_ACTIVATION_BYTES && total / direct > AMPLIFICATION_MAX_FACTOR) {
+      throw new XmlParseError(
+        "limit on input amplification factor (from DTD and entities) breached",
+      );
+    }
+  }
+
+  // 3) 한도 안이면 후위 순서로 한 번씩만 펼친다 (결과 크기 ≤ indirect).
+  const expanded = new Map<string, string>();
+  const join = (segs: EntitySegment[]): string =>
+    segs.map((seg) => (typeof seg === "string" ? seg : (expanded.get(seg.ref) ?? ""))).join("");
+  for (const name of postOrder) expanded.set(name, join(segmentsOf.get(name) ?? []));
+  return join(bodySegments);
 }
 
 // ---------------------------------------------------------------------------

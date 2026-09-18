@@ -14,6 +14,7 @@
  */
 
 import { pyIsAlpha } from "../core/strUtils.js";
+import { foldNdDigits } from "../modes/unicodeDigits.js";
 import { setField } from "./recordOrder.js";
 import type { XmlElement } from "./xmlEt.js";
 import { iterElements, parseXmlBytes, XmlParseError } from "./xmlEt.js";
@@ -86,23 +87,13 @@ function pyStrip(s: string): string {
   return s.replace(PY_STRIP, "");
 }
 
-/** 유니코드 십진 숫자(Nd) 한 글자의 값 — Nd 블록은 0~9 가 연속 배치된다. */
-function decimalDigitValue(ch: string): number {
-  const cp = ch.codePointAt(0) ?? 0;
-  let zero = cp;
-  // 같은 블록의 '0' 을 찾는다: 앞 글자가 Nd 가 아닐 때까지 (최대 9칸) 거슬러 올라간다.
-  for (let k = 0; k < 9 && /^\p{Nd}$/u.test(String.fromCodePoint(zero - 1)); k++) zero -= 1;
-  return cp - zero;
-}
-
 /** Python `int(text)` (10진) — 실패(ValueError) 시 null. */
 function pyParseInt(text: string): number | null {
   const m = /^([+-]?)(\p{Nd}+(?:_\p{Nd}+)*)$/u.exec(pyStrip(text));
   if (m === null) return null;
-  let value = 0;
-  for (const ch of m[2]!) {
-    if (ch !== "_") value = value * 10 + decimalDigitValue(ch);
-  }
+  // Nd 자릿값은 공용 구현(modes/unicodeDigits)을 쓴다 — 수학 숫자(U+1D7CE~)처럼 10개 묶음이
+  // 연달아 붙은 블록을 직접 세면 값이 틀어진다.
+  const value = Number(foldNdDigits((m[2] ?? "").replaceAll("_", "")));
   return m[1] === "-" ? -value : value;
 }
 

@@ -211,7 +211,9 @@ function validateSignature(buf: Buffer, extension: string): void {
 
 function safeArchiveName(name: string): string {
   const normalized = name.replaceAll("\\", "/");
-  const parts = normalized.split("/");
+  // Python `PurePosixPath(name).parts` — 빈 조각과 "." 조각은 버려진다. 그래서 "./c:evil" 의
+  // 첫 조각은 "." 이 아니라 "c:evil" 이다.
+  const parts = normalized.split("/").filter((part) => part !== "" && part !== ".");
   const isAbsolute = normalized.startsWith("/");
   if (
     !normalized ||
