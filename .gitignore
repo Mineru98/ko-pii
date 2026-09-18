@@ -60,3 +60,5 @@ experiments/
 .om*
 .gjc
 .zcode
+
+node_modules
