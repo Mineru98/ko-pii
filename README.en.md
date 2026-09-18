@@ -7,7 +7,7 @@
 [![Node 20+](https://img.shields.io/badge/node-20%2B-339933.svg)](https://nodejs.org/)
 [![npm](https://img.shields.io/npm/v/ko-pii.svg)](https://www.npmjs.com/package/ko-pii)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Demo](https://img.shields.io/badge/demo-HuggingFace-yellow.svg)](https://huggingface.co/spaces/modak000/ko-pii-demo)
+[![Demo](https://img.shields.io/badge/demo-HuggingFace-yellow.svg)](https://huggingface.co/spaces/Marker-Inc-Korea/ko-pii-demo)
 [![Software: Stable](https://img.shields.io/badge/software-stable-1f6f43)](CHANGELOG.md)
 
 **A Python · TypeScript library for detecting and reversibly pseudonymizing personal information (PII) in Korean documents.** Works with rules + dictionaries + checksums only, without any external ML dependency. Especially strong on public/administrative documents, and usable as a preprocessing layer in front of any ML pipeline.

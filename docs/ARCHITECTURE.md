@@ -52,8 +52,7 @@ ko-pii/
 │   ├── gen-gold-master.py     # 골드 벡터 생성 (--check 지원)
 │   ├── gen-io-gold.py         # I/O 골드 벡터·픽스처 생성 (olefile/pdfplumber 필요)
 │   ├── gen-unicode-tables.mjs # Python unicodedata → TS 유니코드 테이블 (--check 지원)
-│   ├── build-hwp-fixture.mjs  # HWP 5.x OLE 픽스처 조립 (gen-io-gold 보조)
-│   └── diff-detector.mjs      # Python↔TS 검출기 차등 대조 (디버그)
+│   └── build-hwp-fixture.mjs  # HWP 5.x OLE 픽스처 조립 (gen-io-gold 보조)
 ├── data/, eval/, docs/, demo/  # 평가·문서·데모 자산
 └── .github/workflows/     # 언어별 잡 + cross-language sync 게이트
 ```

@@ -142,4 +142,4 @@ PR 전 모든 테스트 통과 + 합성 코퍼스 F1=1.000 유지 확인.
 
 - 일반 질문: GitHub Discussions
 - 버그 리포트: GitHub Issues
-- 보안 취약점: 비공개로 modak000 에게 직접 (이메일 README 참조)
+- 보안 취약점: 비공개로 Marker-Inc-Korea 에게 직접 (이메일 README 참조)
