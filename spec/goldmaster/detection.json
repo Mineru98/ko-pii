@@ -1,0 +1,1063 @@
+{
+  "offset_unit": "codepoint",
+  "entries": [
+    {
+      "id": "basic_rrn_phone",
+      "text": "신청인 홍길동 (880101-1234568) 연락처 010-1234-5678",
+      "detections": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 4,
+          "end": 7,
+          "risk_level": 4,
+          "confidence": 1.0,
+          "evidence": [
+            "pos:surname(홍)",
+            "pos:field_label(신청인)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "일반개인정보",
+            "particle": null,
+            "origin": "korean"
+          }
+        },
+        {
+          "label": "RRN",
+          "text": "880101-1234568",
+          "start": 9,
+          "end": 23,
+          "risk_level": 5,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:rrn",
+            "date_valid:1988-01-01",
+            "checksum:valid"
+          ],
+          "legal_basis": "개인정보보호법 제24조의2",
+          "extra": {
+            "front": "880101",
+            "back": "1234568",
+            "birth_date": "1988-01-01",
+            "gender_digit": 1,
+            "checksum_valid": true,
+            "category": "고유식별정보"
+          }
+        },
+        {
+          "label": "PHONE",
+          "text": "010-1234-5678",
+          "start": 29,
+          "end": 42,
+          "risk_level": 4,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:phone",
+            "type:mobile"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "type": "mobile",
+            "prefix": "010",
+            "digits_only": "01012345678",
+            "international": false,
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "josa_attachment",
+      "text": "홍길동이 서울특별시 강남구 테헤란로 152로 이사했다. 김철수에게 전달 요청.",
+      "detections": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 0,
+          "end": 3,
+          "risk_level": 4,
+          "confidence": 0.9,
+          "evidence": [
+            "pos:surname(홍)",
+            "pos:particle(이)",
+            "pos:agency_in_sentence",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "일반개인정보",
+            "particle": "이",
+            "origin": "korean"
+          }
+        },
+        {
+          "label": "ADDRESS",
+          "text": "서울특별시 강남구 테헤란로 152",
+          "start": 5,
+          "end": 23,
+          "risk_level": 3,
+          "confidence": 0.8,
+          "evidence": [
+            "pattern:address_road",
+            "anchor:prefix"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "format": "road_name",
+            "city": "서울특별시",
+            "districts": "강남구",
+            "road": "테헤란로",
+            "building_number": "152",
+            "category": "일반개인정보"
+          }
+        },
+        {
+          "label": "PERSON",
+          "text": "김철수",
+          "start": 31,
+          "end": 34,
+          "risk_level": 4,
+          "confidence": 1.0,
+          "evidence": [
+            "pos:surname(김)",
+            "pos:title(이사)",
+            "pos:particle(에게)",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "일반개인정보",
+            "particle": "에게",
+            "origin": "korean"
+          }
+        }
+      ]
+    },
+    {
+      "id": "hanja_bracket",
+      "text": "성명: 홍길동(洪吉童)",
+      "detections": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 4,
+          "end": 7,
+          "risk_level": 4,
+          "confidence": 0.9500000000000001,
+          "evidence": [
+            "pos:surname(홍)",
+            "pos:field_label(성명)",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "일반개인정보",
+            "particle": null,
+            "origin": "korean"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fullwidth_digits",
+      "text": "주민번호: ８８０１０１－１２３４５６８",
+      "detections": [
+        {
+          "label": "RRN",
+          "text": "８８０１０１－１２３４５６８",
+          "start": 6,
+          "end": 20,
+          "risk_level": 5,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:rrn",
+            "date_valid:1988-01-01",
+            "checksum:valid"
+          ],
+          "legal_basis": "개인정보보호법 제24조의2",
+          "extra": {
+            "front": "880101",
+            "back": "1234568",
+            "birth_date": "1988-01-01",
+            "gender_digit": 1,
+            "checksum_valid": true,
+            "category": "고유식별정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "nfd_jamo",
+      "text": "담당자 홍길동 확인",
+      "detections": []
+    },
+    {
+      "id": "zerowidth_split",
+      "text": "880101-1​234568",
+      "detections": [
+        {
+          "label": "RRN",
+          "text": "880101-1​234568",
+          "start": 0,
+          "end": 15,
+          "risk_level": 5,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:rrn",
+            "date_valid:1988-01-01",
+            "checksum:valid"
+          ],
+          "legal_basis": "개인정보보호법 제24조의2",
+          "extra": {
+            "front": "880101",
+            "back": "1234568",
+            "birth_date": "1988-01-01",
+            "gender_digit": 1,
+            "checksum_valid": true,
+            "category": "고유식별정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "emoji_adjacent",
+      "text": "담당자 홍길동😀 010-1234-5678",
+      "detections": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 4,
+          "end": 7,
+          "risk_level": 4,
+          "confidence": 0.8500000000000001,
+          "evidence": [
+            "pos:surname(홍)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "일반개인정보",
+            "particle": null,
+            "origin": "korean"
+          }
+        },
+        {
+          "label": "PHONE",
+          "text": "010-1234-5678",
+          "start": 9,
+          "end": 22,
+          "risk_level": 4,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:phone",
+            "type:mobile"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "type": "mobile",
+            "prefix": "010",
+            "digits_only": "01012345678",
+            "international": false,
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "date_keyword_reject",
+      "text": "시행일자: 2026-05-21, 문서번호: 제2026-123호",
+      "detections": []
+    },
+    {
+      "id": "pseudonym_reject",
+      "text": "박씨와 김모씨가 참석했다.",
+      "detections": [
+        {
+          "label": "PERSON",
+          "text": "김모씨",
+          "start": 4,
+          "end": 7,
+          "risk_level": 4,
+          "confidence": 0.55,
+          "evidence": [
+            "pos:surname(김)",
+            "pos:particle(가)",
+            "pos:name_likelihood(0.05)",
+            "origin:korean"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "일반개인정보",
+            "particle": "가",
+            "origin": "korean"
+          }
+        }
+      ]
+    },
+    {
+      "id": "card_luhn",
+      "text": "카드번호 4111-1111-1111-1111",
+      "detections": [
+        {
+          "label": "CARD",
+          "text": "4111-1111-1111-1111",
+          "start": 5,
+          "end": 24,
+          "risk_level": 4,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:card",
+            "checksum:luhn_valid",
+            "brand_hint:visa"
+          ],
+          "legal_basis": "개인정보보호법 제2조; 여신전문금융업법",
+          "extra": {
+            "digits": "4111111111111111",
+            "length": 16,
+            "brand_hint": "visa",
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "email_url",
+      "text": "이메일 hong@example.com, 사이트 https://example.kr",
+      "detections": [
+        {
+          "label": "EMAIL",
+          "text": "hong@example.com",
+          "start": 4,
+          "end": 20,
+          "risk_level": 3,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:email"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "value": "hong@example.com",
+            "local": "hong",
+            "domain": "example.com",
+            "category": "일반개인정보"
+          }
+        },
+        {
+          "label": "URL",
+          "text": "https://example.kr",
+          "start": 26,
+          "end": 44,
+          "risk_level": 1,
+          "confidence": 0.9,
+          "evidence": [
+            "pattern:url"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "url": "https://example.kr",
+            "scheme": "https",
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "birth_kr",
+      "text": "생년월일 1988년 1월 1일",
+      "detections": [
+        {
+          "label": "DT_BIRTH",
+          "text": "1988년 1월 1일",
+          "start": 5,
+          "end": 16,
+          "risk_level": 4,
+          "confidence": 0.95,
+          "evidence": [
+            "pattern:birth_korean",
+            "date:1988-01-01",
+            "keyword:생년월일"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "year": 1988,
+            "month": 1,
+            "day": 1,
+            "format": "korean",
+            "category": "준식별자"
+          }
+        }
+      ]
+    },
+    {
+      "id": "address_road",
+      "text": "주소: 서울특별시 강남구 테헤란로 152, 3층",
+      "detections": [
+        {
+          "label": "ADDRESS",
+          "text": "서울특별시 강남구 테헤란로 152",
+          "start": 4,
+          "end": 22,
+          "risk_level": 3,
+          "confidence": 0.8,
+          "evidence": [
+            "pattern:address_road",
+            "anchor:prefix"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "format": "road_name",
+            "city": "서울특별시",
+            "districts": "강남구",
+            "road": "테헤란로",
+            "building_number": "152",
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "business_reg",
+      "text": "사업자등록번호 123-45-67890",
+      "detections": []
+    },
+    {
+      "id": "official_doc",
+      "text": "개인정보 처리 동의서\n성명: 홍길동\n주민등록번호: 880101-1234568\n연락처: 010-1234-5678\n주소: 서울특별시 강남구 테헤란로 152\n이메일: hong@example.com\n",
+      "detections": [
+        {
+          "label": "PERSON",
+          "text": "홍길동",
+          "start": 16,
+          "end": 19,
+          "risk_level": 4,
+          "confidence": 1.0,
+          "evidence": [
+            "pos:surname(홍)",
+            "pos:field_label(성명)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.20)",
+            "origin:korean"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "일반개인정보",
+            "particle": null,
+            "origin": "korean"
+          }
+        },
+        {
+          "label": "RRN",
+          "text": "880101-1234568",
+          "start": 28,
+          "end": 42,
+          "risk_level": 5,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:rrn",
+            "date_valid:1988-01-01",
+            "checksum:valid"
+          ],
+          "legal_basis": "개인정보보호법 제24조의2",
+          "extra": {
+            "front": "880101",
+            "back": "1234568",
+            "birth_date": "1988-01-01",
+            "gender_digit": 1,
+            "checksum_valid": true,
+            "category": "고유식별정보"
+          }
+        },
+        {
+          "label": "PHONE",
+          "text": "010-1234-5678",
+          "start": 48,
+          "end": 61,
+          "risk_level": 4,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:phone",
+            "type:mobile"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "type": "mobile",
+            "prefix": "010",
+            "digits_only": "01012345678",
+            "international": false,
+            "category": "일반개인정보"
+          }
+        },
+        {
+          "label": "ADDRESS",
+          "text": "서울특별시 강남구 테헤란로 152",
+          "start": 66,
+          "end": 84,
+          "risk_level": 3,
+          "confidence": 0.8,
+          "evidence": [
+            "pattern:address_road",
+            "anchor:prefix"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "format": "road_name",
+            "city": "서울특별시",
+            "districts": "강남구",
+            "road": "테헤란로",
+            "building_number": "152",
+            "category": "일반개인정보"
+          }
+        },
+        {
+          "label": "EMAIL",
+          "text": "hong@example.com",
+          "start": 90,
+          "end": 106,
+          "risk_level": 3,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:email"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "value": "hong@example.com",
+            "local": "hong",
+            "domain": "example.com",
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "latin_name",
+      "text": "Hong Gildong (hong@example.com)",
+      "detections": [
+        {
+          "label": "EMAIL",
+          "text": "hong@example.com",
+          "start": 14,
+          "end": 30,
+          "risk_level": 3,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:email"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "value": "hong@example.com",
+            "local": "hong",
+            "domain": "example.com",
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "passport_driver",
+      "text": "여권 M12345678, 운전면허 12-345678-90",
+      "detections": [
+        {
+          "label": "PASSPORT",
+          "text": "M12345678",
+          "start": 3,
+          "end": 12,
+          "risk_level": 5,
+          "confidence": 0.9,
+          "evidence": [
+            "pattern:passport",
+            "prefix:M",
+            "kind:general_multiple"
+          ],
+          "legal_basis": "개인정보보호법 시행령 제19조",
+          "extra": {
+            "prefix": "M",
+            "number": "12345678",
+            "kind": "general_multiple",
+            "category": "고유식별정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ip_vehicle",
+      "text": "IP 192.168.1.10, 차량번호 서울12가3456",
+      "detections": [
+        {
+          "label": "IP",
+          "text": "192.168.1.10",
+          "start": 3,
+          "end": 15,
+          "risk_level": 3,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:ipv4"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "version": 4,
+            "value": "192.168.1.10",
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "frn",
+      "text": "외국인등록번호 880101-5123456",
+      "detections": [
+        {
+          "label": "FRN",
+          "text": "880101-5123456",
+          "start": 8,
+          "end": 22,
+          "risk_level": 5,
+          "confidence": 0.7,
+          "evidence": [
+            "pattern:frn",
+            "date_valid:1988-01-01",
+            "checksum:invalid_or_post_2020"
+          ],
+          "legal_basis": "개인정보보호법 시행령 제19조; 출입국관리법 제31조",
+          "extra": {
+            "front": "880101",
+            "back": "5123456",
+            "birth_date": "1988-01-01",
+            "gender_digit": 5,
+            "checksum_valid": false,
+            "category": "고유식별정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "business_reg_valid",
+      "text": "사업자등록번호 123-45-67891 (국세청 등록)",
+      "detections": [
+        {
+          "label": "BUSINESS_REG",
+          "text": "123-45-67891",
+          "start": 8,
+          "end": 20,
+          "risk_level": 4,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:business_reg",
+            "checksum:valid"
+          ],
+          "legal_basis": "개인정보보호법 제2조 (개인사업자의 경우 개인 식별 정보)",
+          "extra": {
+            "digits": "1234567891",
+            "checksum_valid": true,
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "corp_reg",
+      "text": "법인등록번호 130111-0006246",
+      "detections": [
+        {
+          "label": "CORP_REG",
+          "text": "130111-0006246",
+          "start": 7,
+          "end": 21,
+          "risk_level": 3,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:corp_reg",
+            "checksum:valid"
+          ],
+          "legal_basis": "상법 제40조; 법인등기규칙",
+          "extra": {
+            "front": "130111",
+            "back": "0006246",
+            "digits": "1301110006246",
+            "category": "법인식별정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "driver_license_2",
+      "text": "운전면허번호: 11-123456-01",
+      "detections": []
+    },
+    {
+      "id": "medical_insurance",
+      "text": "건강보험증번호: 2-123456789-01",
+      "detections": []
+    },
+    {
+      "id": "prescription_id",
+      "text": "처방전 교부번호 20260831-123456",
+      "detections": []
+    },
+    {
+      "id": "pnu",
+      "text": "토지번호 1165010100101090000 (강남구)",
+      "detections": [
+        {
+          "label": "PERSON",
+          "text": "토지번호",
+          "start": 0,
+          "end": 4,
+          "risk_level": 4,
+          "confidence": 0.75,
+          "evidence": [
+            "pos:surname(토)",
+            "pos:deterministic_pii_nearby",
+            "pos:name_final_syllable",
+            "pos:name_likelihood(0.10)",
+            "origin:korean"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "일반개인정보",
+            "particle": null,
+            "origin": "korean"
+          }
+        },
+        {
+          "label": "PNU",
+          "text": "1165010100101090000",
+          "start": 5,
+          "end": 24,
+          "risk_level": 2,
+          "confidence": 0.9,
+          "evidence": [
+            "pattern:pnu",
+            "sido:11",
+            "parcel_type:1"
+          ],
+          "legal_basis": "공간정보의 구축 및 관리 등에 관한 법률; 개인정보보호법 제2조",
+          "extra": {
+            "category": "참조정보",
+            "sido_code": "11",
+            "sigungu_code": "650",
+            "eupmyeondong_code": "101",
+            "ri_code": "00",
+            "parcel_type": "1",
+            "bonbun": 109,
+            "bubun": 0,
+            "is_san": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "postal_code",
+      "text": "우편번호 06236, 팩스 02-1234-5678",
+      "detections": [
+        {
+          "label": "POSTAL_CODE",
+          "text": "06236",
+          "start": 5,
+          "end": 10,
+          "risk_level": 2,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:postal_code",
+            "format:5_digit",
+            "keyword:우편번호",
+            "sido_prefix:06"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "value": "06236",
+            "format": "5_digit",
+            "category": "일반개인정보"
+          }
+        },
+        {
+          "label": "PHONE",
+          "text": "02-1234-5678",
+          "start": 15,
+          "end": 27,
+          "risk_level": 3,
+          "confidence": 1.0,
+          "evidence": [
+            "pattern:phone",
+            "type:landline"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "type": "landline",
+            "prefix": "02",
+            "digits_only": "0212345678",
+            "international": false,
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vehicle_2",
+      "text": "차량: 경기45아6789",
+      "detections": []
+    },
+    {
+      "id": "nationality",
+      "text": "국적: 대한민국 (중국 국적자 제외)",
+      "detections": [
+        {
+          "label": "NATIONALITY",
+          "text": "대한민국",
+          "start": 4,
+          "end": 8,
+          "risk_level": 2,
+          "confidence": 0.7,
+          "evidence": [
+            "pattern:nationality",
+            "dict:country"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "country": "대한민국",
+            "category": "준식별자"
+          }
+        },
+        {
+          "label": "NATIONALITY",
+          "text": "중국",
+          "start": 10,
+          "end": 12,
+          "risk_level": 2,
+          "confidence": 0.7,
+          "evidence": [
+            "pattern:nationality",
+            "dict:country"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "country": "중국",
+            "category": "준식별자"
+          }
+        }
+      ]
+    },
+    {
+      "id": "account",
+      "text": "급여계좌: 신한은행 110-123-456789",
+      "detections": [
+        {
+          "label": "ACCOUNT",
+          "text": "110-123-456789",
+          "start": 11,
+          "end": 25,
+          "risk_level": 4,
+          "confidence": 0.9,
+          "evidence": [
+            "pattern:account",
+            "keyword:bank(신한은행)",
+            "position:before"
+          ],
+          "legal_basis": "개인정보보호법 제2조; 금융실명법",
+          "extra": {
+            "digits": "110123456789",
+            "length": 12,
+            "bank": "신한은행",
+            "category": "일반개인정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "edi_drug",
+      "text": "약품코드 198303432 (EDI)",
+      "detections": [
+        {
+          "label": "EDI_DRUG",
+          "text": "198303432",
+          "start": 5,
+          "end": 14,
+          "risk_level": 2,
+          "confidence": 0.85,
+          "evidence": [
+            "pattern:edi_drug",
+            "format:edi_9",
+            "keyword:약품코드"
+          ],
+          "legal_basis": "약사법 제31조; 개인정보보호법 제2조",
+          "extra": {
+            "category": "참조정보",
+            "format": "edi_9",
+            "company_id": "1983",
+            "item_id": "03432"
+          }
+        }
+      ]
+    },
+    {
+      "id": "court_case",
+      "text": "사건번호 2023가합12345",
+      "detections": [
+        {
+          "label": "COURT_CASE",
+          "text": "2023가합12345",
+          "start": 5,
+          "end": 16,
+          "risk_level": 3,
+          "confidence": 0.9,
+          "evidence": [
+            "pattern:court_case",
+            "code:가합",
+            "year:2023"
+          ],
+          "legal_basis": "개인정보보호법 제2조; 민사소송법 제65조",
+          "extra": {
+            "year": "2023",
+            "case_code": "가합",
+            "serial": "12345",
+            "instance": "civil_1st_panel",
+            "category": "참조정보"
+          }
+        }
+      ]
+    },
+    {
+      "id": "doc_id_gov",
+      "text": "기획재정부 예산고시 제2026-123호",
+      "detections": []
+    },
+    {
+      "id": "personal_attrs",
+      "text": "학력: 서울대학교 졸업, 전공: 컴퓨터공학과, 직책: 팀장, 나이 35세, 신장 175cm, 체중 70kg",
+      "detections": [
+        {
+          "label": "EDUCATION",
+          "text": "서울대학교",
+          "start": 4,
+          "end": 9,
+          "risk_level": 3,
+          "confidence": 0.95,
+          "evidence": [
+            "pattern:education",
+            "type:university",
+            "canonical:서울대학교"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "준식별자",
+            "canonical": "서울대학교",
+            "type": "university"
+          }
+        },
+        {
+          "label": "MAJOR",
+          "text": "컴퓨터공학과",
+          "start": 18,
+          "end": 24,
+          "risk_level": 2,
+          "confidence": 0.9,
+          "evidence": [
+            "pattern:major",
+            "canonical:컴퓨터공학"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "준식별자",
+            "canonical": "컴퓨터공학"
+          }
+        },
+        {
+          "label": "POSITION",
+          "text": "팀장",
+          "start": 30,
+          "end": 32,
+          "risk_level": 2,
+          "confidence": 0.85,
+          "evidence": [
+            "pattern:position",
+            "keyword:직책",
+            "domain:gov"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "준식별자",
+            "domain": "gov"
+          }
+        },
+        {
+          "label": "AGE",
+          "text": "35세",
+          "start": 37,
+          "end": 40,
+          "risk_level": 1,
+          "confidence": 0.95,
+          "evidence": [
+            "pattern:age",
+            "value:35"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "준식별자",
+            "value": 35,
+            "unit": "year"
+          }
+        },
+        {
+          "label": "HEIGHT",
+          "text": "175cm",
+          "start": 45,
+          "end": 50,
+          "risk_level": 1,
+          "confidence": 0.9,
+          "evidence": [
+            "pattern:height",
+            "value:175.0cm"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "준식별자",
+            "value": 175.0,
+            "unit": "cm"
+          }
+        },
+        {
+          "label": "WEIGHT",
+          "text": "70kg",
+          "start": 55,
+          "end": 59,
+          "risk_level": 1,
+          "confidence": 0.9,
+          "evidence": [
+            "pattern:weight",
+            "value:70.0kg"
+          ],
+          "legal_basis": "개인정보보호법 제2조",
+          "extra": {
+            "category": "준식별자",
+            "value": 70.0,
+            "unit": "kg"
+          }
+        }
+      ]
+    },
+    {
+      "id": "empty",
+      "text": "",
+      "detections": []
+    },
+    {
+      "id": "whitespace",
+      "text": "   \n\t  ",
+      "detections": []
+    }
+  ]
+}

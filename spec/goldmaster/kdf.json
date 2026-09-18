@@ -1,0 +1,25 @@
+{
+  "entries": [
+    {
+      "password": "correct horse battery staple",
+      "salt_hex": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      "iterations": 480000,
+      "dklen": 32,
+      "key_hex": "ad3133d75740a918ca44c488240ac8a3b168aa7be9a0638903460e1713d79363"
+    },
+    {
+      "password": "gold-master-key",
+      "salt_hex": "00112233445566778899aabbccddeeff",
+      "iterations": 480000,
+      "dklen": 32,
+      "key_hex": "7838efb1cfc9a7cd0e1140e0be904943276898e54b91f466a5c43fd5ccb84e27"
+    },
+    {
+      "password": "pw",
+      "salt_hex": "00112233445566778899aabbccddeeff",
+      "iterations": 1000,
+      "dklen": 32,
+      "key_hex": "c2a2a6742c4855b19be36da83b43f551cef643fe50ad151c4b92dbf13718ed4d"
+    }
+  ]
+}

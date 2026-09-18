@@ -1,0 +1,67 @@
+{
+  "entries": [
+    {
+      "scheme": "sha256-v1",
+      "salt": "00112233445566778899aabbccddeeff",
+      "secret_key": "",
+      "iterations": 0,
+      "label": "RRN",
+      "original": "880101-1234568",
+      "hex": "da9d2e0f10ab6e9252bfaf01b777da1a237e5224eb23e5cbed13d77fa611e426"
+    },
+    {
+      "scheme": "sha256-v1",
+      "salt": "00112233445566778899aabbccddeeff",
+      "secret_key": "ignored-by-legacy",
+      "iterations": 0,
+      "label": "PHONE",
+      "original": "010-1234-5678",
+      "hex": "f39ea1031ed2c1058157ea5c7420606afb705bbebb167f0d267e7725e57e13c7"
+    },
+    {
+      "scheme": "pbkdf2-sha256-v2",
+      "salt": "00112233445566778899aabbccddeeff",
+      "secret_key": "gold-master-key",
+      "iterations": 1000,
+      "label": "RRN",
+      "original": "880101-1234568",
+      "hex": "564cf2893a859d000dfc89269b8066e8c7fe12c4cc6caa5a17e0b06ea1d88734"
+    },
+    {
+      "scheme": "pbkdf2-sha256-v2",
+      "salt": "00112233445566778899aabbccddeeff",
+      "secret_key": "other-key",
+      "iterations": 1000,
+      "label": "RRN",
+      "original": "880101-1234568",
+      "hex": "7dc212905893612f2c9788edd9f20ce73b620dcbcbefde8a0e3d5b910541b9ab"
+    },
+    {
+      "scheme": "pbkdf2-sha256-v2",
+      "salt": "00112233445566778899aabbccddeeff",
+      "secret_key": "",
+      "iterations": 1000,
+      "label": "RRN",
+      "original": "880101-1234568",
+      "hex": "3db11d9c1b6381ec1d88ba770a4a2fa3b4812639bcd4eb22b12f45005b8e8d01"
+    },
+    {
+      "scheme": "pbkdf2-sha256-v2",
+      "salt": "00112233445566778899aabbccddeeff",
+      "secret_key": "gold-master-key",
+      "iterations": 1000,
+      "label": "PHONE",
+      "original": "010-1234-5678",
+      "hex": "8ca35b9d83f5f99df18c281ca3aba65e5759aa38f2eac6272918a85d577e7a5d"
+    },
+    {
+      "scheme": "pbkdf2-sha256-v2",
+      "salt": "00112233445566778899aabbccddeeff",
+      "secret_key": "gold-master-key",
+      "iterations": 100000,
+      "label": "RRN",
+      "original": "880101-1234568",
+      "hex": "f9afb19f9461f5769aa5938805734fd8ba45398731fc49c9115b0c6d52ec00c3"
+    }
+  ]
+}

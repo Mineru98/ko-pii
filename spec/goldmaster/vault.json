@@ -1,0 +1,146 @@
+{
+  "salt": "00112233445566778899aabbccddeeff",
+  "secret_key": "gold-master-key",
+  "entries": [
+    {
+      "id": "basic_rrn_phone",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PERSON_1>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"홍길동\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": null,\n        \"origin\": \"korean\"\n      }\n    },\n    \"<RRN_1>\": {\n      \"label\": \"RRN\",\n      \"original\": \"880101-1234568\",\n      \"risk_level\": 5,\n      \"legal_basis\": \"개인정보보호법 제24조의2\",\n      \"first_seen_offset\": 9,\n      \"occurrences\": [\n        9\n      ],\n      \"extra\": {\n        \"front\": \"880101\",\n        \"back\": \"1234568\",\n        \"birth_date\": \"1988-01-01\",\n        \"gender_digit\": 1,\n        \"checksum_valid\": true,\n        \"category\": \"고유식별정보\"\n      }\n    },\n    \"<PHONE_1>\": {\n      \"label\": \"PHONE\",\n      \"original\": \"010-1234-5678\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 29,\n      \"occurrences\": [\n        29\n      ],\n      \"extra\": {\n        \"type\": \"mobile\",\n        \"prefix\": \"010\",\n        \"digits_only\": \"01012345678\",\n        \"international\": false,\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "josa_attachment",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PERSON_1>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"홍길동\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 0,\n      \"occurrences\": [\n        0\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": \"이\",\n        \"origin\": \"korean\"\n      }\n    },\n    \"<ADDRESS_1>\": {\n      \"label\": \"ADDRESS\",\n      \"original\": \"서울특별시 강남구 테헤란로 152\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 5,\n      \"occurrences\": [\n        5\n      ],\n      \"extra\": {\n        \"format\": \"road_name\",\n        \"city\": \"서울특별시\",\n        \"districts\": \"강남구\",\n        \"road\": \"테헤란로\",\n        \"building_number\": \"152\",\n        \"category\": \"일반개인정보\"\n      }\n    },\n    \"<PERSON_2>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"김철수\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 31,\n      \"occurrences\": [\n        31\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": \"에게\",\n        \"origin\": \"korean\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "hanja_bracket",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PERSON_1>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"홍길동\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": null,\n        \"origin\": \"korean\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "fullwidth_digits",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<RRN_1>\": {\n      \"label\": \"RRN\",\n      \"original\": \"８８０１０１－１２３４５６８\",\n      \"risk_level\": 5,\n      \"legal_basis\": \"개인정보보호법 제24조의2\",\n      \"first_seen_offset\": 6,\n      \"occurrences\": [\n        6\n      ],\n      \"extra\": {\n        \"front\": \"880101\",\n        \"back\": \"1234568\",\n        \"birth_date\": \"1988-01-01\",\n        \"gender_digit\": 1,\n        \"checksum_valid\": true,\n        \"category\": \"고유식별정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "nfd_jamo",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "zerowidth_split",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<RRN_1>\": {\n      \"label\": \"RRN\",\n      \"original\": \"880101-1​234568\",\n      \"risk_level\": 5,\n      \"legal_basis\": \"개인정보보호법 제24조의2\",\n      \"first_seen_offset\": 0,\n      \"occurrences\": [\n        0\n      ],\n      \"extra\": {\n        \"front\": \"880101\",\n        \"back\": \"1234568\",\n        \"birth_date\": \"1988-01-01\",\n        \"gender_digit\": 1,\n        \"checksum_valid\": true,\n        \"category\": \"고유식별정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "emoji_adjacent",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PERSON_1>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"홍길동\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": null,\n        \"origin\": \"korean\"\n      }\n    },\n    \"<PHONE_1>\": {\n      \"label\": \"PHONE\",\n      \"original\": \"010-1234-5678\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 9,\n      \"occurrences\": [\n        9\n      ],\n      \"extra\": {\n        \"type\": \"mobile\",\n        \"prefix\": \"010\",\n        \"digits_only\": \"01012345678\",\n        \"international\": false,\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "date_keyword_reject",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "pseudonym_reject",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "card_luhn",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<CARD_1>\": {\n      \"label\": \"CARD\",\n      \"original\": \"4111-1111-1111-1111\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조; 여신전문금융업법\",\n      \"first_seen_offset\": 5,\n      \"occurrences\": [\n        5\n      ],\n      \"extra\": {\n        \"digits\": \"4111111111111111\",\n        \"length\": 16,\n        \"brand_hint\": \"visa\",\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "email_url",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<EMAIL_1>\": {\n      \"label\": \"EMAIL\",\n      \"original\": \"hong@example.com\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"value\": \"hong@example.com\",\n        \"local\": \"hong\",\n        \"domain\": \"example.com\",\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "birth_kr",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<DT_BIRTH_1>\": {\n      \"label\": \"DT_BIRTH\",\n      \"original\": \"1988년 1월 1일\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 5,\n      \"occurrences\": [\n        5\n      ],\n      \"extra\": {\n        \"year\": 1988,\n        \"month\": 1,\n        \"day\": 1,\n        \"format\": \"korean\",\n        \"category\": \"준식별자\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "address_road",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<ADDRESS_1>\": {\n      \"label\": \"ADDRESS\",\n      \"original\": \"서울특별시 강남구 테헤란로 152\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"format\": \"road_name\",\n        \"city\": \"서울특별시\",\n        \"districts\": \"강남구\",\n        \"road\": \"테헤란로\",\n        \"building_number\": \"152\",\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "business_reg",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "official_doc",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PERSON_1>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"홍길동\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 16,\n      \"occurrences\": [\n        16\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": null,\n        \"origin\": \"korean\"\n      }\n    },\n    \"<RRN_1>\": {\n      \"label\": \"RRN\",\n      \"original\": \"880101-1234568\",\n      \"risk_level\": 5,\n      \"legal_basis\": \"개인정보보호법 제24조의2\",\n      \"first_seen_offset\": 28,\n      \"occurrences\": [\n        28\n      ],\n      \"extra\": {\n        \"front\": \"880101\",\n        \"back\": \"1234568\",\n        \"birth_date\": \"1988-01-01\",\n        \"gender_digit\": 1,\n        \"checksum_valid\": true,\n        \"category\": \"고유식별정보\"\n      }\n    },\n    \"<PHONE_1>\": {\n      \"label\": \"PHONE\",\n      \"original\": \"010-1234-5678\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 48,\n      \"occurrences\": [\n        48\n      ],\n      \"extra\": {\n        \"type\": \"mobile\",\n        \"prefix\": \"010\",\n        \"digits_only\": \"01012345678\",\n        \"international\": false,\n        \"category\": \"일반개인정보\"\n      }\n    },\n    \"<ADDRESS_1>\": {\n      \"label\": \"ADDRESS\",\n      \"original\": \"서울특별시 강남구 테헤란로 152\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 66,\n      \"occurrences\": [\n        66\n      ],\n      \"extra\": {\n        \"format\": \"road_name\",\n        \"city\": \"서울특별시\",\n        \"districts\": \"강남구\",\n        \"road\": \"테헤란로\",\n        \"building_number\": \"152\",\n        \"category\": \"일반개인정보\"\n      }\n    },\n    \"<EMAIL_1>\": {\n      \"label\": \"EMAIL\",\n      \"original\": \"hong@example.com\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 90,\n      \"occurrences\": [\n        90\n      ],\n      \"extra\": {\n        \"value\": \"hong@example.com\",\n        \"local\": \"hong\",\n        \"domain\": \"example.com\",\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "latin_name",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<EMAIL_1>\": {\n      \"label\": \"EMAIL\",\n      \"original\": \"hong@example.com\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 14,\n      \"occurrences\": [\n        14\n      ],\n      \"extra\": {\n        \"value\": \"hong@example.com\",\n        \"local\": \"hong\",\n        \"domain\": \"example.com\",\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "passport_driver",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PASSPORT_1>\": {\n      \"label\": \"PASSPORT\",\n      \"original\": \"M12345678\",\n      \"risk_level\": 5,\n      \"legal_basis\": \"개인정보보호법 시행령 제19조\",\n      \"first_seen_offset\": 3,\n      \"occurrences\": [\n        3\n      ],\n      \"extra\": {\n        \"prefix\": \"M\",\n        \"number\": \"12345678\",\n        \"kind\": \"general_multiple\",\n        \"category\": \"고유식별정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "ip_vehicle",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<IP_1>\": {\n      \"label\": \"IP\",\n      \"original\": \"192.168.1.10\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 3,\n      \"occurrences\": [\n        3\n      ],\n      \"extra\": {\n        \"version\": 4,\n        \"value\": \"192.168.1.10\",\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "frn",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<FRN_1>\": {\n      \"label\": \"FRN\",\n      \"original\": \"880101-5123456\",\n      \"risk_level\": 5,\n      \"legal_basis\": \"개인정보보호법 시행령 제19조; 출입국관리법 제31조\",\n      \"first_seen_offset\": 8,\n      \"occurrences\": [\n        8\n      ],\n      \"extra\": {\n        \"front\": \"880101\",\n        \"back\": \"5123456\",\n        \"birth_date\": \"1988-01-01\",\n        \"gender_digit\": 5,\n        \"checksum_valid\": false,\n        \"category\": \"고유식별정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "business_reg_valid",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<BUSINESS_REG_1>\": {\n      \"label\": \"BUSINESS_REG\",\n      \"original\": \"123-45-67891\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조 (개인사업자의 경우 개인 식별 정보)\",\n      \"first_seen_offset\": 8,\n      \"occurrences\": [\n        8\n      ],\n      \"extra\": {\n        \"digits\": \"1234567891\",\n        \"checksum_valid\": true,\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "corp_reg",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<CORP_REG_1>\": {\n      \"label\": \"CORP_REG\",\n      \"original\": \"130111-0006246\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"상법 제40조; 법인등기규칙\",\n      \"first_seen_offset\": 7,\n      \"occurrences\": [\n        7\n      ],\n      \"extra\": {\n        \"front\": \"130111\",\n        \"back\": \"0006246\",\n        \"digits\": \"1301110006246\",\n        \"category\": \"법인식별정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "driver_license_2",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "medical_insurance",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "prescription_id",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "pnu",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PERSON_1>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"토지번호\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 0,\n      \"occurrences\": [\n        0\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": null,\n        \"origin\": \"korean\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "postal_code",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PHONE_1>\": {\n      \"label\": \"PHONE\",\n      \"original\": \"02-1234-5678\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 15,\n      \"occurrences\": [\n        15\n      ],\n      \"extra\": {\n        \"type\": \"landline\",\n        \"prefix\": \"02\",\n        \"digits_only\": \"0212345678\",\n        \"international\": false,\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "vehicle_2",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "nationality",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "account",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<ACCOUNT_1>\": {\n      \"label\": \"ACCOUNT\",\n      \"original\": \"110-123-456789\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조; 금융실명법\",\n      \"first_seen_offset\": 11,\n      \"occurrences\": [\n        11\n      ],\n      \"extra\": {\n        \"digits\": \"110123456789\",\n        \"length\": 12,\n        \"bank\": \"신한은행\",\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "edi_drug",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "court_case",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<COURT_CASE_1>\": {\n      \"label\": \"COURT_CASE\",\n      \"original\": \"2023가합12345\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조; 민사소송법 제65조\",\n      \"first_seen_offset\": 5,\n      \"occurrences\": [\n        5\n      ],\n      \"extra\": {\n        \"year\": \"2023\",\n        \"case_code\": \"가합\",\n        \"serial\": \"12345\",\n        \"instance\": \"civil_1st_panel\",\n        \"category\": \"참조정보\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "doc_id_gov",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "personal_attrs",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<EDUCATION_1>\": {\n      \"label\": \"EDUCATION\",\n      \"original\": \"서울대학교\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"category\": \"준식별자\",\n        \"canonical\": \"서울대학교\",\n        \"type\": \"university\"\n      }\n    }\n  }\n}"
+    },
+    {
+      "id": "empty",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    },
+    {
+      "id": "whitespace",
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+    }
+  ]
+}

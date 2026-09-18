@@ -1,0 +1,180 @@
+{
+  "offset_unit": "codepoint",
+  "entries": [
+    {
+      "input": "신청인 홍길동 (880101-1234568)",
+      "needs_normalization": true,
+      "normalized": "신청인 홍길동 (880101-1234568)",
+      "offset_map": []
+    },
+    {
+      "input": "주민번호: ８８０１０１－１２３４５６８",
+      "needs_normalization": true,
+      "normalized": "주민번호: 880101-1234568",
+      "offset_map": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ]
+    },
+    {
+      "input": "홍길동 010-1234-5678",
+      "needs_normalization": true,
+      "normalized": "홍길동 010-1234-5678",
+      "offset_map": [
+        0,
+        0,
+        0,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ]
+    },
+    {
+      "input": "880101-1​234568",
+      "needs_normalization": true,
+      "normalized": "880101-1234568",
+      "offset_map": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ]
+    },
+    {
+      "input": "전화: ０１０－１２３４－５６７８",
+      "needs_normalization": true,
+      "normalized": "전화: 010-1234-5678",
+      "offset_map": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ]
+    },
+    {
+      "input": "①②③ ⒈⒉⒊ ﬁle",
+      "needs_normalization": true,
+      "normalized": "123 1.2.3. file",
+      "offset_map": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        4,
+        5,
+        5,
+        6,
+        6,
+        7,
+        8,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "input": "홍길동😀 010-1234-5678",
+      "needs_normalization": true,
+      "normalized": "홍길동😀 010-1234-5678",
+      "offset_map": []
+    },
+    {
+      "input": "　　　전각　공백　　　",
+      "needs_normalization": true,
+      "normalized": "   전각 공백   ",
+      "offset_map": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "input": "8 8 0 1 0 1 - 1 2 3 4 5 6 8",
+      "needs_normalization": true,
+      "normalized": "880101-1234568",
+      "offset_map": [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10,
+        12,
+        14,
+        16,
+        18,
+        20,
+        22,
+        24,
+        26
+      ]
+    },
+    {
+      "input": "洪吉童",
+      "needs_normalization": true,
+      "normalized": "洪吉童",
+      "offset_map": []
+    }
+  ]
+}
