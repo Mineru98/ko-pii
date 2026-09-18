@@ -17,6 +17,7 @@ import { readText as readDocx } from "../../src/io/docx.js";
 import * as ioIndex from "../../src/io/index.js";
 import { normalizeForDetection } from "../../src/io/textNormalizer.js";
 import { readText as readXlsx, readRecords as readXlsxRecords } from "../../src/io/xlsx.js";
+import { parseXmlBytes, XmlParseError } from "../../src/io/xmlEt.js";
 
 const DIR = mkdtempSync(join(tmpdir(), "ko-pii-io-parity-"));
 
@@ -110,7 +111,7 @@ describe("xmlEt — ElementTree(expat) 의미론", () => {
   it("xlsx sharedStrings 의 xml:space + Python int() 인덱스(전각·밑줄·부호) + strip 의 U+FEFF", async () => {
     const path = fixture(
       "x_int.xlsx",
-      "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",
+      "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",
     );
     expect(await readXlsx(path)).toBe("h\none \ts10\tone \ts11\t\t\ts3\n﻿\n \n\n");
     expect(await readXlsxRecords(path)).toEqual([{ h: "one " }, { h: "﻿" }]);
@@ -659,6 +660,273 @@ describe("추출 결과·예외 — Python 과 같은 텍스트, 같은 예외 �
           e instanceof BoundedReadError ? `REJECT:${e.code}` : `ERR:${(e as Error).name}`;
       }
       expect(actualBounded).toBe(bounded);
+    });
+  }
+});
+
+describe("xmlEt — expat 증폭 한도·깊은 체인·선언 위치 (Python 3.12 / expat 2.7.3 실측)", () => {
+  const bomb = (levels: number, leaf: string): string => {
+    const ents = [`<!ENTITY l0 "${leaf}">`];
+    for (let k = 1; k <= levels; k++) ents.push(`<!ENTITY l${k} "${`&l${k - 1};`.repeat(10)}">`);
+    return `<!DOCTYPE r [${ents.join("")}]><r>&l${levels};</r>`;
+  };
+  const flat = (n: number, k: number, ch: string): string =>
+    `<!DOCTYPE r [<!ENTITY a "${ch.repeat(n)}">]><r>${"&a;".repeat(k)}</r>`;
+  const nest = (n: number, k: number): string =>
+    `<!DOCTYPE r [<!ENTITY a "${"x".repeat(n)}"><!ENTITY b "${"&a;".repeat(10)}">]><r>${"&b;".repeat(k)}</r>`;
+  const chain = (n: number): string => {
+    const ents = ['<!ENTITY c0 "x">'];
+    for (let k = 1; k <= n; k++) ents.push(`<!ENTITY c${k} "&c${k - 1};">`);
+    return `<!DOCTYPE r [${ents.join("")}]><r>&c${n};</r>`;
+  };
+  const documents: Record<string, () => string> = {
+    chain20000: () => chain(20000),
+    nest83: () => nest(10000, 83),
+    nest84: () => nest(10000, 84),
+    mb99: () => flat(100000, 99, "가"),
+    mb100: () => flat(100000, 100, "가"),
+    recursive_unreferenced: () => '<!DOCTYPE r [<!ENTITY a "&a;"><!ENTITY b "B">]><r>&b;</r>',
+    recursive_mutual: () => '<!DOCTYPE r [<!ENTITY a "&b;"><!ENTITY b "&a;">]><r>&a;</r>',
+    ref_in_cdata: () => '<!DOCTYPE r [<!ENTITY a "A">]><r><![CDATA[&a;]]>&a;<!-- &a; --></r>',
+    decl_after_doctype: () => '<!DOCTYPE r><?xml version="1.0"?><r>t</r>',
+    decl_after_doctype_ent: () => '<!DOCTYPE r [<!ENTITY a "A">]><?xml version="1.0"?><r>&a;</r>',
+    decl_after_comment: () => '<!-- c --><?xml version="1.0"?><r>t</r>',
+    decl_after_ws: () => ' <?xml version="1.0"?><r>t</r>',
+  };
+  const build = (key: string): string => {
+    const direct = documents[key];
+    if (direct) return direct();
+    const m = /^(bombx?)(\d+)$|^flat_(\d+)_(\d+)$/.exec(key);
+    if (m?.[1]) return bomb(Number(m[2]), m[1] === "bombx" ? "x" : "");
+    if (m?.[3]) return flat(Number(m[3]), Number(m[4]), "x");
+    throw new Error(`no generator for ${key}`);
+  };
+  type Expect = { ok: number; head: string } | { err: string };
+  const cases: Array<[key: string, python: Expect]> = [
+    ["bomb4", { ok: 0, head: "" }],
+    ["bomb5", { ok: 0, head: "" }],
+    ["bomb6", { ok: 0, head: "" }],
+    ["bomb7", { err: "limit on input amplification factor (from DTD and entities) breached" }],
+    ["bomb8", { err: "limit on input amplification factor (from DTD and entities) breached" }],
+    ["bomb9", { err: "limit on input amplification factor (from DTD and entities) breached" }],
+    ["bomb10", { err: "limit on input amplification factor (from DTD and entities) breached" }],
+    ["bomb11", { err: "limit on input amplification factor (from DTD and entities) breached" }],
+    ["bomb12", { err: "limit on input amplification factor (from DTD and entities) breached" }],
+    ["bombx3", { ok: 1000, head: "xxxxxxxxxxxxxxxxxxxx" }],
+    ["bombx5", { ok: 100000, head: "xxxxxxxxxxxxxxxxxxxx" }],
+    ["bombx6", { ok: 1000000, head: "xxxxxxxxxxxxxxxxxxxx" }],
+    ["bombx7", { err: "limit on input amplification factor (from DTD and entities) breached" }],
+    ["flat_1000_8362", { ok: 8362000, head: "xxxxxxxxxxxxxxxxxxxx" }],
+    [
+      "flat_1000_8363",
+      { err: "limit on input amplification factor (from DTD and entities) breached" },
+    ],
+    ["flat_100000_99", { ok: 9900000, head: "xxxxxxxxxxxxxxxxxxxx" }],
+    [
+      "flat_100000_100",
+      { err: "limit on input amplification factor (from DTD and entities) breached" },
+    ],
+    ["nest83", { ok: 8300000, head: "xxxxxxxxxxxxxxxxxxxx" }],
+    ["nest84", { err: "limit on input amplification factor (from DTD and entities) breached" }],
+    ["mb99", { ok: 9900000, head: "가가가가가가가가가가가가가가가가가가가가" }],
+    ["mb100", { err: "limit on input amplification factor (from DTD and entities) breached" }],
+    ["chain20000", { ok: 1, head: "x" }],
+    ["recursive_unreferenced", { ok: 1, head: "B" }],
+    ["recursive_mutual", { err: "recursive entity reference" }],
+    ["ref_in_cdata", { ok: 4, head: "&a;A" }],
+    ["decl_after_doctype", { err: "XML or text declaration not at start of entity" }],
+    ["decl_after_doctype_ent", { err: "XML or text declaration not at start of entity" }],
+    ["decl_after_comment", { err: "XML or text declaration not at start of entity" }],
+    ["decl_after_ws", { err: "XML or text declaration not at start of entity" }],
+  ];
+  for (const [key, python] of cases) {
+    it(`ET.fromstring === Python: ${key}`, () => {
+      const started = performance.now();
+      let actual: Expect;
+      try {
+        const text = parseXmlBytes(Buffer.from(build(key), "utf-8")).text ?? "";
+        actual = { ok: text.length, head: text.slice(0, 20) };
+      } catch (e) {
+        expect(e).toBeInstanceOf(XmlParseError);
+        actual = { err: (e as Error).message };
+      }
+      expect(actual).toEqual(python);
+      // 거부되는 폭탄은 펼치기 전에 판정된다 — 단계가 늘어도 시간이 늘지 않아야 한다.
+      if ("err" in python) expect(performance.now() - started).toBeLessThan(1000);
+    });
+  }
+});
+
+describe("xlsx — Python int() 의 Nd 자릿값 전수 (Unicode 15.0 의 Nd 680자)", () => {
+  it("모든 Nd 문자를 sharedStrings 인덱스로 썼을 때 Python 과 같은 셀 값", async () => {
+    const path = fixture(
+      "nd.xlsx",
+      "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",
+    );
+    const expected =
+      "v0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv19\tv10\tv39\n\n";
+    expect(await readXlsx(path)).toBe(expected);
+  });
+});
+
+describe("bounded — 멤버 이름 검사는 PurePosixPath.parts 규칙", () => {
+  const cases: Array<[name: string, base64: string, python: string]> = [
+    [
+      "./c:evil.txt",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAwAAAAuL2M6ZXZpbC50eHR4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAAMAAAAAAAAAAAAAACAAYwAAAAuL2M6ZXZpbC50eHRQSwUGAAAAAAIAAgB9AAAAtwAAAAAA",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "a//b",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAQAAABhLy9ieFBLAQIUAxQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAAAAAAAAAAACAAQAAAABDb250ZW50cy9zZWN0aW9uMC54bWxQSwECFAMUAAAAAAAAACEAgxbcjAEAAAABAAAABAAAAAAAAAAAAAAAgAGMAAAAYS8vYlBLBQYAAAAAAgACAHUAAACvAAAAAAA=",
+      "PASS",
+    ],
+    [
+      "./a",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAMAAAAuL2F4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAADAAAAAAAAAAAAAACAAYwAAAAuL2FQSwUGAAAAAAIAAgB0AAAArgAAAAAA",
+      "PASS",
+    ],
+    [
+      "a/./b",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAUAAABhLy4vYnhQSwECFAMUAAAACABJsTJdjLfvpVkAAAB2AAAAFQAAAAAAAAAAAAAAgAEAAAAAQ29udGVudHMvc2VjdGlvbjAueG1sUEsBAhQDFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAUAAAAAAAAAAAAAAIABjAAAAGEvLi9iUEsFBgAAAAACAAIAdgAAALAAAAAAAA==",
+      "PASS",
+    ],
+    [
+      "a/..",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAQAAABhLy4ueFBLAQIUAxQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAAAAAAAAAAACAAQAAAABDb250ZW50cy9zZWN0aW9uMC54bWxQSwECFAMUAAAAAAAAACEAgxbcjAEAAAABAAAABAAAAAAAAAAAAAAAgAGMAAAAYS8uLlBLBQYAAAAAAgACAHUAAACvAAAAAAA=",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "../a",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAQAAAAuLi9heFBLAQIUAxQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAAAAAAAAAAACAAQAAAABDb250ZW50cy9zZWN0aW9uMC54bWxQSwECFAMUAAAAAAAAACEAgxbcjAEAAAABAAAABAAAAAAAAAAAAAAAgAGMAAAALi4vYVBLBQYAAAAAAgACAHUAAACvAAAAAAA=",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "a/../b",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAYAAABhLy4uL2J4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAAGAAAAAAAAAAAAAACAAYwAAABhLy4uL2JQSwUGAAAAAAIAAgB3AAAAsQAAAAAA",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "c:evil",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAYAAABjOmV2aWx4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAAGAAAAAAAAAAAAAACAAYwAAABjOmV2aWxQSwUGAAAAAAIAAgB3AAAAsQAAAAAA",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "a/c:evil",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAgAAABhL2M6ZXZpbHhQSwECFAMUAAAACABJsTJdjLfvpVkAAAB2AAAAFQAAAAAAAAAAAAAAgAEAAAAAQ29udGVudHMvc2VjdGlvbjAueG1sUEsBAhQDFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAgAAAAAAAAAAAAAAIABjAAAAGEvYzpldmlsUEsFBgAAAAACAAIAeQAAALMAAAAAAA==",
+      "PASS",
+    ],
+    [
+      ".//c:x",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAYAAAAuLy9jOnh4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAAGAAAAAAAAAAAAAACAAYwAAAAuLy9jOnhQSwUGAAAAAAIAAgB3AAAAsQAAAAAA",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "././d:x",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAcAAAAuLy4vZDp4eFBLAQIUAxQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAAAAAAAAAAACAAQAAAABDb250ZW50cy9zZWN0aW9uMC54bWxQSwECFAMUAAAAAAAAACEAgxbcjAEAAAABAAAABwAAAAAAAAAAAAAAgAGMAAAALi8uL2Q6eFBLBQYAAAAAAgACAHgAAACyAAAAAAA=",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      ".",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAEAAAAueFBLAQIUAxQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAAAAAAAAAAACAAQAAAABDb250ZW50cy9zZWN0aW9uMC54bWxQSwECFAMUAAAAAAAAACEAgxbcjAEAAAABAAAAAQAAAAAAAAAAAAAAgAGMAAAALlBLBQYAAAAAAgACAHIAAACsAAAAAAA=",
+      "PASS",
+    ],
+    [
+      "..",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAIAAAAuLnhQSwECFAMUAAAACABJsTJdjLfvpVkAAAB2AAAAFQAAAAAAAAAAAAAAgAEAAAAAQ29udGVudHMvc2VjdGlvbjAueG1sUEsBAhQDFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAIAAAAAAAAAAAAAAIABjAAAAC4uUEsFBgAAAAACAAIAcwAAAK0AAAAAAA==",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "a\\..\\b",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAYAAABhXC4uXGJ4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAAGAAAAAAAAAAAAAACAAYwAAABhXC4uXGJQSwUGAAAAAAIAAgB3AAAAsQAAAAAA",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "\\abs",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAQAAABcYWJzeFBLAQIUAxQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAAAAAAAAAAACAAQAAAABDb250ZW50cy9zZWN0aW9uMC54bWxQSwECFAMUAAAAAAAAACEAgxbcjAEAAAABAAAABAAAAAAAAAAAAAAAgAGMAAAAXGFic1BLBQYAAAAAAgACAHUAAACvAAAAAAA=",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "//x",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAMAAAAvL3h4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAADAAAAAAAAAAAAAACAAYwAAAAvL3hQSwUGAAAAAAIAAgB0AAAArgAAAAAA",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "./../x",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAYAAAAuLy4uL3h4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAAGAAAAAAAAAAAAAACAAYwAAAAuLy4uL3hQSwUGAAAAAAIAAgB3AAAAsQAAAAAA",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "a:b/c",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAUAAABhOmIvY3hQSwECFAMUAAAACABJsTJdjLfvpVkAAAB2AAAAFQAAAAAAAAAAAAAAgAEAAAAAQ29udGVudHMvc2VjdGlvbjAueG1sUEsBAhQDFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAUAAAAAAAAAAAAAAIABjAAAAGE6Yi9jUEsFBgAAAAACAAIAdgAAALAAAAAAAA==",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      " /x",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAMAAAAgL3h4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAADAAAAAAAAAAAAAACAAYwAAAAgL3hQSwUGAAAAAAIAAgB0AAAArgAAAAAA",
+      "PASS",
+    ],
+    [
+      "...",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAMAAAAuLi54UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAADAAAAAAAAAAAAAACAAYwAAAAuLi5QSwUGAAAAAAIAAgB0AAAArgAAAAAA",
+      "PASS",
+    ],
+    [
+      "a/.../b",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAcAAABhLy4uLi9ieFBLAQIUAxQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAAAAAAAAAAACAAQAAAABDb250ZW50cy9zZWN0aW9uMC54bWxQSwECFAMUAAAAAAAAACEAgxbcjAEAAAABAAAABwAAAAAAAAAAAAAAgAGMAAAAYS8uLi4vYlBLBQYAAAAAAgACAHgAAACyAAAAAAA=",
+      "PASS",
+    ],
+    [
+      ".:x",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAMAAAAuOnh4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAADAAAAAAAAAAAAAACAAYwAAAAuOnhQSwUGAAAAAAIAAgB0AAAArgAAAAAA",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "./.",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAMAAAAuLy54UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAADAAAAAAAAAAAAAACAAYwAAAAuLy5QSwUGAAAAAAIAAgB0AAAArgAAAAAA",
+      "PASS",
+    ],
+    [
+      "a/.",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAMAAABhLy54UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAADAAAAAAAAAAAAAACAAYwAAABhLy5QSwUGAAAAAAIAAgB0AAAArgAAAAAA",
+      "PASS",
+    ],
+    [
+      "/abs",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAQAAAAvYWJzeFBLAQIUAxQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAAAAAAAAAAACAAQAAAABDb250ZW50cy9zZWN0aW9uMC54bWxQSwECFAMUAAAAAAAAACEAgxbcjAEAAAABAAAABAAAAAAAAAAAAAAAgAGMAAAAL2Fic1BLBQYAAAAAAgACAHUAAACvAAAAAAA=",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "x/./../y",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAgAAAB4Ly4vLi4veXhQSwECFAMUAAAACABJsTJdjLfvpVkAAAB2AAAAFQAAAAAAAAAAAAAAgAEAAAAAQ29udGVudHMvc2VjdGlvbjAueG1sUEsBAhQDFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAgAAAAAAAAAAAAAAIABjAAAAHgvLi8uLi95UEsFBgAAAAACAAIAeQAAALMAAAAAAA==",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "..a",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAMAAAAuLmF4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAADAAAAAAAAAAAAAACAAYwAAAAuLmFQSwUGAAAAAAIAAgB0AAAArgAAAAAA",
+      "PASS",
+    ],
+    [
+      "a..",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAMAAABhLi54UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAADAAAAAAAAAAAAAACAAYwAAABhLi5QSwUGAAAAAAIAAgB0AAAArgAAAAAA",
+      "PASS",
+    ],
+    [
+      "./:",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAMAAAAuLzp4UEsBAhQDFAAAAAgASbEyXYy376VZAAAAdgAAABUAAAAAAAAAAAAAAIABAAAAAENvbnRlbnRzL3NlY3Rpb24wLnhtbFBLAQIUAxQAAAAAAAAAIQCDFtyMAQAAAAEAAAADAAAAAAAAAAAAAACAAYwAAAAuLzpQSwUGAAAAAAIAAgB0AAAArgAAAAAA",
+      "REJECT:unsafe_archive_path",
+    ],
+    [
+      "normal.txt",
+      "UEsDBBQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAQ29udGVudHMvc2VjdGlvbjAueG1sJY1dCsAgDIOvMjyAnXsU511Exgr+lepwx9+oL/lCSIhDsv2K21ty7RbpVDgGWYA5p8ZQYys6Np0YcFLJcOzGAAUONwdC5d2/J1F+qnD4lhyIEUgOqwbrzX9QSwMEFAAAAAAAAAAhAIMW3IwBAAAAAQAAAAoAAABub3JtYWwudHh0eFBLAQIUAxQAAAAIAEmxMl2Mt++lWQAAAHYAAAAVAAAAAAAAAAAAAACAAQAAAABDb250ZW50cy9zZWN0aW9uMC54bWxQSwECFAMUAAAAAAAAACEAgxbcjAEAAAABAAAACgAAAAAAAAAAAAAAgAGMAAAAbm9ybWFsLnR4dFBLBQYAAAAAAgACAHsAAAC1AAAAAAA=",
+      "PASS",
+    ],
+  ];
+  for (const [name, base64, python] of cases) {
+    it(`멤버 ${JSON.stringify(name)} → ${python}`, async () => {
+      const path = fixture(`name-${cases.findIndex((c) => c[0] === name)}.hwpx`, base64);
+      const outcome = await boundedOutcome(path);
+      expect(typeof outcome === "string" ? outcome : "PASS").toBe(python);
     });
   }
 });

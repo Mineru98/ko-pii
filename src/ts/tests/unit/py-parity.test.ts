@@ -310,3 +310,80 @@ describe("레코드 헤더 순서 (Python dict 삽입 순서)", () => {
     expect(recordKeys({ z: 1, a: 2 })).toEqual(["z", "a"]);
   });
 });
+
+describe("리뷰 지적 회귀 (Python 실측)", () => {
+  const roots: string[] = [];
+  const cwd = process.cwd();
+  afterEach(() => {
+    process.chdir(cwd);
+    for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true });
+  });
+
+  it("pyFormatFixed: digits=0 tie, -0.0, 1e21 이상, inf/nan", () => {
+    expect(pyFormatFixed(0.5, 0)).toBe("0");
+    expect(pyFormatFixed(1.5, 0)).toBe("2");
+    expect(pyFormatFixed(2.5, 0)).toBe("2");
+    expect(pyFormatFixed(-0.5, 0)).toBe("-0");
+    expect(pyFormatFixed(-0, 2)).toBe("-0.00");
+    expect(pyFormatFixed(-0.001, 2)).toBe("-0.00");
+    expect(pyFormatFixed(1e21, 2)).toBe("1000000000000000000000.00");
+    expect(pyFormatFixed(-1e21, 0)).toBe("-1000000000000000000000");
+    expect(pyFormatFixed(Number.POSITIVE_INFINITY, 2)).toBe("inf");
+    expect(pyFormatFixed(Number.NEGATIVE_INFINITY, 2)).toBe("-inf");
+    expect(pyFormatFixed(Number.NaN, 2)).toBe("nan");
+  });
+
+  it("include truthiness 는 Python 규칙 — 빈 컨테이너는 필터 없음, 빈 제너레이터는 전부 제외", () => {
+    const text = "홍길동 010-1234-5678 hong@example.com";
+    const lab = (inc: Iterable<string>) => detectAll(text, inc).map((d) => d.label);
+    expect(lab([])).toEqual(["PERSON", "PHONE", "EMAIL"]);
+    expect(lab(new Set())).toEqual(["PERSON", "PHONE", "EMAIL"]);
+    expect(lab((function* (): Generator<string> {})())).toEqual([]);
+    expect(
+      lab(
+        (function* (): Generator<string> {
+          yield "PHONE";
+        })(),
+      ),
+    ).toEqual(["PHONE"]);
+  });
+
+  it("symlink 루프가 있어도 수집이 예외 없이 끝난다 (os.path.isdir 는 ELOOP 를 False 로)", () => {
+    const root = mkdtempSync(join(tmpdir(), "ko-pii-loop-"));
+    roots.push(root);
+    mkdirSync(join(root, "in", "sub2"), { recursive: true });
+    writeFileSync(join(root, "in", "a.txt"), "연락처 010-1234-5678\n");
+    writeFileSync(join(root, "in", "sub2", "b.txt"), "x hong@example.com\n");
+    symlinkSync("..", join(root, "in", "sub2", "loop"));
+    process.chdir(root);
+    // Python: len(collect_files(["in/**/*.txt"])) == 66 (루프를 ELOOP 직전까지 따라간다)
+    const globbed = collectFiles(["in/**/*.txt"]);
+    expect(globbed.length).toBe(66);
+    expect(globbed.slice(0, 2)).toEqual(["in/a.txt", "in/sub2/b.txt"]);
+    expect(collectFiles(["in"])).toEqual(["in/a.txt", "in/sub2/b.txt"]);
+  });
+
+  it("검수 큐는 \\r 줄 구분과 BOM 첫 줄을 Python 처럼 처리한다", () => {
+    const root = mkdtempSync(join(tmpdir(), "ko-pii-qbom-"));
+    roots.push(root);
+    const line = (id: string, verdict: string | null) =>
+      JSON.stringify({
+        id,
+        doc: "d",
+        label: "PHONE",
+        text: "x",
+        span: [1, 2],
+        confidence: 0.5,
+        evidence: [],
+        legal_basis: null,
+        verdict,
+        verdict_at: null,
+        verdict_by: null,
+        verdict_note: "",
+      });
+    const path = join(root, "q.jsonl");
+    // BOM 으로 시작하는 첫 줄은 Python strip() 이 BOM 을 남겨 JSONDecodeError 로 버려진다
+    writeFileSync(path, `${cp(0xfeff)}${line("a", null)}\r${line("b", "OK")}\r`);
+    expect(new ReviewQueue(path).stats()).toEqual({ total: 1, pending: 0, OK: 1, FP: 0, FN: 0 });
+  });
+});

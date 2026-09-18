@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { classify_attribute, k_anonymity } from "../../src/analytics/index.js";
 import { Anonymizer } from "../../src/anonymizer.js";
+import { IndexError } from "../../src/core/errors.js";
 import { type DetectionResult, makeDetection } from "../../src/core/types.js";
 import * as publicApi from "../../src/index.js";
 import { categoryFor, legalBasisFor, riskFloorFor } from "../../src/legal/index.js";
@@ -87,6 +88,7 @@ describe("#1 tokenize/hashed/fpe 직접 호출 — 실제 ReversibleVault 와 �
     expect(fv.size).toBe(5);
     const [h, hv] = hashed(TEXT, dets());
     expect(hv).toBeInstanceOf(ReversibleVault);
+    expect(hv.size).toBe(0); // Python 실측: hashed 는 vault 에 저장하지 않는다 (len == 0)
     expect(h).toMatch(/^신청인 <PERSON:[0-9a-f]{12}> <RRN:[0-9a-f]{12}> /);
     expect(hashed(TEXT, dets(), null, 5)[0]).toMatch(/<RRN:[0-9a-f]{5}>/);
   });
@@ -145,7 +147,23 @@ describe("#8 fpe 의 Python str.isdigit() 집합 (Nd + 위첨자·원문자)", (
     expect(fpeDefault("\u2460\u2461\u2462\u2463\u2464", FP)).toBe("55262");
   });
   it("자릿수(Nd)보다 isdigit 문자가 많으면 Python IndexError 처럼 예외", () => {
-    expect(() => FPE_BY_LABEL.get("PHONE")?.("010-1234-5678\xb2", FP)).toThrow();
+    // Python 실측: `IndexError: string index out of range` (PHONE·CARD 공통) — batch 의
+    // error 문자열 "{클래스명}: {메시지}" 에 그대로 나오므로 name·message 를 모두 단언한다.
+    for (const [label, value] of [
+      ["PHONE", "010-1234-5678\xb2"],
+      ["CARD", "4111-1111-1111-1111\u2460"],
+    ] as const) {
+      let caught: unknown;
+      try {
+        FPE_BY_LABEL.get(label)?.(value, FP);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(IndexError);
+      expect((caught as Error).name).toBe("IndexError");
+      expect((caught as Error).message).toBe("string index out of range");
+      expect(String(caught)).toBe("IndexError: string index out of range");
+    }
   });
 });
 
@@ -215,7 +233,36 @@ describe("#12 k_anonymity — Python tuple 동등성·repr·TypeError", () => {
     expect(r.rationale[0]).toBe(
       "준식별자 [\"a'b\", 'x\\ny', 'q\"', '한', 'b\\\\s', 'a\\'\"b', '\\x7f\\u200b'] 기준 1개 그룹",
     );
-    expect(r.smallest_group_values).toEqual([1, 2, 3, 4, 5, undefined, undefined]);
+    // 누락 키는 Python `rec.get(k)` 의 None — TS 는 null 로 담는다 (Python 실측 [1,2,3,4,5,None,None]).
+    expect(r.smallest_group_values).toEqual([1, 2, 3, 4, 5, null, null]);
+    expect(JSON.stringify(r.smallest_group_values)).toBe("[1,2,3,4,5,null,null]");
+  });
+  it("준식별자 키는 레코드 자기 키만 조회 (프로토타입 체인 차단) — Python 실측", () => {
+    const recs = [{ AGE: 1 }, { AGE: 1 }];
+    const view = (keys: string[], records: Record<string, unknown>[] = recs) => {
+      const r = k_anonymity(records, keys, 1);
+      return [r.k, r.group_count, r.smallest_group_values, r.rationale[0]];
+    };
+    expect(view(["constructor"])).toEqual([2, 1, [null], "준식별자 ['constructor'] 기준 1개 그룹"]);
+    expect(view(["__proto__", "toString", "hasOwnProperty"])).toEqual([
+      2,
+      1,
+      [null, null, null],
+      "준식별자 ['__proto__', 'toString', 'hasOwnProperty'] 기준 1개 그룹",
+    ]);
+    expect(view(["AGE", "constructor"])).toEqual([
+      2,
+      1,
+      [1, null],
+      "준식별자 ['AGE', 'constructor'] 기준 1개 그룹",
+    ]);
+    // 자기 키로 실제 들어 있으면 값으로 쓴다
+    expect(view(["toString"], [{ AGE: 1, toString: "x" }, { AGE: 1 }])).toEqual([
+      1,
+      2,
+      ["x"],
+      "준식별자 ['toString'] 기준 2개 그룹",
+    ]);
   });
   it("list/dict 값은 해시 불가 — TypeError", () => {
     expect(() => k_anonymity([{ AGE: [1, 2] }, { AGE: [1, 2] }])).toThrow(TypeError);
@@ -324,7 +371,7 @@ describe("#13 vault/audit — truthiness·타입 강제·직렬화", () => {
     );
     expect(pyJsonDumps({ a: [1, 2], b: {} }, 0)).toBe('{\n"a": [\n1,\n2\n],\n"b": {}\n}');
     expect(pyJsonDumps({ a: [1, { b: "한" }] }, 2)).toBe(
-      JSON.stringify({ a: [1, { b: "한" }] }, null, 2),
+      '{\n  "a": [\n    1,\n    {\n      "b": "한"\n    }\n  ]\n}', // Python json.dumps(indent=2) 실측
     );
     // 알려진 한계: JS 는 1.0 과 1 을 구분하지 못한다 (Python 은 "1.0").
     expect(pyJsonDumps({ f: 1.0 }, null)).toBe('{"f": 1}');
