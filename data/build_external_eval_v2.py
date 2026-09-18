@@ -24,7 +24,7 @@ import argparse, json, random, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "src" / "python"))
 sys.path.insert(0, str(ROOT / "data"))
 
 from ko_pii.checksum import rrn_checksum, business_reg_checksum, corp_reg_checksum, luhn

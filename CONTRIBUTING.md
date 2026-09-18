@@ -25,13 +25,13 @@ pip install -e ".[ml]"    # OpenAI Privacy Filter 어댑터 (transformers + torc
 
 ### 1. 사전 데이터 확장 (가장 큰 환영)
 
-- `src/ko_pii/dictionaries/` — 성씨/직책/부처/행정구역/필드라벨/일반단어
+- `src/python/ko_pii/dictionaries/` — 성씨/직책/부처/행정구역/필드라벨/일반단어
 - 새 도메인 어휘 (의료·금융·법조 등) PR 환영
 - *출처를 명시* — 공개 데이터셋·정부 표준·통계청 자료 등
 
 ### 2. 새 PII 카테고리
 
-`src/ko_pii/patterns/` 의 기존 모듈 (예: `rrn.py`) 을 레퍼런스로:
+`src/python/ko_pii/patterns/` 의 기존 모듈 (예: `rrn.py`) 을 레퍼런스로:
 
 ```python
 """<카테고리> (English Name) detection."""
@@ -57,12 +57,12 @@ def detect(text: str) -> Iterator[DetectionResult]:
 
 ### 3. 새 입력 포맷
 
-`src/ko_pii/io_/` 의 기존 reader (예: `docx.py`) 레퍼런스. `dispatcher.py`
+`src/python/ko_pii/io_/` 의 기존 reader (예: `docx.py`) 레퍼런스. `dispatcher.py`
 확장자 매핑 추가.
 
 ### 4. 외부 도구 통합
 
-`src/ko_pii/integrations/base.py` 의 `SecondaryDetector` 프로토콜 구현:
+`src/python/ko_pii/integrations/base.py` 의 `SecondaryDetector` 프로토콜 구현:
 
 ```python
 class MyExternalDetector:

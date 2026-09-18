@@ -87,12 +87,12 @@ ko-pii-mcp-server = "ko_pii.integrations.mcp_server:main"
 ko-pii-classify = "ko_pii.classifier.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ko_pii"]
+packages = ["src/python/ko_pii"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "src/ko_pii",
-    "tests",
+    "src/python/ko_pii",
+    "src/python/tests",
     "docs",
     "README.md",
     "LICENSE",
@@ -100,14 +100,14 @@ include = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
+testpaths = ["src/python/tests"]
+pythonpath = ["src/python"]
 addopts = "-ra"
 
 [tool.mypy]
 python_version = "3.10"
 strict = true
-files = ["src/ko_pii"]
+files = ["src/python/ko_pii"]
 
 # optional 의존성(ML/RAG/보안/외부 도구)은 미설치 환경에서도 타입체크가 통과해야.
 [[tool.mypy.overrides]]
@@ -120,7 +120,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.coverage.run]
-source = ["src/ko_pii"]
+source = ["src/python/ko_pii"]
 omit = ["*/integrations/openai_privacy_filter.py", "*/integrations/mcp_server.py"]
 
 [tool.coverage.report]

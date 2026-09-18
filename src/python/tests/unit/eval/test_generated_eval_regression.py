@@ -16,7 +16,7 @@ import pytest
 from ko_pii.detect import detect_all
 from ko_pii.eval.kdpii import match_forms_overlap
 
-DATA = Path(__file__).resolve().parents[3] / "data" / "generated_eval.jsonl"
+DATA = Path(__file__).resolve().parents[5] / "data" / "generated_eval.jsonl"
 PML = 3  # person_min_length
 
 

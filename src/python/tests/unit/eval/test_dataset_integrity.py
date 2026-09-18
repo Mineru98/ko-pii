@@ -34,7 +34,7 @@ def test_kdpii_original_pii_leakage_negligible():
     PII 보유는 1개뿐 → 사실상 무누수. 반면 분류기 데이터를 merge→reshuffle 하면 1,000+
     문장이 누수되므로(감사 지적), 빌더는 원본 파티션 보존 + assert_no_text_leakage 로 차단.
     """
-    kd = Path(__file__).resolve().parents[3] / "data" / "kdpii"
+    kd = Path(__file__).resolve().parents[5] / "data" / "kdpii"
     if not (kd / "train.json").exists():
         pytest.skip("KDPII 데이터 없음")
     train = json.load(open(kd / "train.json", encoding="utf-8"))

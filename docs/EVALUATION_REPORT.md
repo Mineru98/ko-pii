@@ -56,7 +56,7 @@ KDPII PERSON gold 의 50% 가 1-2자 별명·이름 단독 ("재명/미선") —
 **모든 점수는 공정 비교 — openai/privacy-filter 가 출력 가능한 7 라벨 (PERSON / EMAIL / PHONE / ADDRESS / DT_BIRTH / URL / ACCOUNT) 만 양 모델에서 micro F1 재계산.** 한국 특화 14 카테고리 (RRN/FRN/PASSPORT/DRIVER_LICENSE/VEHICLE/BUSINESS_REG/CARD/IP/AGE/HEIGHT/WEIGHT/MAJOR/EDUCATION/POSITION) 는 openai 라벨 공간에 부재 → 양쪽 모두 제외 후 비교 (자동 FN 처리는 부당). 한국 특화 카테고리 분석은 아래 "▣ openai/PF 가 라벨 공간에 없는 한국 핵심 PII" 박스 참조.
 
 ⁴ Presidio (default) = `pip install presidio-analyzer` + spaCy `ko_core_news_sm` 기본 16 recognizer. 한국 사용자가 *추가 설정 없이* 얻는 것.
-⁵ Presidio (+KR 정규식) = 위 기본 위에 한국 핵심 PII 6종 (RRN/FRN/PHONE/VEHICLE/BUSINESS_REG/DRIVER_LICENSE/CARD) 의 정규식 인식기를 사용자가 직접 등록. Presidio 사용자가 한국어 지원을 위해 *최소한* 추가할 만한 수준 (재현 코드: `src/ko_pii/eval/presidio_compare.py`).
+⁵ Presidio (+KR 정규식) = 위 기본 위에 한국 핵심 PII 6종 (RRN/FRN/PHONE/VEHICLE/BUSINESS_REG/DRIVER_LICENSE/CARD) 의 정규식 인식기를 사용자가 직접 등록. Presidio 사용자가 한국어 지원을 위해 *최소한* 추가할 만한 수준 (재현 코드: `src/python/ko_pii/eval/presidio_compare.py`).
 
 > **참고 — 합성 13 템플릿 코퍼스 (CI 회귀 감지용)**: `ko_pii.eval.synth` 가 생성하는 13 도메인 양식 (`gov_decree` `civil_petition` `hr_review` 등) 50 docs / seed 0 에서 ko-pii F1 = 0.785, openai = 0.547, Presidio default = 0.222, Presidio+KR = 0.357 (공정 비교 기준). 실측이 아닌 *코드 변경 시 자동 회귀 감지* 용도라 외부 평가표에서 제외. 노이즈 단락 강화 (commit ec72791) 도 동일 코퍼스에 robustness 정량 측정 — 변동 ko-pii −0.029 / openai −0.004 (전체 라벨 기준).
 

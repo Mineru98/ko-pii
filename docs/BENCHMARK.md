@@ -201,7 +201,7 @@ different-scorer run.
 
 The three KDPII systems (ko-pii, openai/privacy-filter, Presidio) are
 scored together by a single command. Arguments below were verified against
-`src/ko_pii/eval/model_comparison.py` (the `kdpii` mode wires all three through
+`src/python/ko_pii/eval/model_comparison.py` (the `kdpii` mode wires all three through
 the same `match_forms_overlap` scorer; defaults are GT model
 `openai/privacy-filter` and Presidio mode `kr_adapt`):
 

@@ -6,7 +6,7 @@ import ko_pii
 
 
 def test_version_matches_pyproject():
-    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    pyproject = Path(__file__).resolve().parents[4] / "pyproject.toml"
     m = re.search(r'^version = "([^"]+)"', pyproject.read_text(encoding="utf-8"),
                   re.MULTILINE)
     assert m, "pyproject.toml 에서 version 을 찾지 못함"
