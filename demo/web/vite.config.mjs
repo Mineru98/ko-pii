@@ -16,8 +16,5 @@ export default {
   // ReversibleVault 생성자가 읽는 process.env.KPII_FINGERPRINT_KEY — 브라우저에는 process 가 없다.
   define: { "process.env.KPII_FINGERPRINT_KEY": "undefined" },
   server: { port: 5173, strictPort: true, fs: { allow: [here("../..")] } },
-  build: {
-    target: "es2022",
-    rollupOptions: { input: { index: here("./index.html"), parity: here("./parity.html") } },
-  },
+  build: { target: "es2022" },
 };

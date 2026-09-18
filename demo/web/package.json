@@ -9,7 +9,6 @@
     "preview": "../../src/ts/node_modules/.bin/vite preview --config vite.config.mjs --port 5173",
     "typecheck": "../../src/ts/node_modules/.bin/tsc -p tsconfig.json --noEmit",
     "parity:gen": "../../.venv/bin/python parity/gen_reference.py",
-    "parity": "../../src/ts/node_modules/.bin/tsx parity/check.ts",
-    "parity:browser": "node parity/browser.mjs"
+    "parity": "../../src/ts/node_modules/.bin/tsx parity/check.ts"
   }
 }
