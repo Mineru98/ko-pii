@@ -16,7 +16,9 @@ from __future__ import annotations
 import re
 from typing import Iterator
 
+from ko_pii.context.address_units import UNIT_TAIL
 from ko_pii.core.types import DetectionResult, RiskLevel
+from ko_pii.core._interval_index import ForwardIntervalIndex
 from ko_pii.dictionaries.districts import (
     is_country, is_common_dong, is_extra_city,
 )
@@ -44,9 +46,9 @@ _LOOSE_ANCHORS = (
 _PATTERN_ROAD = re.compile(
     r"(?:([가-힣]{1,8}(?:특별시|광역시|특별자치도|특별자치시|도))\s*)?"
     r"((?:[가-힣]{1,8}(?:시|군|구)\s*){0,2})"
-    r"([가-힣A-Za-z0-9]{1,16}(?:대로|로|길))"
+    r"([가-힣A-Za-z0-9]{1,16}(?:대로|로|길)(?:[ \t]+[0-9]+(?:번)?길)?)"
     r"\s*"
-    r"([0-9]+(?:-[0-9]+)?)(?![0-9-])"   # 뒤에 숫자/하이픈 이어지면 거부 → 전화번호 삼킴 방지
+    r"([0-9]+(?:-[0-9]+)?)(?![0-9-]|(?:번)?길)"
 )
 
 # 지번 주소: 동/읍/면/리 + 번지수 (0~2 시·군·구 허용)
@@ -60,19 +62,22 @@ _PATTERN_JIBUN = re.compile(
 )
 
 # 동호수 확장 패턴 — 주소 직후 "(N동N호)" / "N동 N호" / "N층" / "(아파트명)"
+_DETAIL_PREFIX = r'\s*(?:[,/-]\s*)?'
+_UNIT = (r'(?:'
+         r'(?:지하|지상)\s*[0-9]+층'
+         r'|[Bb][0-9]+(?:층|호실|호)'
+         r'|[0-9]+(?:동|호실|호|층)'
+         r'|[A-Za-z]동'
+         r'|[가-힣]동(?=[ \t]*[0-9]+(?:호실|호|층))'
+         r')')
+_UNIT_END = r'(?=' + _UNIT + '|' + UNIT_TAIL + ')'
 _PATTERN_DETAIL = re.compile(
-    r'\s*'
-    r'(?:'
-    r'(\d+동\s*\d+호)'        # 103동1202호, 103동 1202호
-    r'|(\d+동)'               # 103동 (호수 없이)
-    r'|(\d+호)'               # 1202호 (동 없이)
-    r'|(\d+층)'               # 5층
-    r')'
+    _DETAIL_PREFIX + _UNIT + _UNIT_END
 )
 
 # 괄호 안 상세 — "(신정동,롯데캐슬킹덤아파트)" 등
 _PATTERN_PAREN_DETAIL = re.compile(
-    r'\s*\([가-힣A-Za-z0-9,·\s]+\)'
+    _DETAIL_PREFIX + r'\([가-힣A-Za-z0-9,·\s-]+\)'
 )
 
 # 건물명/단지명 — 도로명+번호 뒤 상세주소. 임의 고유명사라 사전 대신 위치로 식별.
@@ -91,8 +96,9 @@ _BLDG_SUFFIX = (
     "우미린|한라비발디|효성해링턴|어울림|하늘채|호반써밋|아크로|써밋|주공"
 )
 _PATTERN_BLDG = re.compile(
-    r'\s+[가-힣A-Za-z0-9]{2,}(?=\s+\d+(?:동|호|층))'     # (a) 뒤에 동/호/층
-    r'|\s+[가-힣A-Za-z0-9]*(?:' + _BLDG_SUFFIX + r')'     # (b) 건물 접미사
+    # Unknown bridge words must stay on one line, not consume another record.
+    r'(?: +| *, *)[가-힣A-Za-z0-9]{2,}(?= +\d+(?:동|호|층))'
+    r'|(?:\s+|\s*,\s*)[가-힣A-Za-z0-9]*(?:' + _BLDG_SUFFIX + r')'
 )
 
 # 대화체 단독 주소 — 시군구 또는 동 (번지 옵션), 광역 없음
@@ -152,14 +158,11 @@ def _extend_with_detail(det: DetectionResult, text: str) -> DetectionResult:
         if not m:
             m = _PATTERN_BLDG.match(text, pos)
         if not m:
+            m = _PATTERN_PAREN_DETAIL.match(text, pos)
+        if not m:
             break
         extended_end = m.end()
         pos = extended_end
-
-    # 괄호 상세 "(신정동,롯데캐슬킹덤아파트)"
-    m2 = _PATTERN_PAREN_DETAIL.match(text, pos)
-    if m2:
-        extended_end = m2.end()
 
     if extended_end == det.end:
         return det
@@ -214,9 +217,10 @@ def detect(text: str) -> Iterator[DetectionResult]:
         seen.add(span)
         yield det
 
+    occupied = ForwardIntervalIndex(seen)
     for m in _PATTERN_JIBUN.finditer(text):
         span = (m.start(), m.end())
-        if any(span[0] < e and s < span[1] for s, e in seen):
+        if occupied.overlaps(*span):
             continue  # already claimed by road pattern
         city = m.group(1)
         districts = (m.group(2) or "").strip()
@@ -250,18 +254,20 @@ def detect(text: str) -> Iterator[DetectionResult]:
         )
         det = _extend_with_detail(det, text)
         seen.add((det.start, det.end))
+        occupied.add(det.start, det.end)
         yield det
 
     # 3) 대화체 단독 주소 — 시군구 또는 동, 강한 keyword anchor 필요
     from ko_pii.dictionaries.districts import ALL_DISTRICTS
     valid_districts = ALL_DISTRICTS
+    occupied = ForwardIntervalIndex(seen)
     for m in _PATTERN_LOOSE.finditer(text):
         span = (m.start(), m.end())
         # 기존 jibun/road 매치와 *인접* 한 경우 = 같은 주소의 일부일 가능성 ↑ → skip
         # (예: 가평군 청평면 청평리 45-6 에서 loose 가 "가평군 청평면" 만 떼면
         # jibun 의 "청평리 45-6" 과 인접 → 같은 주소 → loose 거부)
         ADJACENCY = 30
-        if any(span[0] < e + ADJACENCY and s - ADJACENCY < span[1] for s, e in seen):
+        if occupied.overlaps(*span, margin=ADJACENCY):
             continue  # adjacent to another address match
         first_token = m.group(1)
         # 첫 토큰이 *실제 한국 행정구역* 인지 확인 (강남구·해운대구·응암동 ...)
@@ -275,6 +281,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
         if anchor is None:
             continue
         seen.add(span)
+        occupied.add(*span)
         yield DetectionResult(
             label=LABEL,
             text=m.group(0).strip(),
@@ -296,6 +303,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
     # 국가명은 nationality.py 로 분리 — 여기서는 행정구역만.
     from ko_pii.context.particles import strip_trailing_particle
     ADMIN_ALONE_ADJACENCY = 50
+    occupied = ForwardIntervalIndex(seen)
     for m in _PATTERN_ADMIN_TOKEN.finditer(text):
         raw_token = m.group(1)
         token, particle = strip_trailing_particle(raw_token)
@@ -306,8 +314,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
             continue
         actual_end = m.end() - (len(particle) if particle else 0)
         span = (m.start(), actual_end)
-        if any(span[0] < e + ADMIN_ALONE_ADJACENCY and s - ADMIN_ALONE_ADJACENCY < span[1]
-               for s, e in seen):
+        if occupied.overlaps(*span, margin=ADMIN_ALONE_ADJACENCY):
             continue
         kind = None
         if is_province(token) or token in {"강원도", "충청도", "전라도", "경상도", "제주도",
@@ -329,6 +336,7 @@ def detect(text: str) -> Iterator[DetectionResult]:
         if anchor is None:
             continue
         seen.add(span)
+        occupied.add(*span)
         yield DetectionResult(
             label=LABEL,
             text=token,

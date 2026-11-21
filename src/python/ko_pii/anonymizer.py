@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Any, Iterable, Optional
 
 from ko_pii.analytics.combined_risk import (
@@ -18,11 +20,18 @@ from ko_pii.analytics.combined_risk import (
     score_combined_risk,
 )
 from ko_pii.core.modes import Action, ProcessingMode, policy_for
+from ko_pii.core._coverage import protection_remainders
+from ko_pii.core.overlap import resolve_overlaps
 from ko_pii.core.types import DetectionResult, RiskLevel
-from ko_pii.detect import detect_all
-from ko_pii.modes._apply import apply_substitutions
+from ko_pii.core.trace import OverlapTrace, validate_trace_limit
+from ko_pii.core.validation import validated_detection
+from ko_pii.integrations.hybrid import _merge_candidates, validate_merge_config
+from ko_pii.detect import _detect_candidates
+from ko_pii.labels import validate_label_filter
+from ko_pii.modes._apply import AppliedSpan, apply_substitutions
 from ko_pii.modes.redact import label_to_hangul
 from ko_pii.patterns.person import is_person_excluded, normalize_exclusions
+from ko_pii.policy import policy_digest, validate_strategies
 from ko_pii.vault.reversible import ReversibleVault
 
 
@@ -31,6 +40,7 @@ class DetectionRecord:
     detection: DetectionResult
     action: Action
     token: Optional[str] = None
+    strategy: Optional[str] = None
 
 
 @dataclass
@@ -40,6 +50,8 @@ class AnonymizationResult:
     vault: Optional[ReversibleVault]
     summary: dict[str, Any] = field(default_factory=dict)
     combined_risk: Optional[CombinedRiskReport] = None
+    substitutions: list[AppliedSpan] = field(default_factory=list)
+    overlap_trace: OverlapTrace | None = None
 
     def review_items(self) -> list[DetectionRecord]:
         return [r for r in self.detections if r.action == Action.REVIEW]
@@ -65,6 +77,12 @@ class Anonymizer:
         Filter detectors by label.
     person_exclusions :
         Domain terms to suppress only from PERSON detection for this instance.
+    strategies :
+        Optional per-label overrides for ``strategy``. Detection thresholds still
+        follow ``mode``; overrides do not turn REVIEW/ALLOW into BLOCK.
+    trace_limit :
+        Collect up to this many value-free common-overlap events per call.
+        Zero (default) disables collection; the maximum is 1000.
     """
 
     def __init__(
@@ -78,41 +96,60 @@ class Anonymizer:
         merge_mode: str = "union",
         role_split_labels: Optional[Iterable[str]] = None,
         person_exclusions: Optional[Iterable[str]] = None,
+        *,
+        strategies: Mapping[str, str] | None = None,
+        trace_limit: int = 0,
     ) -> None:
-        if strategy not in {"tokenize", "redact", "asterisk", "hashed",
-                            "partial", "fpe"}:
-            raise ValueError(f"Unknown strategy: {strategy}")
+        validate_trace_limit(trace_limit)
+        selected_mode, delegated = validate_merge_config(merge_mode, role_split_labels)
+        if secondary_detector is not None and not callable(getattr(secondary_detector, "detect", None)):
+            raise ValueError("secondary_detector must provide a callable detect method")
+        self.trace_limit = trace_limit
+        self.strategies = MappingProxyType(validate_strategies(strategy, strategies))
         self.mode = mode
         self.policy = policy_for(mode)
         self.strategy = strategy
         self.vault = vault if vault is not None else ReversibleVault()
-        self.include = list(include) if include else None
-        self.exclude = list(exclude) if exclude else None
+        self.include = validate_label_filter(include, name="include")
+        self.exclude = validate_label_filter(exclude, name="exclude")
         self.secondary_detector = secondary_detector
-        self.merge_mode = merge_mode
+        self.merge_mode = selected_mode.value
         # role_split 모드에서 secondary 가 담당할 라벨 (None=기본 퍼지 10종)
-        self.role_split_labels = (frozenset(role_split_labels)
-                                  if role_split_labels is not None else None)
+        self.role_split_labels = delegated
         self.person_exclusions = normalize_exclusions(person_exclusions)
 
     # ------------------------------------------------------------ public
 
     def process(self, text: str) -> AnonymizationResult:
-        primary = detect_all(
+        return self._process_with_exclusions(text, self.person_exclusions)
+
+    def _process_with_exclusions(self, text: str, exclusions: frozenset[str]) -> AnonymizationResult:
+        # Structured fields supply a per-call union, never mutate shared policy.
+        mode, delegated = validate_merge_config(self.merge_mode, self.role_split_labels)
+        trace = OverlapTrace(self.trace_limit) if self.trace_limit else None
+        # Keep competing labels until merge confidence, delegation and the
+        # output policy are known. A REVIEW candidate must not hide a BLOCK.
+        primary = _detect_candidates(
             text,
             include=self.include,
             exclude=self.exclude,
-            person_exclusions=self.person_exclusions,
+            person_exclusions=exclusions,
         )
         # Optional secondary detector (ML 어댑터 등) 가 있으면 결과 병합
         if self.secondary_detector is not None:
-            from ko_pii.integrations.hybrid import MergeMode, merge_detections
-            secondary = list(self.secondary_detector.detect(text))
+            secondary: list[DetectionResult] = []
+            try:
+                for detection in self.secondary_detector.detect(text):
+                    secondary.append(validated_detection(detection, text))
+            except Exception:
+                # Adapter exceptions may echo input. No substitutions or Vault
+                # writes have happened yet, including for otherwise valid rows.
+                raise ValueError("secondary detector failed or returned invalid source-bound results") from None
             if self.include:
                 secondary = [s for s in secondary if s.label in self.include]
             if self.exclude:
                 secondary = [s for s in secondary if s.label not in self.exclude]
-            if self.person_exclusions:
+            if exclusions:
                 # Filter before overlap resolution. An excluded PERSON must not
                 # displace an overlapping primary ADDRESS or identifier.
                 secondary = [
@@ -122,44 +159,85 @@ class Anonymizer:
                         detection.label == "PERSON"
                         and is_person_excluded(
                             detection.text,
-                            self.person_exclusions,
+                            exclusions,
                         )
                     )
                 ]
-            detections = merge_detections(
-                primary, secondary, mode=MergeMode(self.merge_mode),
-                role_split_labels=self.role_split_labels,
+            candidates = _merge_candidates(
+                primary, secondary, mode=mode,
+                role_split_labels=delegated,
+                policy=self.policy,
             )
+            stage = "hybrid"
         else:
-            detections = primary
+            candidates = primary
+            stage = "primary"
+        detections = resolve_overlaps(candidates, trace=trace, stage=stage, policy=self.policy)
+        remainders = protection_remainders(text, candidates, detections, self.policy, self.strategy_for)
+        if remainders:
+            detections = resolve_overlaps(
+                [*detections, *remainders], trace=trace, stage="protection", policy=self.policy,
+            )
+        result = self._process_detections(text, detections)
+        result.summary["overlap_resolution"] = "block_risk_confidence_length_start"
+        if remainders:
+            result.summary["overlap_resolution"] += ";complete_replacement_remainders"
+            result.summary["overlap_protection"] = {"fragments": len(remainders)}
+        result.overlap_trace = trace
+        return result
+
+    def strategy_for(self, label: str) -> str:
+        """Return the configured transformation, without changing mode thresholds."""
+        return self.strategies.get(label, self.strategy)
+
+    def _process_detections(
+        self, text: str, detections: list[DetectionResult], *, asserted: bool = False,
+    ) -> AnonymizationResult:
         decisions = [
             DetectionRecord(
                 detection=d,
-                action=self.policy.decide(d.risk_level, d.confidence),
+                action=(Action.BLOCK if asserted and self.mode != ProcessingMode.AUDIT
+                        else self.policy.decide(d.risk_level, d.confidence)),
+                strategy=self.strategy_for(d.label),
             )
             for d in detections
         ]
 
         to_block = [r for r in decisions if r.action == Action.BLOCK]
-        replaced = self._apply(text, to_block)
+        substitutions: list[AppliedSpan] = []
+        replaced = self._apply(text, to_block, substitutions)
         combined = score_combined_risk(detections)
         summary = self._build_summary(decisions, combined)
+        summary["detection_scope"] = {
+            "input_empty": not text, "asserted_field": asserted,
+            "include": sorted(self.include) if self.include is not None else None,
+            "exclude": sorted(self.exclude) if self.exclude is not None else [],
+            "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment",
+        }
         return AnonymizationResult(
             text=replaced,
             detections=decisions,
-            vault=self.vault if self.strategy in {"tokenize", "hashed", "fpe"} else None,
+            vault=self.vault if ({self.strategy, *self.strategies.values()}
+                                 & {"tokenize", "hashed", "fpe"}) else None,
             summary=summary,
             combined_risk=combined,
+            substitutions=substitutions,
         )
 
     # ----------------------------------------------------------- internal
 
-    def _apply(self, text: str, to_block: list[DetectionRecord]) -> str:
+    def _apply(
+        self, text: str, to_block: list[DetectionRecord], trace: list[AppliedSpan],
+    ) -> str:
         if not to_block:
             return text
 
-        if self.strategy == "tokenize":
-            def repl(d: DetectionResult) -> str:
+        records_by_detection = {id(rec.detection): rec for rec in reversed(to_block)}
+
+        def repl(d: DetectionResult) -> str:
+            record = records_by_detection[id(d)]
+            strategy = self.strategy_for(d.label)
+            if strategy == "tokenize":
                 tok = self.vault.store(
                     label=d.label,
                     original=d.text,
@@ -169,57 +247,25 @@ class Anonymizer:
                     extra=dict(d.extra),
                 )
                 # Tag the record with the token assigned.
-                for rec in to_block:
-                    if rec.detection is d:
-                        rec.token = tok
-                        break
+                record.token = tok
                 return tok
-            return apply_substitutions(
-                text, (r.detection for r in to_block), repl
-            )
-
-        if self.strategy == "redact":
-            def repl(d: DetectionResult) -> str:
+            if strategy == "redact":
                 return f"[{label_to_hangul(d.label)}]"
-            return apply_substitutions(
-                text, (r.detection for r in to_block), repl
-            )
-
-        if self.strategy == "asterisk":
-            def repl(d: DetectionResult) -> str:
+            if strategy == "asterisk":
                 return "*" * max(1, d.end - d.start)
-            return apply_substitutions(
-                text, (r.detection for r in to_block), repl
-            )
-
-        if self.strategy == "hashed":
-            def repl(d: DetectionResult) -> str:
+            if strategy == "hashed":
                 fp = self.vault.fingerprint(d.label, d.text)
                 tok = f"<{d.label}:{fp[:12]}>"
-                for rec in to_block:
-                    if rec.detection is d:
-                        rec.token = tok
-                        break
+                record.token = tok
                 return tok
-            return apply_substitutions(text, (r.detection for r in to_block), repl)
-
-        if self.strategy == "partial":
-            from ko_pii.modes.partial import mask_value
-            def repl(d: DetectionResult) -> str:
+            if strategy == "partial":
+                from ko_pii.modes.partial import mask_value
                 masked = mask_value(d.label, d.text)
-                for rec in to_block:
-                    if rec.detection is d:
-                        rec.token = masked
-                        break
+                record.token = masked
                 return masked
-            return apply_substitutions(text, (r.detection for r in to_block), repl)
-
-        # fpe
-        from ko_pii.modes.fpe import _FPE_BY_LABEL, _fpe_default
-        def repl_fpe(d: DetectionResult) -> str:
+            from ko_pii.modes.fpe import _pseudonymize_value
             fp = self.vault.fingerprint(d.label, d.text)
-            fn = _FPE_BY_LABEL.get(d.label, _fpe_default)
-            new_val = fn(d.text, fp)
+            new_val = _pseudonymize_value(d.label, d.text, fp)
             self.vault.store(
                 label=d.label,
                 original=d.text,
@@ -228,12 +274,9 @@ class Anonymizer:
                 offset=d.start,
                 extra={**dict(d.extra), "fpe_value": new_val},
             )
-            for rec in to_block:
-                if rec.detection is d:
-                    rec.token = new_val
-                    break
+            record.token = new_val
             return new_val
-        return apply_substitutions(text, (r.detection for r in to_block), repl_fpe)
+        return apply_substitutions(text, (r.detection for r in to_block), repl, trace=trace)
 
     def _build_summary(
         self,
@@ -260,6 +303,8 @@ class Anonymizer:
             "total": len(decisions),
             "mode": self.mode.value,
             "strategy": self.strategy,
+            "strategies": dict(self.strategies),
+            "transformation_policy_sha256": policy_digest(self.mode.value, self.strategy, self.strategies),
             "by_action": by_action,
             "by_risk": by_risk,
             "by_label": by_label,

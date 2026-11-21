@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from bisect import bisect_right
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -38,27 +39,11 @@ _INVISIBLE = re.compile(
 # \uACB0\uD569\uD45C\uC2DC(nonspacing marks) \u2014 \uC22B\uC790 \uC0AC\uC774\uC5D0 \uB07C\uBA74 PII \uB97C \uCABC\uAC1C\uB294 \uC6B0\uD68C. \uD074\uB7EC\uC2A4\uD130 NFKC
 # \uB2E8\uACC4\uC5D0\uC11C \uBB38\uC790\uC5D4 \uBCF4\uC874(\u00E9)\u00B7\uC22B\uC790\uC5D4 \uC81C\uAC70. fast-path \uAC00 \uACB0\uD569\uD45C\uC2DC \uD14D\uC2A4\uD2B8(\uC774\uBBF8 NFKC \uB77C\uB3C4)\uB97C
 # \uAC74\uB108\uB6F0\uC9C0 \uC54A\uB3C4\uB85D \uBCC4\uB3C4 \uAC80\uC0AC\uD55C\uB2E4.
-def _build_combining_re() -> "re.Pattern[str]":
-    """결합 클래스(ccc != 0) 코드 포인트 전체의 문자 클래스.
-
-    빠른 경로 판정을 느린 경로(``unicodedata.combining``)와 같은 기준으로 맞춘다.
-    손으로 나열한 BMP 범위만 보던 때는 아스트랄 결합표시(U+1D165 등)를 숫자 사이에
-    끼우면 빠른 경로로 빠져 PII 가 검출되지 않았다. 결합표시는 BMP·SMP 에만 있으므로
-    미할당 평면(3~13)은 건너뛴다 (import 비용 절감).
-    """
-    parts: list[str] = []
-    start = -1
-    for cp in range(0x30000):
-        if unicodedata.combining(chr(cp)):
-            if start < 0:
-                start = cp
-        elif start >= 0:
-            parts.append(f"{chr(start)}-{chr(cp - 1)}" if cp - 1 > start else chr(start))
-            start = -1
-    return re.compile("[" + "".join(re.escape(x) if len(x) == 1 else x for x in parts) + "]")
-
-
-_COMBINING = _build_combining_re()
+_COMBINING = re.compile(
+    r"[\u0300-\u036F\u0483-\u0489\u0591-\u05BD\u0610-\u061A"
+    r"\u064B-\u065F\u0670\u06D6-\u06DC\u1AB0-\u1AFF\u1DC0-\u1DFF"
+    r"\u20D0-\u20FF\uFE20-\uFE2F]"
+)
 
 # \uBE44ASCII \uC22B\uC790 \u2192 ASCII \uC22B\uC790 \uD3F4\uB529. NFKC \uB294 \uC774\uB4E4\uC744 \uD3B4\uC9C0 \uC54A\uC73C\uBBC0\uB85C(\uC815\uADDC\uD615) \uC9C1\uC811 \uB9E4\uD551\uD55C\uB2E4.
 # \uC8FC\uBBFC/\uC0AC\uC5C5\uC790/\uCE74\uB4DC \uBC88\uD638\uB97C Arabic-Indic \uC22B\uC790\uB85C \uC801\uC740 \uAC80\uCD9C \uC6B0\uD68C\uB97C \uCC28\uB2E8. 1:1 \uCE58\uD658\uC774\uB77C
@@ -155,7 +140,18 @@ _DIGIT_HOMOGLYPH: dict[str, str] = {
     "S": "5", "B": "8", "Z": "2", "G": "6",
 }
 _DIGIT_HG_CHARS = "".join(re.escape(c) for c in _DIGIT_HOMOGLYPH)
-_DIGIT_HG_TOKEN = re.compile(rf"[0-9{_DIGIT_HG_CHARS}][0-9{_DIGIT_HG_CHARS}\-\u2010-\u2015]*")
+_DIGIT_HG_TOKEN = re.compile(r"[A-Za-z0-9_|][A-Za-z0-9_|\-\u2010-\u2015]*")
+_DIGIT_HG_PRESENT = re.compile(rf"[{_DIGIT_HG_CHARS}]")
+_DIGIT_HG_ALLOWED = frozenset("0123456789-\u2010\u2011\u2012\u2013\u2014\u2015") | _DIGIT_HOMOGLYPH.keys()
+
+
+def _is_digit_homoglyph_token(token: str) -> bool:
+    # Inspect the whole ASCII identifier, not a numeric-looking suffix inside it.
+    return (
+        bool(_DIGIT_HG_PRESENT.search(token))
+        and all(c in _DIGIT_HG_ALLOWED for c in token)
+        and sum(c.isdigit() for c in token) >= 2
+    )
 
 
 def _fold_digit_homoglyphs(text: str) -> str:
@@ -163,9 +159,7 @@ def _fold_digit_homoglyphs(text: str) -> str:
 
     def repl(m: re.Match[str]) -> str:
         s = m.group(0)
-        digits = sum(c.isdigit() for c in s)
-        hg = sum(c in _DIGIT_HOMOGLYPH for c in s)
-        if digits >= 2 and hg >= 1:
+        if _is_digit_homoglyph_token(s):
             return "".join(_DIGIT_HOMOGLYPH.get(c, c) for c in s)
         return s
 
@@ -184,6 +178,10 @@ def needs_normalization(text: str) -> bool:
         (not text.isascii())
         or bool(_INVISIBLE.search(text))
         or bool(_spaced_collapse_positions(text))
+        or (
+            bool(_DIGIT_HG_PRESENT.search(text))
+            and any(_is_digit_homoglyph_token(m.group()) for m in _DIGIT_HG_TOKEN.finditer(text))
+        )
     )
 
 
@@ -196,55 +194,80 @@ def _is_conjoining_jamo(ch: str) -> bool:
     )
 
 
-def normalize_unicode(text: str) -> tuple[str, list[int]]:
+def _normalization_cluster_end(text: str, start: int) -> int:
+    """Group combining marks and one composable Hangul syllable, not a word."""
+    end = start + 1
+    first = unicodedata.normalize("NFKC", text[start])
+    can_take_tail = len(first) == 1 and "\uac00" <= first <= "\ud7a3" and (ord(first) - 0xAC00) % 28 == 0
+    if len(first) == 1 and "\u1100" <= first <= "\u1112" and end < len(text):
+        vowel = unicodedata.normalize("NFKC", text[end])
+        if len(vowel) == 1 and "\u1161" <= vowel <= "\u1175":
+            end += 1
+            can_take_tail = True
+    if can_take_tail and end < len(text):
+        tail = unicodedata.normalize("NFKC", text[end])
+        if len(tail) == 1 and "\u11a8" <= tail <= "\u11c2":
+            end += 1
+    while end < len(text) and unicodedata.combining(text[end]):
+        end += 1
+    return end
+
+
+def _fold_numeric_text(text: str, offsets: list[int]) -> tuple[str, list[int]]:
+    """Apply ASCII numeric folds after Unicode folds, composing source offsets."""
+    text = _fold_digit_homoglyphs(text)
+    drop = _spaced_collapse_positions(text)
+    if not drop:
+        return text, offsets
+    kept = [i for i in range(len(text)) if i not in drop]
+    return "".join(text[i] for i in kept), [offsets[i] if offsets else i for i in kept]
+
+
+def normalize_unicode(text: str, *, fold_numeric: bool = True) -> tuple[str, list[int]]:
     """NFKC 폴딩 + 보이지 않는 문자 제거.
 
     Returns ``(normalized, offset_map)``. ``offset_map[i]`` 는 ``normalized[i]``
-    에 대응하는 원본 ``text`` 위치. 변화가 없으면 ``normalized == text`` (offset_map
-    은 빈 리스트 — 호출측이 무시).
+    에 대응하는 원본 ``text`` 위치. 길이와 위치가 유지되는 빠른 경로에서는 빈 리스트를
+    반환한다. 이 경우에도 숫자 닮은꼴 폴딩으로 내용은 달라질 수 있다.
+
+    ``fold_numeric=False`` keeps literal letters such as a passport's S/O/G.
+    Unicode compatibility folds and source offsets are still preserved.
     """
-    # 라틴 호몰로그 숫자 폴딩(1:1, 길이 불변 → offset 보존). 빠른 경로 전에 적용해야
-    # 'l234567' 같은 ASCII-호몰로그 우회도 펴진다.
-    text = _fold_digit_homoglyphs(text)
-    # 자릿수 분할 공백 제거 대상 위치(원본 기준). 이 공백들은 invisible 처럼 스킵하되
-    # offset_map 은 보존해 redact span 이 원본 전체(공백 포함)를 덮게 한다.
-    drop_spaces = _spaced_collapse_positions(text)
     # 빠른 경로: 이미 NFKC 이고 보이지 않는/결합 문자도 없으면 그대로 (no-op).
     # 결합표시는 이미 NFKC 일 수 있어(1+◌́ 는 합성형 없음) 별도 검사 — 빠진 채
     # 건너뛰면 숫자에 붙은 결합표시가 PII 를 쪼개 누출된다.
     if (
-        not drop_spaces
-        and not _INVISIBLE.search(text)
+        not _INVISIBLE.search(text)
         and not _COMBINING.search(text)
         and not _FOLD_DIGIT.search(text)
         and not _CONJOINING_JAMO_RE.search(text)
         and unicodedata.is_normalized("NFKC", text)
     ):
-        return text, []
+        return _fold_numeric_text(text, []) if fold_numeric else (text, [])
 
     out: list[str] = []
     omap: list[int] = []
     n = len(text)
     i = 0
+    previous_base_alpha: bool | None = None
     while i < n:
         ch = text[i]
         if _INVISIBLE.match(ch):
             i += 1
             continue
-        # 자릿수 분할 우회 구간 안의 ASCII 공백 — invisible 처럼 스킵(omap 미추가).
-        # 다음 글자가 자기 원본 위치로 매핑되므로 redact span 이 원본 공백까지 덮는다.
-        if ch == " " and i in drop_spaces:
-            i += 1
+        # L+V(+T) or LV+T compose as one syllable (Unicode section 3.12).
+        # Mapping a whole jamo word to one offset turns suffix boundaries into
+        # zero-length detections and can leave the original name untouched.
+        j = _normalization_cluster_end(text, i)
+        cluster = unicodedata.normalize("NFKC", text[i:j])
+        if previous_base_alpha is False and all(
+            _is_conjoining_jamo(c) or unicodedata.combining(c) for c in cluster
+        ):
+            # Preserve numeric-noise handling, but never discard a real syllable.
+            i = j
             continue
-        # 기본 문자 + 뒤따르는 결합표시/한글 자모를 한 클러스터로 묶어 NFKC.
-        # 글자별 NFKC 는 NFD 분해형(예: 한글 "홍"=홍, 라틴 "é"=e+´)을 합치지
-        # 못해 우회를 허용함 → 클러스터 단위 합성으로 차단. 합성 결과는 모두
-        # 클러스터 시작 위치(i)로 매핑한다.
-        j = i + 1
-        while j < n and (unicodedata.combining(text[j]) or _is_conjoining_jamo(text[j])):
-            j += 1
         base_is_alpha = text[i].isalpha()
-        for fc in unicodedata.normalize("NFKC", text[i:j]):
+        for fc in cluster:
             # 숫자/기호 베이스에 NFKC 로 합쳐지지 않고 남은 결합표시(U+0301 등)나 조합용
             # 한글 자모(U+1100~, '9001ᄀ01' 처럼 숫자에 끼어 PII 를 쪼개는 우회)는 제거.
             # 문자(é=e+´, NFD 한글 등 정상 결합)는 base 가 alpha 라 보존된다.
@@ -254,8 +277,10 @@ def normalize_unicode(text: str) -> tuple[str, list[int]]:
                 continue
             out.append(_CHAR_FOLD.get(fc, fc))
             omap.append(i)
+        previous_base_alpha = base_is_alpha
         i = j
-    return "".join(out), omap
+    normalized = "".join(out)
+    return _fold_numeric_text(normalized, omap) if fold_numeric else (normalized, omap)
 
 
 def remap_to_source(
@@ -272,13 +297,16 @@ def remap_to_source(
     out: list[DetectionResult] = []
     for det in detections:
         start = offset_map[det.start] if det.start < n else det.start
-        # 검출 끝 = 다음 정규화 글자의 원본 시작 위치(= 마지막 글자 클러스터의 원본 끝).
-        # 합성(다대일)·제거(invisible)에도 정확하며, 0길이 검출의 start>end 역전도 방지.
-        if det.end < n:
+        # A match ending inside a compatibility expansion must consume the
+        # original character, not end at that same character's starting offset.
+        if det.start < det.end and 0 < det.end <= n:
+            following = bisect_right(offset_map, offset_map[det.end - 1])
+            end = offset_map[following] if following < n else len(source)
+        elif det.end < n:
             end = offset_map[det.end]
         elif det.end == n:
             end = len(source)
         else:
             end = det.end
-        out.append(replace(det, start=start, end=end, text=source[start:end]))
+        out.append(replace(det, start=start, end=end, text=source[start:end], normalized=True))
     return out

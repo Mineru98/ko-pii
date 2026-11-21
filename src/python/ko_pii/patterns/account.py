@@ -16,6 +16,7 @@ Legal basis: 개인정보보호법 제2조; 금융실명거래 및 비밀보장�
 from __future__ import annotations
 
 import re
+from bisect import bisect_left
 from typing import Iterator
 
 from ko_pii.core.types import DetectionResult, RiskLevel
@@ -24,9 +25,11 @@ LABEL = "ACCOUNT"
 LEGAL_BASIS = "개인정보보호법 제2조; 금융실명법"
 CATEGORY = "일반개인정보"
 
-# 한국 은행·금융기관 키워드 — 정확한 명칭 + 약칭 모두 포함.
-# 짧은 약칭 (KB, NH 등) 은 단어 경계 충돌 위험으로 제외.
+# 한국 은행·금융기관 키워드 — 정확한 명칭 + 기존 약칭 모두 포함.
 _BANK_NAMES = (
+    # Qualified spellings previously recognized through their Korean suffix.
+    "NH농협은행", "IBK기업은행", "KDB산업은행", "BNK부산은행", "BNK경남은행",
+    "DGB대구은행", "Sh수협은행", "JB제주은행",
     # 시중은행 (정식·약칭)
     "국민은행", "신한은행", "우리은행", "하나은행", "기업은행", "IBK",
     "KEB하나은행", "KEB", "KB국민은행", "KB",
@@ -52,31 +55,55 @@ _BANK_NAMES = (
     "국민", "신한", "우리", "하나",
 )
 
+# Hyphens bind a numeric block; a single space can separate account groups.
+# Consume whole blocks before validating so overlong values cannot be sliced.
+_BLOCK = r"[0-9]+(?: ?- ?[0-9]+)*"
+_BLOCK_PATTERN = re.compile(_BLOCK)
+_NUMBER = _BLOCK + r"(?: " + _BLOCK + r"){0,4}(?![0-9]| ?-)"
+_VALUE_PREFIX = r'''\s*(?:[:=]\s*)?(?:["'“‘「『(]\s*)?'''
+_BANK_PATTERN = "(?:" + "|".join(
+    map(re.escape, sorted(_BANK_NAMES, key=lambda name: (-len(name), name)))
+) + ")"
+_COMPOUND_BANK_PATTERN = "(?:" + "|".join(
+    map(re.escape, sorted((name for name in _BANK_NAMES if len(name) >= 4),
+                          key=lambda name: (-len(name), name)))
+) + ")"
+_BANK_PARTICLE = (
+    r"(?:(?:으로부터|에서부터|으로|에게서|한테서|께서|에게|한테|에서|부터|까지|보다|처럼|같이|에|로|와|과|의)"
+    r"(?:은|는|도|만|의)?|은|는|이|가|을|를|도|만|입니다|이며|이고)"
+)
+_BANK_END = r"(?=\W|$|" + _BANK_PARTICLE + r"(?!\w))"
+
 # anchor 1: "계좌" 키워드가 *직전* 에 (콜론·번호 옵션 허용)
 _KEYWORD_PATTERN = re.compile(
-    r"(?:계좌\s*(?:번호|번)?\s*:?\s*)"
-    r"([0-9][\s\-]*(?:[0-9][\s\-]*){9,19})"
+    r"계좌(?:\s*(?:번호|번))?" + _VALUE_PREFIX + r"(?P<value>" + _NUMBER + r")"
 )
 
 # anchor 2: 은행명이 *앞* 에 (선택적 콜론·공백)
 _BANK_BEFORE_PATTERN = re.compile(
-    r"(?:" + "|".join(map(re.escape, _BANK_NAMES)) + r")"
-    r"\s*:?\s*"
-    r"([0-9]+(?:[\s\-][0-9]+){1,4}|[0-9]{10,16})"
+    r"(?:(?<!\w)|(?<=[가-힣])(?=" + _COMPOUND_BANK_PATTERN + r"))"
+    r"(?P<bank>" + _BANK_PATTERN + r")"
+    + _VALUE_PREFIX + r"(?P<value>" + _NUMBER + r")"
 )
 
 # anchor 3: 은행명이 *뒤* 에 (숫자 + 공백/콤마 옵션 + 은행명)
 _BANK_AFTER_PATTERN = re.compile(
-    r"(?<![0-9])"
-    r"([0-9]+(?:[\s\-][0-9]+){1,4}|[0-9]{10,16})"
-    r"\s*"
-    r"(?:" + "|".join(map(re.escape, _BANK_NAMES)) + r")"
+    r"(?<![0-9-])(?<!- )"
+    r"(?P<value>" + _NUMBER + r")"
+    r'''\s*(?:["'”’」』)]\s*)?(?:,\s*)?'''
+    r"(?P<bank>" + _BANK_PATTERN + r")" + _BANK_END
 )
+
+
+def _overlaps_previous(span: tuple[int, int], occupied: list[tuple[int, int]]) -> bool:
+    """Previous passes produce disjoint spans; inspect only the last possible one."""
+    previous = bisect_left(occupied, (span[1],)) - 1
+    return previous >= 0 and occupied[previous][1] > span[0]
 
 
 def _normalize_and_check(raw: str) -> str | None:
     """공백/하이픈 제거 후 10~16자리 숫자만 반환."""
-    digits = re.sub(r"[\s\-]", "", raw)
+    digits = re.sub(r"[ -]", "", raw)
     if not digits.isdigit():
         return None
     if not (10 <= len(digits) <= 16):
@@ -84,16 +111,33 @@ def _normalize_and_check(raw: str) -> str | None:
     return digits
 
 
+def _account_prefix(raw: str) -> str | None:
+    """Keep a complete initial value separate from subsequent numeric fields."""
+    total = 0
+    end = 0
+    for index, block in enumerate(_BLOCK_PATTERN.finditer(raw)):
+        total += sum("0" <= char <= "9" for char in block.group())
+        if total > 16:
+            break
+        if total >= 10:
+            end = block.end()
+            if index == 0:
+                break
+    return raw[:end] if end else None
+
+
 def detect(text: str) -> Iterator[DetectionResult]:
     seen: set[tuple[int, int]] = set()
 
     # 1) "계좌" 키워드 anchor
     for m in _KEYWORD_PATTERN.finditer(text):
-        raw = m.group(1).rstrip()
+        raw = _account_prefix(m.group("value"))
+        if raw is None:
+            continue
         digits = _normalize_and_check(raw)
         if digits is None:
             continue
-        span = (m.start(1), m.start(1) + len(raw))
+        span = (m.start("value"), m.start("value") + len(raw))
         if span in seen:
             continue
         seen.add(span)
@@ -106,16 +150,19 @@ def detect(text: str) -> Iterator[DetectionResult]:
         )
 
     # 2) 은행명 anchor (앞)
+    occupied = sorted(seen)
     for m in _BANK_BEFORE_PATTERN.finditer(text):
-        raw = m.group(1).rstrip()
+        raw = _account_prefix(m.group("value"))
+        if raw is None:
+            continue
         digits = _normalize_and_check(raw)
         if digits is None:
             continue
-        span = (m.start(1), m.start(1) + len(raw))
-        if span in seen or any(s < span[1] and span[0] < e for s, e in seen):
+        span = (m.start("value"), m.start("value") + len(raw))
+        if _overlaps_previous(span, occupied):
             continue
         seen.add(span)
-        bank = m.group(0).split(raw)[0].strip(": ")
+        bank = m.group("bank")
         yield DetectionResult(
             label=LABEL, text=raw, start=span[0], end=span[1],
             risk_level=RiskLevel.HIGH, confidence=0.9,
@@ -126,16 +173,17 @@ def detect(text: str) -> Iterator[DetectionResult]:
         )
 
     # 3) 은행명 anchor (뒤)
+    occupied = sorted(seen)
     for m in _BANK_AFTER_PATTERN.finditer(text):
-        raw = m.group(1).rstrip()
+        raw = m.group("value").rstrip()
         digits = _normalize_and_check(raw)
         if digits is None:
             continue
-        span = (m.start(1), m.start(1) + len(raw))
-        if span in seen or any(s < span[1] and span[0] < e for s, e in seen):
+        span = (m.start("value"), m.start("value") + len(raw))
+        if _overlaps_previous(span, occupied):
             continue
         seen.add(span)
-        bank = m.group(0).split(raw)[-1].strip(": ")
+        bank = m.group("bank")
         yield DetectionResult(
             label=LABEL, text=raw, start=span[0], end=span[1],
             risk_level=RiskLevel.HIGH, confidence=0.9,

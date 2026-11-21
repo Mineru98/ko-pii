@@ -5,6 +5,8 @@ import re
 from typing import Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
+from ko_pii.core.trace import OverlapTrace
+from ko_pii.labels import validate_label_filter
 from ko_pii.core.overlap import resolve_overlaps as _resolve_overlaps
 from ko_pii.core.unicode_norm import (
     needs_normalization,
@@ -79,6 +81,8 @@ DETECTORS = (
 # 영숫자 런(ASCII + 전각). 원본 재검사 필요 여부 판정용 — invisible 제거가 이 '런의 모양'
 # (길이 시퀀스)을 바꿨다면 두 PII 가 경계 융합/분리됐다는 뜻이라 원본도 봐야 한다.
 _PII_RUN = re.compile(r"[0-9A-Za-z０-９Ａ-Ｚａ-ｚ]+")
+# These line separators are removed by numeric anti-evasion normalization.
+_EMAIL_LINE_CONTROLS = re.compile(r"[\x0b\x0c\x1c-\x1e\x85]")
 
 
 def _run_shape(s: str) -> list[int]:
@@ -90,12 +94,15 @@ def _run_detectors(
     person_exclusions: frozenset[str],
     *,
     include_person: bool = True,
+    include_email: bool = True,
 ) -> list[DetectionResult]:
     raw: list[DetectionResult] = []
     for fn in DETECTORS:
         if fn is person.detect:
             if include_person:
                 raw.extend(person.detect(text, exclusions=person_exclusions))
+        elif fn is email.detect and not include_email:
+            continue
         else:
             raw.extend(fn(text))
     return raw
@@ -108,24 +115,48 @@ def detect_all(
     *,
     normalize: bool = True,
     person_exclusions: Optional[Iterable[str]] = None,
+    trace: OverlapTrace | None = None,
 ) -> list[DetectionResult]:
     """Run every detector and return a merged, conflict-resolved list.
 
-    Overlapping spans are resolved by priority — higher risk level, then higher
-    confidence, then longer span, then earlier start — so a lower-priority span
-    never shadows a higher-confidence PII span (see ``_resolve_overlaps``).
+    Overlapping spans are resolved by higher risk level, then higher confidence,
+    then longer span, then earlier start. This detection-only API has no output
+    policy; Anonymizer resolves candidates after applying its processing policy.
 
     ``include`` / ``exclude`` filter on the resulting DetectionResult labels.
 
     ``normalize`` (기본 True): 전각/호환문자 폴딩 + 제로폭 문자 제거로 검출
     우회를 차단한다. 결과 offset 은 원본 ``text`` 기준으로 역매핑된다.
-    ASCII 입력은 우회 벡터가 없어 그대로 통과한다.
+    ASCII 입력도 숫자 닮은꼴 문자나 자릿수 분할 공백이 있으면 정규화한다.
 
     ``person_exclusions``: 이 호출에서 PERSON 으로 검출하지 않을 도메인 용어.
     패키지 내장 사전을 수정하지 않으며 다른 호출에 영향을 주지 않는다.
+
+    ``trace`` optionally collects bounded common-overlap metadata. Use a fresh
+    OverlapTrace per input; it does not trace detector-internal rejections.
     """
+    return _resolve_overlaps(
+        _detect_candidates(
+            text, include, exclude, normalize=normalize,
+            person_exclusions=person_exclusions,
+        ),
+        trace=trace,
+    )
+
+
+def _detect_candidates(
+    text: str,
+    include: Optional[Iterable[str]] = None,
+    exclude: Optional[Iterable[str]] = None,
+    *,
+    normalize: bool = True,
+    person_exclusions: Optional[Iterable[str]] = None,
+) -> list[DetectionResult]:
+    """Collect source-bound candidates without discarding policy/merge evidence."""
     if not isinstance(text, str):
         raise TypeError(f"detect_all() expects str, got {type(text).__name__}")
+    inc = validate_label_filter(include, name="include")
+    exc = validate_label_filter(exclude, name="exclude")
     normalized_exclusions = person.normalize_exclusions(person_exclusions)
     source = text
     offset_map: Optional[list[int]] = None
@@ -134,7 +165,8 @@ def detect_all(
         if norm != text:
             text, offset_map = norm, omap
 
-    raw = _run_detectors(text, normalized_exclusions)
+    separate_email = normalize and bool(_EMAIL_LINE_CONTROLS.search(source))
+    raw = _run_detectors(text, normalized_exclusions, include_email=not separate_email)
 
     if offset_map is not None:
         # 정규화가 텍스트를 바꿨다(전각 폴딩/보이지 않는 문자 제거 등).
@@ -155,19 +187,40 @@ def detect_all(
                     source,
                     normalized_exclusions,
                     include_person=False,
+                    include_email=not separate_email,
                 )
             )
 
-    inc = set(include) if include else None
-    exc = set(exclude) if exclude else set()
+    if separate_email:
+        # Keep email line boundaries without weakening numeric control-injection
+        # detection. Replacement is one-to-one, so offsets still refer to source.
+        email_text, email_offsets = normalize_unicode(_EMAIL_LINE_CONTROLS.sub("\n", source))
+        email_results = list(email.detect(email_text))
+        email_results = remap_to_source(email_results, email_offsets, source)
+        raw.extend(email_results)
+        raw.extend(email.detect(source))
+
+    if (normalize and _EMAIL_LINE_CONTROLS.search(source)
+            and (inc is None or "PERSON" in inc) and "PERSON" not in (exc or ())):
+        # Numeric anti-evasion removes these controls and can fuse a name with
+        # the next field label. Add a line-aware PERSON view without dropping
+        # existing protection for controls inserted inside names or identifiers.
+        person_text, person_offsets = normalize_unicode(_EMAIL_LINE_CONTROLS.sub("\n", source))
+        person_results = list(person.detect(person_text, exclusions=normalized_exclusions))
+        raw.extend(remap_to_source(person_results, person_offsets, source))
+
+    if offset_map is not None and (inc is None or "PASSPORT" in inc) and "PASSPORT" not in (exc or ()):
+        # Numeric anti-evasion folds can erase valid passport letters (S/O/G).
+        # Only this detector needs the literal-letter view, not a second full pass.
+        passport_text, passport_offsets = normalize_unicode(source, fold_numeric=False)
+        if passport_text != text:
+            raw.extend(remap_to_source(list(passport.detect(passport_text)), passport_offsets, source))
+
     if inc is not None:
         raw = [d for d in raw if d.label in inc]
     if exc:
         raw = [d for d in raw if d.label not in exc]
 
-    return _resolve_overlaps(raw)
-
-
-# 겹침 해소는 core.overlap.resolve_overlaps 단일 구현 사용 (위 import 의 _resolve_overlaps).
-# detect_all / merge_detections(integrations.hybrid) / 치환(modes._apply) 이 모두 같은
-# 우선순위(위험도→확신도→길이)로 해소해 누출 회귀를 차단한다.
+    for detection in raw:
+        detection.rule_id = f"ko-pii.{detection.label.lower()}.v1"
+    return raw

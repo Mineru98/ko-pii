@@ -3,11 +3,11 @@
 원본 PII 와 *같은 구조* (자릿수·구분자 위치·하이픈) 를 유지하면서 값만 바꾼다.
 데이터 분석·통계 호환성이 필요할 때 사용 (예: RRN 컬럼 길이·체크섬 형태 유지).
 
-- 결정적: 같은 입력 + 같은 vault salt → 같은 출력
-- 가역적이지는 않음 (rainbow table 공격 회피). 복원이 필요하면 ``tokenize`` 사용.
+- 결정적: 같은 입력 + 같은 Vault 지문 설정(키·salt·scheme·반복 횟수) → 같은 출력
+- 원문은 Vault에 저장된다. 출력의 형식만으로 원문을 복원하는 암호 방식은 아니다.
 
 알고리즘:
-1. ``(label, original)`` 의 salted SHA-256 fingerprint 를 얻는다.
+1. ``(label, original)`` 의 Vault fingerprint 를 얻는다 (신규 기본값: PBKDF2).
 2. fingerprint 를 카테고리별 길이·형식에 맞춰 변환:
    - 숫자 자릿: hex → digit (mod 10)
    - 알파벳: A-Z 범위 매핑
@@ -16,6 +16,8 @@
 
 본 모듈은 *진정한 FPE* (FF1/FF3) 가 아니라 **형식 보존 결정적 매핑** — 길이와
 구조만 보존. 강한 암호학적 가역성이 필요하면 별도 FF1 구현 필요.
+비표준 숫자 표기는 정규화되므로 길이·구분자가 바뀔 수 있다. 지원하지 않는 형식이나
+변환 후 값이 그대로인 경우에는 원문 길이의 별표로 전체 마스킹한다.
 
 Legal basis: 「가명정보 처리 가이드라인」 (개인정보보호위원회) — 형식 보존
 가명화는 데이터 효용 보존을 위한 권장 기법.
@@ -23,10 +25,13 @@ Legal basis: 「가명정보 처리 가이드라인」 (개인정보보호위원
 from __future__ import annotations
 
 import re
-from typing import Iterable, Optional
+import unicodedata
+from typing import Callable, Iterable, Optional
 
 from ko_pii.core.types import DetectionResult
-from ko_pii.modes._apply import apply_substitutions
+from ko_pii.core.unicode_norm import normalize_unicode
+from ko_pii.modes._apply import apply_substitutions, prepare_detections
+from ko_pii.patterns.email import _split_literal_email
 from ko_pii.vault.reversible import ReversibleVault
 
 
@@ -67,8 +72,8 @@ def _hangul_from_hash(fp: str, n: int) -> str:
     return "".join(out)
 
 
-def _fpe_rrn(original: str, fp: str) -> str:
-    """RRN: 13자리, 6-7 사이 하이픈, 7번째 자리(gender) 유지."""
+def _fpe_registration(original: str, fp: str, check_digit: Callable[[str], int]) -> str:
+    """Preserve the 13-digit shape and gender digit, not a valid birth date."""
     digits = re.sub(r"\D", "", original)
     if len(digits) != 13:
         return _digits_from_hash(fp, len(digits))
@@ -78,9 +83,8 @@ def _fpe_rrn(original: str, fp: str) -> str:
     back_partial = _digits_from_hash(fp[16:30], 5)
     # 체크섬 재계산 — 첫 12자리에서 산출
     new_first_12 = front_new + gender + back_partial
-    from ko_pii.checksum.rrn_checksum import compute_check_digit
     try:
-        check = compute_check_digit(new_first_12)
+        check = check_digit(new_first_12)
     except ValueError:
         check = 0
     new_full = new_first_12 + str(check)
@@ -88,9 +92,22 @@ def _fpe_rrn(original: str, fp: str) -> str:
     return f"{new_full[:6]}-{new_full[6:]}" if has_hyphen else new_full
 
 
+def _fpe_rrn(original: str, fp: str) -> str:
+    from ko_pii.checksum.rrn_checksum import compute_check_digit
+    return _fpe_registration(original, fp, compute_check_digit)
+
+
+def _fpe_frn(original: str, fp: str) -> str:
+    from ko_pii.checksum.frn_checksum import compute_check_digit
+    return _fpe_registration(original, fp, compute_check_digit)
+
+
 def _fpe_phone(original: str, fp: str) -> str:
     """전화: 자릿수·구분자·prefix 유지. 010/02/031 등은 보존."""
     digits = re.sub(r"\D", "", original)
+    # A typed field may contain prose. Only numeric formatting may survive.
+    if not re.fullmatch(r"\+?[0-9().\[\]\s-]+", original) or not 7 <= len(digits) <= 15:
+        return original
     if len(digits) < 9:
         return _digits_from_hash(fp, len(digits))
     # 통신사·지역 prefix 보존 (식별과 무관한 *통계* 정보)
@@ -110,7 +127,7 @@ def _fpe_phone(original: str, fp: str) -> str:
     result_chars = []
     di = 0
     for ch in original:
-        if ch.isdigit():
+        if ch.isdecimal():
             result_chars.append(new_digits[di])
             di += 1
         else:
@@ -121,8 +138,8 @@ def _fpe_phone(original: str, fp: str) -> str:
 def _fpe_card(original: str, fp: str) -> str:
     """카드: BIN(첫 6자리) 보존 + 마지막 자리 Luhn 재계산."""
     digits = re.sub(r"\D", "", original)
-    if len(digits) < 13:
-        return _digits_from_hash(fp, len(digits))
+    if not re.fullmatch(r"[0-9. /\s-]+", original) or not 13 <= len(digits) <= 19:
+        return original
     bin_part = digits[:6]
     body = _digits_from_hash(fp, len(digits) - 6 - 1)
     # Luhn 체크 디지트 계산
@@ -136,7 +153,7 @@ def _fpe_card(original: str, fp: str) -> str:
     result_chars = []
     di = 0
     for ch in original:
-        if ch.isdigit():
+        if ch.isdecimal():
             result_chars.append(new_digits[di])
             di += 1
         else:
@@ -146,16 +163,22 @@ def _fpe_card(original: str, fp: str) -> str:
 
 def _fpe_email(original: str, fp: str) -> str:
     """이메일: 도메인은 그대로, 로컬 부분만 무작위 영숫자."""
-    if "@" not in original:
+    parts = _split_literal_email(original)
+    if parts is None:
+        # The shared caller replaces unsupported values with a full mask.
         return original
-    local, _, domain = original.partition("@")
+    local, domain = parts
     new_local = _alpha_from_hash(fp, max(4, len(local))).lower()[:len(local)]
     return f"{new_local}@{domain}"
 
 
 def _fpe_passport(original: str, fp: str) -> str:
-    """여권: prefix(M/S/PP 등) 유지, 8자리 숫자만 변경."""
-    m = re.match(r"^([A-Z]{1,2})(\d+)$", original)
+    """Preserve the prefix and supported numeric/alphanumeric serial shape."""
+    from ko_pii.patterns.passport import _is_modern_number
+    if _is_modern_number(original):
+        digits = _digits_from_hash(fp, 7)
+        return original[0] + digits[:3] + _alpha_from_hash(fp, 1) + digits[3:]
+    m = re.fullmatch(r"([A-Z]{1,2})([0-9]+)", original)
     if not m:
         return original
     prefix, digits = m.group(1), m.group(2)
@@ -179,6 +202,8 @@ def _fpe_default(original: str, fp: str) -> str:
         elif ch.isascii() and ch.isalpha():
             chars.append(alpha_pool[ai] if ch.isupper() else alpha_pool[ai].lower())
             ai += 1
+        elif ch.isalpha():
+            chars.append("*")
         else:
             chars.append(ch)  # 구분자 등은 그대로
     return "".join(chars)
@@ -186,13 +211,27 @@ def _fpe_default(original: str, fp: str) -> str:
 
 _FPE_BY_LABEL = {
     "RRN": _fpe_rrn,
-    "FRN": _fpe_rrn,
+    "FRN": _fpe_frn,
     "PHONE": _fpe_phone,
     "FAX": _fpe_phone,
     "CARD": _fpe_card,
     "EMAIL": _fpe_email,
     "PASSPORT": _fpe_passport,
 }
+
+
+def _pseudonymize_value(label: str, original: str, fp: str) -> str:
+    """Share normalization and fail-closed fallback across every FPE entry point."""
+    if label in {"RRN", "FRN", "PHONE", "FAX", "CARD", "ACCOUNT"}:
+        normalized, _ = normalize_unicode(original)
+    else:
+        # Numeric homoglyph folding must not rewrite an email's domain letters.
+        normalized = unicodedata.normalize("NFKC", original)
+    fn = _FPE_BY_LABEL.get(label, _fpe_default)
+    result = fn(normalized, fp)
+    if not result or result in {original, normalized}:
+        return "*" * len(original)
+    return result
 
 
 def fpe(
@@ -205,13 +244,12 @@ def fpe(
     Returns ``(replaced_text, vault)``. The vault stores the original-to-fake
     mapping so reproducible regeneration is possible (not strictly reversible).
     """
+    detections = prepare_detections(text, detections)
     v = vault if vault is not None else ReversibleVault()
-    detections = list(detections)
 
     def replace(d: DetectionResult) -> str:
         fp = v.fingerprint(d.label, d.text)
-        fn = _FPE_BY_LABEL.get(d.label, _fpe_default)
-        new_value = fn(d.text, fp)
+        new_value = _pseudonymize_value(d.label, d.text, fp)
         # Store the mapping for audit
         v.store(
             label=d.label,

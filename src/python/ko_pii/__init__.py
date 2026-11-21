@@ -15,6 +15,9 @@ from ko_pii.analytics import (
 )
 from ko_pii.integrations import (
     SecondaryDetector,
+    CallableDetector,
+    RegexDetector,
+    LiteralDetector,
     MockSecondaryDetector,
     MergeMode,
     merge_detections,
@@ -36,11 +39,22 @@ from ko_pii.streaming import (
     StreamBufferStatus,
 )
 from ko_pii.vault.reversible import AuditFailurePolicy, ReversibleVault, VaultEntry
+from ko_pii.structured import StructuredLimits, StructuredResult, anonymize_json, anonymize_jsonl, loads_json
+from ko_pii.field_rules import EACH, FieldRule
+from ko_pii.profile import PolicyProfile
 
-__version__ = "1.16.0"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
+__version__ = "1.27.0"  # pyproject.toml 과 동기화 (tests/unit/test_version.py 가드)
 
 __all__ = [
     "Anonymizer",
+    "PolicyProfile",
+    "anonymize_json",
+    "anonymize_jsonl",
+    "loads_json",
+    "StructuredLimits",
+    "StructuredResult",
+    "EACH",
+    "FieldRule",
     "AnonymizationResult",
     "DetectionRecord",
     "Action",
@@ -71,6 +85,9 @@ __all__ = [
     "evaluate_dataset",
     # integrations
     "SecondaryDetector",
+    "CallableDetector",
+    "RegexDetector",
+    "LiteralDetector",
     "MockSecondaryDetector",
     "MergeMode",
     "merge_detections",

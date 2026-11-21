@@ -7,6 +7,8 @@
 """
 from __future__ import annotations
 
+from typing import Iterable
+
 #: (한글명, 그룹, 검출 방식) — 그룹·방식은 README "33 PII 카테고리" 절과 동일 분류.
 LABEL_INFO: dict[str, tuple[str, str, str]] = {
     # ── 결정적 검증 (체크섬·화이트리스트) ──
@@ -15,7 +17,6 @@ LABEL_INFO: dict[str, tuple[str, str, str]] = {
     "BUSINESS_REG": ("사업자등록번호", "결정적 검증", "국세청 가중합 체크섬"),
     "CORP_REG": ("법인등록번호", "결정적 검증", "법인 체크섬 (RRN 우선)"),
     "DRIVER_LICENSE": ("운전면허번호", "결정적 검증", "지방청 코드 화이트리스트"),
-    "PASSPORT": ("여권번호", "결정적 검증", "prefix(M/S/PP 등) + 8자리"),
     "CARD": ("카드번호", "결정적 검증", "BIN 화이트리스트 + Luhn"),
     "PNU": ("토지번호", "결정적 검증", "19자리 + 시·도 코드"),
     # ── 키워드 anchor (키워드 + 형식 모두 필요) ──
@@ -28,6 +29,7 @@ LABEL_INFO: dict[str, tuple[str, str, str]] = {
     "PETITION_ID": ("민원번호", "키워드 anchor", "민원/청구/정보공개 키워드"),
     "COURT_CASE": ("사건번호", "키워드 anchor", "사건유형(가합/고합/헌가 등)"),
     # ── 형식 검증 ──
+    "PASSPORT": ("여권번호", "형식 검증", "1자 prefix + 숫자 8자리 또는 숫자 3자리 + 영문 1자 + 숫자 4자리"),
     "PHONE": ("전화번호", "형식 검증", "010~019/02/0NN/070/15xx/+82"),
     "EMAIL": ("이메일", "형식 검증", "RFC 5322"),
     "IP": ("IP", "형식 검증", "IPv4 옥텟 + IPv6"),
@@ -53,6 +55,26 @@ GROUPS: tuple[str, ...] = ("결정적 검증", "키워드 anchor", "형식 검�
                            "사전·컨텍스트", "인적 속성")
 
 ALL_LABELS: tuple[str, ...] = tuple(LABEL_INFO)
+
+
+def validate_label_filter(
+    values: Iterable[str] | None, *, name: str,
+) -> tuple[str, ...] | None:
+    """Materialize a filter once and reject silent detector misconfiguration.
+
+    Labels use their exact registry spelling. None means unrestricted; an
+    empty include is rejected, while an empty exclude excludes nothing.
+    """
+    if values is None:
+        return None
+    if isinstance(values, str):
+        raise ValueError(f"{name} must be a collection of category labels")
+    result = tuple(values)
+    if any(not isinstance(value, str) or value not in LABEL_INFO for value in result):
+        raise ValueError(f"{name} contains an unknown category label; use ko-pii --labels")
+    if name == "include" and not result:
+        raise ValueError("include must contain at least one category label; use None for all")
+    return tuple(dict.fromkeys(result))
 
 
 def format_labels_table() -> str:

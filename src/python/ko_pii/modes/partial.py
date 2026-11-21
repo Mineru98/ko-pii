@@ -19,7 +19,9 @@ import re
 from typing import Callable, Iterable
 
 from ko_pii.core.types import DetectionResult
-from ko_pii.modes._apply import apply_substitutions
+from ko_pii.core.unicode_norm import normalize_unicode
+from ko_pii.modes._apply import apply_substitutions, prepare_detections
+from ko_pii.patterns.email import _split_literal_email
 
 MASK = "*"
 
@@ -102,11 +104,10 @@ def _mask_phone(text: str) -> str:
 
 def _mask_email(text: str) -> str:
     """``user@example.com`` → ``u***@example.com`` (로컬 앞자만 노출)."""
-    if "@" not in text:
+    parts = _split_literal_email(text)
+    if parts is None:
         return MASK * len(text)
-    local, _, domain = text.partition("@")
-    if not local:
-        return text
+    local, domain = parts
     if len(local) <= 1:
         return f"{local}{MASK*3}@{domain}"
     return f"{local[0]}{MASK*max(3, len(local)-1)}@{domain}"
@@ -115,7 +116,7 @@ def _mask_email(text: str) -> str:
 def _mask_card(text: str) -> str:
     """``1234-5678-9012-3456`` → ``1234-****-****-3456`` (BIN + 마지막 4)."""
     digits = re.sub(r"\D", "", text)
-    if len(digits) < 8:
+    if len(digits) <= 8:
         return MASK * len(text)
     # 길이 보존하면서 중간만 가림
     has_hyphen = "-" in text
@@ -143,7 +144,7 @@ def _mask_name(text: str) -> str:
     if sp == 0:
         sp = 1  # 폴백: 첫 글자만 노출
     if len(text) <= sp:
-        return text
+        return MASK * len(text)
     return text[:sp] + ("O" * (len(text) - sp))
 
 
@@ -157,15 +158,18 @@ def _mask_address(text: str) -> str:
 def _mask_account(text: str) -> str:
     """계좌: 앞 4 + 끝 4 노출, 중간 마스킹."""
     digits = re.sub(r"\D", "", text)
-    if len(digits) < 8:
+    if len(digits) <= 8:
         return MASK * len(text)
     return f"{digits[:4]}{MASK*(len(digits)-8)}{digits[-4:]}"
 
 
 def _mask_passport(text: str) -> str:
     """여권: prefix + 마지막 2자리 노출."""
-    m = re.match(r"^([A-Z]{1,2})(\d+)$", text)
-    if not m:
+    from ko_pii.patterns.passport import _is_modern_number
+    if _is_modern_number(text):
+        return text[0] + MASK * 6 + text[-2:]
+    m = re.fullmatch(r"([A-Z]{1,2})(\d+)", text)
+    if not m or len(m.group(2)) <= 2:
         return MASK * len(text)
     prefix, digits = m.group(1), m.group(2)
     return f"{prefix}{MASK*(len(digits)-2)}{digits[-2:]}"
@@ -187,7 +191,7 @@ def _mask_birth(text: str) -> str:
     88년생          → 그대로 (이미 연도만)
     """
     # "년생" 형태는 이미 연도만 → 그대로 두거나 마스킹 강도 낮음
-    if text.endswith("년생"):
+    if re.fullmatch(r"\d{2}(?:\d{2})?\s*년생", text):
         return text
     # 한국어: 1988년 X월 X일
     m = re.match(r"^(\d{2,4})\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일$", text)
@@ -296,15 +300,17 @@ def partial(
     detections: Iterable[DetectionResult],
 ) -> str:
     """Apply category-aware partial masking to each detection span."""
+    detections = prepare_detections(text, detections)
 
     def replace(d: DetectionResult) -> str:
-        masker = _MASKERS.get(d.label, _mask_default)
-        return masker(d.text)
+        return mask_value(d.label, d.text)
 
     return apply_substitutions(text, detections, replace)
 
 
 def mask_value(label: str, value: str) -> str:
     """Stand-alone helper: ``mask_value("RRN", "880101-1234568")`` → ``880101-1******``."""
+    if label in {"RRN", "FRN", "PHONE", "FAX", "CARD", "ACCOUNT"}:
+        value, _ = normalize_unicode(value)
     masker = _MASKERS.get(label, _mask_default)
     return masker(value)
