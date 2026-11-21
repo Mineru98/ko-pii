@@ -15,8 +15,10 @@
  *
  * Legal basis: 개인정보보호법 제24조의2 (고유식별정보, 주민등록번호 처리 제한).
  */
+
 import { isValidChecksum as isValidCorpChecksum } from "../checksum/corpRegChecksum.js";
 import { isValidChecksum } from "../checksum/rrnChecksum.js";
+import { cpWindowBefore, PY_S, PY_S_CHARS } from "../core/strUtils.js";
 import type { DetectionResult } from "../core/types.js";
 import { makeDetection, RiskLevel } from "../core/types.js";
 
@@ -24,12 +26,13 @@ const LABEL = "RRN";
 const LEGAL_BASIS = "개인정보보호법 제24조의2";
 const CATEGORY = "고유식별정보";
 
-const PATTERN = /(?<![0-9])([0-9]{6})(?:\s?[-./]\s?|[-./\s]{0,2})([0-9]{7})(?![0-9])/g;
+// 원본 ``\s`` 는 Python 유니코드 공백 집합 (PY_S).
+const SEP = `(?:${PY_S}?[-./]${PY_S}?|[-./${PY_S_CHARS}]{0,2})`;
+const PATTERN = new RegExp(`(?<![0-9])([0-9]{6})${SEP}([0-9]{7})(?![0-9])`, "gu");
 
 // PDF 서식용: 앞에 1자리 숫자(관계코드 등)가 붙은 패턴
 // "1951230-1850431" → 앞 1은 관계코드, 951230-1850431이 RRN
-const PATTERN_PREFIXED =
-  /(?<![0-9])[0-9]([0-9]{6})(?:\s?[-./]\s?|[-./\s]{0,2})([0-9]{7})(?![0-9])/g;
+const PATTERN_PREFIXED = new RegExp(`(?<![0-9])[0-9]([0-9]{6})${SEP}([0-9]{7})(?![0-9])`, "gu");
 
 // 분할 재조합(GAP 2): 6자리 + 짧은 *단어* 필러 + 7자리.
 // "앞자리 880101 뒷자리 1234567", "880101 다시 1234567" 처럼 한 문장 안에서 구분자
@@ -40,8 +43,10 @@ const PATTERN_PREFIXED =
 // 칼럼 나열 FP(test_three_pure_spaces_not_matched)를 깨지 않는다. 6자리는 유효 날짜,
 // 7자리 첫 자리는 한국인 성별코드여야 하며, 체크섬 불일치 시 주민 맥락/재조합 필러가
 // 있을 때만 방출(recall-safe: 무맥락 무작위 6자리 단독은 절대 미방출).
-const PATTERN_SPLIT =
-  /(?<![0-9])([0-9]{6})((?=[^0-9\n]*[^\s\d])[^0-9\n]{1,8}?)([0-9]{7})(?![0-9])/g;
+const PATTERN_SPLIT = new RegExp(
+  String.raw`(?<![0-9])([0-9]{6})((?=[^0-9\n]*[^${PY_S_CHARS}\p{Nd}])[^0-9\n]{1,8}?)([0-9]{7})(?![0-9])`,
+  "gu",
+);
 
 // RRN 맥락 마커 — 분할 재조합의 체크섬 불일치 케이스를 방출할 근거.
 const RRN_MARKERS: readonly string[] = [
@@ -56,6 +61,11 @@ const RRN_MARKERS: readonly string[] = [
 // 재조합 연결 필러 — 두 숫자 조각을 잇는 한국어 표현. 필러 자체가 분할 시그니처라
 // 전역 마커가 없어도 방출 근거가 된다('880101 다시 1234567'). 유효 날짜 + 성별코드
 // 제약과 함께라 산문 FP 위험은 무시할 수준.
+// 바로 앞의 필드 라벨만 바코드 휴리스틱을 무효화한다. 문서 다른 곳의 마커가 제품 코드를
+// RRN 으로 바꾸면 안 된다. (Python re.IGNORECASE — 'RRN' 대소문자 무시)
+const RRN_FIELD_PREFIX =
+  /(?:주민[ \t]*(?:등록[ \t]*)?번호|(?<![A-Za-z])RRN)[ \t]*(?:[:=][ \t]*)?$/i;
+
 const SPLIT_FILLER_MARKERS: readonly string[] = [
   "뒷자리",
   "앞자리",
@@ -118,6 +128,7 @@ function decodeBirthDate(yymmdd: string, genderDigit: number): BirthDate | null 
 
 /** 공통 RRN 검출 로직. offset = 매치 내에서 front 시작 위치 보정. */
 function emit(
+  source: string,
   full: string,
   start: number,
   end: number,
@@ -146,10 +157,11 @@ function emit(
     return null;
   }
 
-  // GS1 한국 EAN-13 바코드(880~ 시작, 무구분자, 체크섬 불일치)는 RRN 이 아니다.
-  // 진짜 88년생 RRN 은 체크섬을 통과(checksum_ok)하므로 영향 없음(recall-safe).
+  // 880 접두는 바코드 휴리스틱이지 비-PII 의 증거가 아니다. 명시적 필드 문맥이면
+  // 일반 감쇠 신뢰도 RRN 정책을 유지한다.
   const real = full.slice(offset);
-  if (!checksumOk && digitsOnly.startsWith("880") && real === digitsOnly) {
+  const rrnField = RRN_FIELD_PREFIX.test(cpWindowBefore(source, start, 40));
+  if (!checksumOk && digitsOnly.startsWith("880") && real === digitsOnly && !rrnField) {
     return null;
   }
 
@@ -160,6 +172,7 @@ function emit(
     confidence = 1.0;
   } else {
     evidence.push("checksum:invalid_or_post_2020");
+    if (rrnField) evidence.push("context:rrn_field");
     confidence = 0.7;
   }
 
@@ -259,7 +272,7 @@ export function detect(text: string): DetectionResult[] {
   for (const m of text.matchAll(PATTERN)) {
     const full = m[0] as string;
     const start = m.index;
-    const result = emit(full, start, start + full.length, m[1] as string, m[2] as string, 0);
+    const result = emit(text, full, start, start + full.length, m[1] as string, m[2] as string, 0);
     if (result !== null) {
       seen.push([result.start, result.end]);
       results.push(result);
@@ -270,7 +283,7 @@ export function detect(text: string): DetectionResult[] {
   for (const m of text.matchAll(PATTERN_PREFIXED)) {
     const full = m[0] as string;
     const start = m.index;
-    const result = emit(full, start, start + full.length, m[1] as string, m[2] as string, 1);
+    const result = emit(text, full, start, start + full.length, m[1] as string, m[2] as string, 1);
     if (result !== null && !seen.some(([s, e]) => s === result.start && e === result.end)) {
       seen.push([result.start, result.end]);
       results.push(result);

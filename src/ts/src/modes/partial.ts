@@ -16,10 +16,19 @@
  */
 
 import type { DetectionResult } from "../core/types.js";
+import { normalizeUnicode } from "../core/unicodeNorm.js";
 import { surnamePrefixLen } from "../dictionaries/surnames.js";
 import { generalizeAddress } from "../generalization/address.js";
-import { applySubstitutions } from "./apply.js";
-import { codePoints, cpLength, foldNdDigits, keepDigits, ndToNumber } from "./unicodeDigits.js";
+import { applySubstitutions, prepareDetections } from "./apply.js";
+import { isModernPassportNumber, splitLiteralEmail } from "./literalShapes.js";
+import {
+  codePoints,
+  cpLength,
+  foldNdDigits,
+  keepDigits,
+  ndToNumber,
+  PY_WS,
+} from "./unicodeDigits.js";
 
 export const MASK = "*";
 
@@ -36,13 +45,6 @@ function maskAll(text: string): string {
 function stars(n: number, ch: string = MASK): string {
   return ch.repeat(Math.max(0, n));
 }
-
-/**
- * Python ``re`` 의 유니코드 ``\s`` 집합 (= ``str.isspace()``). JS ``\s`` 와 달리
- * U+001C~U+001F·U+0085 를 포함하고 U+FEFF 는 제외한다.
- */
-const PY_WS =
-  "[\\t\\n\\v\\f\\r\\x1c-\\x1f \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]";
 
 /** Python ``float // 5`` 대응 (양수 피제수) — CPython float_floor_div 의 fmod 기반 절차. */
 function pyFloorDiv5(x: number): number {
@@ -141,11 +143,11 @@ function maskPhone(text: string): string {
 
 function maskEmail(text: string): string {
   // ``user@example.com`` → ``u***@example.com`` (로컬 앞자만 노출).
-  if (!text.includes("@")) return maskAll(text);
-  const at = text.indexOf("@");
-  const local = codePoints(text.slice(0, at));
-  const domain = text.slice(at + 1);
-  if (local.length === 0) return text;
+  // 지원 부분집합의 단일 주소가 아니면(목록·산문·잘못된 형식) 전체 마스킹.
+  const parts = splitLiteralEmail(text);
+  if (parts === null) return maskAll(text);
+  const local = codePoints(parts[0]);
+  const domain = parts[1];
   if (local.length <= 1) return `${local.join("")}${MASK.repeat(3)}@${domain}`;
   return `${local[0] ?? ""}${MASK.repeat(Math.max(3, local.length - 1))}@${domain}`;
 }
@@ -153,7 +155,7 @@ function maskEmail(text: string): string {
 function maskCard(text: string): string {
   // ``1234-5678-9012-3456`` → ``1234-****-****-3456`` (BIN + 마지막 4).
   const digits = codePoints(keepDigits(text));
-  if (digits.length < 8) return maskAll(text);
+  if (digits.length <= 8) return maskAll(text);
   // 길이 보존하면서 중간만 가림
   const hasHyphen = text.includes("-");
   const hasSpace = text.includes(" ");
@@ -180,7 +182,7 @@ function maskName(text: string): string {
   let sp = surnamePrefixLen(text);
   if (sp === 0) sp = 1; // 폴백: 첫 글자만 노출
   const cps = codePoints(text);
-  if (cps.length <= sp) return text;
+  if (cps.length <= sp) return maskAll(text);
   return cps.slice(0, sp).join("") + "O".repeat(cps.length - sp);
 }
 
@@ -193,18 +195,18 @@ function maskAddress(text: string): string {
 function maskAccount(text: string): string {
   // 계좌: 앞 4 + 끝 4 노출, 중간 마스킹.
   const digits = codePoints(keepDigits(text));
-  if (digits.length < 8) return maskAll(text);
+  if (digits.length <= 8) return maskAll(text);
   return `${digits.slice(0, 4).join("")}${MASK.repeat(digits.length - 8)}${digits.slice(-4).join("")}`;
 }
 
 function maskPassport(text: string): string {
-  // 여권: prefix + 마지막 2자리 노출.
-  // Python ``$`` 는 문자열 끝의 개행 직전에도 매칭한다 → ``\n?$``.
-  const m = /^([A-Z]{1,2})(\p{Nd}+)\n?$/u.exec(text);
-  if (!m) return maskAll(text);
+  // 여권: prefix + 마지막 2자리 노출. 신형(M123A4567)은 첫 글자 + 끝 2자리.
+  if (isModernPassportNumber(text)) return `${text[0]}${MASK.repeat(6)}${text.slice(-2)}`;
+  // Python ``re.fullmatch`` — 끝 개행을 허용하지 않는다. ``\d`` 는 Nd.
+  const m = /^([A-Z]{1,2})(\p{Nd}+)$/u.exec(text);
+  const digits = codePoints(m?.[2] ?? "");
+  if (!m || digits.length <= 2) return maskAll(text);
   const prefix = m[1] ?? "";
-  const digits = codePoints(m[2] ?? "");
-  // 숫자 1자리("M1")면 Python 은 ``"*" * -1 == ""`` — repeat 음수 가드.
   return `${prefix}${stars(digits.length - 2)}${digits.slice(-2).join("")}`;
 }
 
@@ -221,6 +223,9 @@ const KOR_BIRTH = new RegExp(
   "u",
 );
 
+// Python ``re.fullmatch(r"\d{2}(?:\d{2})?\s*년생", text)``.
+const BIRTH_YEAR_ONLY = new RegExp(`^\\p{Nd}{2}(?:\\p{Nd}{2})?${PY_WS}*년생$`, "u");
+
 function maskBirth(text: string): string {
   // 생년월일: 연도만 노출, 월/일 마스킹.
   //   1988년 1월 1일 → 1988년 **월 **일
@@ -228,7 +233,7 @@ function maskBirth(text: string): string {
   //   88.01.01       → 88.**.**
   //   88년생          → 그대로 (이미 연도만)
   // "년생" 형태는 이미 연도만 → 그대로 두거나 마스킹 강도 낮음
-  if (text.endsWith("년생")) return text;
+  if (BIRTH_YEAR_ONLY.test(text)) return text;
   // 한국어: 1988년 X월 X일
   const kor = KOR_BIRTH.exec(text);
   if (kor) return `${kor[1]}년 ${MASK.repeat(2)}월 ${MASK.repeat(2)}일`;
@@ -334,12 +339,24 @@ const MASKERS = new Map<string, Masker>([
 
 /** Apply category-aware partial masking to each detection span. */
 export function partial(text: string, detections: Iterable<DetectionResult>): string {
-  const replace = (d: DetectionResult): string => (MASKERS.get(d.label) ?? maskDefault)(d.text);
-  return applySubstitutions(text, detections, replace);
+  const list = prepareDetections(text, detections);
+  const replace = (d: DetectionResult): string => maskValue(d.label, d.text);
+  return applySubstitutions(text, list, replace);
 }
+
+/** 숫자형 라벨 — 마스킹 전에 유니코드 정규화(전각·위첨자·호모글리프)를 공유한다. */
+const NORMALIZED_LABELS: ReadonlySet<string> = new Set([
+  "RRN",
+  "FRN",
+  "PHONE",
+  "FAX",
+  "CARD",
+  "ACCOUNT",
+]);
 
 /** Stand-alone helper: ``mask_value("RRN", "880101-1234568")`` → ``880101-1******``. */
 export function maskValue(label: string, value: string): string {
+  if (NORMALIZED_LABELS.has(label)) value = normalizeUnicode(value)[0];
   const masker = MASKERS.get(label) ?? maskDefault;
   return masker(value);
 }

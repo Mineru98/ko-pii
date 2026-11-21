@@ -142,7 +142,11 @@ export interface EvaluatePersonOptions {
   /** ``"partial"`` : span 겹침 = TP / ``"strict"`` : 정확 일치. 기본 partial. */
   mode?: string;
   sampleLimit?: number | null;
-  /** true(기본) 면 *한글 3~5자 풀네임* 만 gold 로 인정. */
+  /**
+   * true(기본) 면 3~5자 한글 표기로 gold 를 제한하는 레거시 평가 옵션. 이 표본 제한은
+   * 개인정보 여부나 보호 대상의 판정이 아니며 전체 PERSON 성능을 나타내지 않는다.
+   * ``koreanOnly`` 도 문자열 형태 태그에 따른 추가 표본 제한이다. 과거 결과 재현을 위해 유지.
+   */
   fullnameOnly?: boolean;
   /** true 면 한국 이름만 평가 (외국인명 제외). 기본 false. */
   koreanOnly?: boolean;
@@ -172,6 +176,7 @@ export function evaluatePerson(
     const len = cpLen(text);
     if (len < 3 || len > 5) return false; // 풀네임 = 3-5자 (단성/외자 제외)
     if (!allHangulSyllables(text)) return false;
+    // 레거시 형태 필터 표본 — 검증된 국적이 아니다.
     if (koreanOnly) return classifyNameOrigin(text) === "korean";
     return true;
   };
@@ -180,7 +185,7 @@ export function evaluatePerson(
     report.sentenceCount += 1;
     const goldPersons = sent.spans.filter((s) => s.label === "PS" && isValidKoreanFullname(s.text));
     const predictedRaw = detectPerson(sent.text);
-    // koreanOnly 모드면 외국인 origin 검출도 평가에서 제외
+    // 과거 표본 필터 유지 — 마스킹 대상 여부를 정의하지 않는다.
     const predicted = koreanOnly
       ? predictedRaw.filter((p) => p.extra.origin !== "foreign")
       : predictedRaw;

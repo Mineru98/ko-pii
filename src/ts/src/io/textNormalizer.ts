@@ -1,9 +1,9 @@
-/** PDF 등에서 추출된 텍스트의 불필요 줄바꿈/공백 정규화 + offset 역매핑.
+/** PDF 등 추출 텍스트의 자릿수 분할 공백 정규화 + offset 역매핑.
  *
  * Python ko_pii/io_/text_normalizer.py 대응.
  *
  * PDF 텍스트 추출기는 글자 좌표 기반이라:
- * 1. 단어/숫자 중간에 줄바꿈 삽입 (pypdf 흔함)
+ * 1. 단어/숫자 중간에 줄바꿈 삽입 (줄 합치기는 aggressive=true에서만)
  * 2. 서식 칸별 입력 시 글자 사이 공백 삽입 (주민번호: "9 5 1 2 3 0 - 1 8 5 0 4 3 1")
  *
  * 사용:
@@ -14,7 +14,7 @@
 import type { DetectionResult } from "../core/types.js";
 
 // --- 줄바꿈 정규화 패턴 ---
-// Python \d → [0-9] (PORTING.md — 원본은 정규화로 전각을 폴딩하므로 동등)
+// 원본이 [0-9] 를 쓴 패턴 (``\d`` 를 쓴 자리는 아래 SPACED_FIELD_WITH_HYPHEN 하나뿐)
 const MID_PII_NEWLINE =
   /(?<=[0-9-])\n(?=[0-9-])|(?<=[A-Za-z])\n(?=[0-9])|(?<=[0-9])\n(?=[A-Za-z])/g;
 const MID_KOREAN_NEWLINE = /(?<=[가-힣])\n(?=[가-힣])/g;
@@ -28,16 +28,12 @@ const SPACED_FIELD = /(?<![0-9A-Za-z-])([0-9](?: [0-9-]){4,})(?![0-9A-Za-z-]| [0
 
 // 확장: "49 9 - 8 7- 0 3 8" (하이픈 양쪽에 공백이 불균일)
 // 숫자/하이픈이 공백으로 구분되되 하이픈 앞뒤 공백이 있거나 없을 수 있음
-// 이 패턴만 Python 원본이 ``\d``/``\s`` 를 쓴다. dispatcher 는 NFKC 폴딩 없이 raw 텍스트를
+// 이 패턴만 Python 원본이 ``\d`` 를 쓴다. dispatcher 는 NFKC 폴딩 없이 raw 텍스트를
 // 넘기므로 PORTING.md 의 "\d → [0-9]" 동등 전제가 성립하지 않는다 — 전각 숫자(１２３)도
-// Python 처럼 축소해야 한다. ``\d`` = 유니코드 Nd, ``\s`` = Python str.isspace 집합
-// (U+001C–001F·U+0085 포함, JS ``\s`` 와 달리 U+FEFF 제외).
-const PY_SPACE =
-  "[\\t\\n\\v\\f\\r\\x1c-\\x1f \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]";
-const SPACED_FIELD_WITH_HYPHEN = new RegExp(
-  `(?<![0-9A-Za-z-])(\\p{Nd}[\\p{Nd} ]{2,}${PY_SPACE}*-${PY_SPACE}*[\\p{Nd} ]{1,}${PY_SPACE}*-?${PY_SPACE}*[\\p{Nd} ]{2,}\\p{Nd})(?![0-9])`,
-  "gu",
-);
+// Python 처럼 축소해야 한다 (``\d`` = 유니코드 Nd).
+const SPACED_FIELD_WITH_HYPHEN =
+  /(?<![0-9A-Za-z-])(\p{Nd}[\p{Nd} ]{2,} *- *[\p{Nd} ]{1,} *-? *[\p{Nd} ]{2,}\p{Nd})(?![0-9])/gu;
+const SINGLE_DIGIT = /(?<![0-9])[0-9](?![0-9])/g;
 
 /** 칸별 공백 패턴의 공백을 제거하고 offset 맵 반환. */
 function collapseSpacedField(text: string): [string, number[]] {
@@ -47,19 +43,26 @@ function collapseSpacedField(text: string): [string, number[]] {
     matches.push([m.index, m.index + m[0].length]);
   }
   for (const m of text.matchAll(SPACED_FIELD_WITH_HYPHEN)) {
-    // 기본 패턴(및 앞선 확장 패턴)과 겹치지 않는 경우만 추가
-    const s = m.index;
-    const e = m.index + m[0].length;
-    if (!matches.some(([ms, me]) => (ms <= s && s < me) || (ms < e && e <= me))) {
-      matches.push([s, e]);
-    }
+    // A grouped account followed by an amount is not a digit-by-digit field.
+    // Do not erase its field separator just because both contain digits.
+    if ((m[0].match(SINGLE_DIGIT) ?? []).length < 4) continue;
+    matches.push([m.index, m.index + m[0].length]);
   }
   matches.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const merged: Array<[number, number]> = [];
+  for (const [start, end] of matches) {
+    const last = merged[merged.length - 1];
+    if (last !== undefined && start < last[1]) {
+      last[1] = Math.max(last[1], end);
+    } else {
+      merged.push([start, end]);
+    }
+  }
 
   const result: string[] = [];
   const offsetMap: number[] = [];
   let lastEnd = 0;
-  for (const [ms, me] of matches) {
+  for (const [ms, me] of merged) {
     for (let i = lastEnd; i < ms; i++) {
       result.push(text[i]!);
       offsetMap.push(i);
@@ -95,18 +98,20 @@ export function normalizeForDetection(
 
   // Phase 2: 줄바꿈 정규화
   const removePositions = new Set<number>();
-  for (const m of textP1.matchAll(MID_KOREAN_NEWLINE)) {
-    removePositions.add(m.index);
-  }
 
   const replacePositions = new Set<number>();
-  for (const m of textP1.matchAll(MID_PII_NEWLINE)) {
-    const pos = m.index;
-    if (!removePositions.has(pos)) {
-      replacePositions.add(pos);
-    }
-  }
   if (aggressive) {
+    for (const m of textP1.matchAll(MID_KOREAN_NEWLINE)) {
+      removePositions.add(m.index);
+    }
+    // Joining numeric lines can turn unrelated rows into a valid identifier.
+    // Whitespace-aware detectors already handle supported wrapped formats.
+    for (const m of textP1.matchAll(MID_PII_NEWLINE)) {
+      const pos = m.index;
+      if (!removePositions.has(pos)) {
+        replacePositions.add(pos);
+      }
+    }
     for (const m of textP1.matchAll(SOFT_LINEBREAK)) {
       const pos = m.index;
       if (!removePositions.has(pos) && !replacePositions.has(pos)) {

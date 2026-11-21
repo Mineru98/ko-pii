@@ -7,6 +7,7 @@
  * 알고리즘을 동일하게 재현했다 (IPv4 임베드 꼬리 leading-zero 거부 포함).
  */
 
+import { cpWindowAfter, cpWindowBefore, PY_S } from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 
 const LABEL = "IP";
@@ -19,7 +20,7 @@ const IPV4 = /(?<![0-9.])((?:[0-9]{1,3}\.){3}[0-9]{1,3})(?![0-9.])/g;
 // (::ffff:1.2.3.4). Final validity is decided by the (reimplemented) standard
 // library parser, so the regex is deliberately permissive.
 const IPV6 =
-  /(?<![0-9A-Fa-f:.])([0-9A-Fa-f:]*::[0-9A-Fa-f:]*(?:[0-9]{1,3}(?:\.[0-9]{1,3}){3})?|(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4})(?:%[A-Za-z0-9]+)?(?![0-9A-Fa-f:.])/g;
+  /(?<![0-9A-Fa-f:.])([0-9A-Fa-f:]*::[0-9A-Fa-f:]*(?:\p{Nd}{1,3}(?:\.\p{Nd}{1,3}){3})?|(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4})(?:%[A-Za-z0-9]+)?(?![0-9A-Fa-f:.])/gu;
 
 function isValidIpv4(addr: string): boolean {
   const parts = addr.split(".");
@@ -151,13 +152,17 @@ function isValidIpv6(addr: string): boolean {
 
 // 버전/빌드 문자열은 IPv4 와 형식이 같다('소프트웨어 버전 10.0.19.41'). 좌측에 버전
 // 단서가 바로 붙거나(예 'v10.0.19.41') 근접하면 IP 로 채택하지 않는다(과탐 방지).
-const VERSION_CTX =
-  /(?:버전|버젼|펌웨어|릴리[스즈]|빌드|패치|(?<![A-Za-z])(?:[vV]\.?|ver\.?|version|firmware|release|build|patch))\s*$/;
+const VERSION_CTX = new RegExp(
+  String.raw`(?:버전|버젼|펌웨어|릴리[스즈]|빌드|패치|(?<![A-Za-z])(?:[vV]\.?|ver\.?|version|firmware|release|build|patch))${PY_S}*$`,
+  "u",
+);
 // 문서 섹션/항목 번호('표 3.2.1.4', 'Section 4.2.1.3')도 IPv4 형식이라 좌측 단서로 제외.
-const SECTION_CTX =
-  /(?:표|그림|별표|도표|붙임|항목|조항|조|항|단계|절|장|버전|챕터|[Ss]ection|[Cc]hapter|[Ff]igure|[Tt]able|[Aa]ppendix|[Cc]lause|(?<![A-Za-z])(?:[Ss]ec|[Cc]h|[Ff]ig|[Aa]pp)\.?)\s*$/;
+const SECTION_CTX = new RegExp(
+  String.raw`(?:표|그림|별표|도표|붙임|항목|조항|조|항|단계|절|장|버전|챕터|[Ss]ection|[Cc]hapter|[Ff]igure|[Tt]able|[Aa]ppendix|[Cc]lause|(?<![A-Za-z])(?:[Ss]ec|[Cc]h|[Ff]ig|[Aa]pp)\.?)${PY_S}*$`,
+  "u",
+);
 // 우측에 '버전' 단서가 바로 붙는 경우('2.10.4.5 버전입니다')도 버전 문자열로 본다.
-const VERSION_RIGHT = /^\s*(?:버전|버젼|version|빌드|build|릴리[스즈])/;
+const VERSION_RIGHT = new RegExp(`^${PY_S}*(?:버전|버젼|version|빌드|build|릴리[스즈])`, "u");
 
 export function detect(text: string): DetectionResult[] {
   const out: DetectionResult[] = [];
@@ -168,9 +173,9 @@ export function detect(text: string): DetectionResult[] {
     const addr = m[1];
     if (addr === undefined) continue;
     if (!isValidIpv4(addr) || isReservedIpv4(addr)) continue;
-    const left = text.slice(Math.max(0, m.index - 12), m.index);
+    const left = cpWindowBefore(text, m.index, 12);
     if (VERSION_CTX.test(left) || SECTION_CTX.test(left)) continue;
-    if (VERSION_RIGHT.test(text.slice(m.index + m[0].length, m.index + m[0].length + 8))) continue;
+    if (VERSION_RIGHT.test(cpWindowAfter(text, m.index + m[0].length, 8))) continue;
     seen.push([m.index, m.index + m[0].length]);
     out.push(
       makeDetection({

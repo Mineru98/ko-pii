@@ -12,6 +12,14 @@
  * Legal basis: 개인정보보호법 제2조; 「개인정보 비식별 조치 가이드라인」
  * 준식별자 (Quasi-Identifier) 분류.
  */
+import {
+  cpIndexAfter,
+  cpIndexBefore,
+  cpWindowAfter,
+  cpWindowBefore,
+  ndToNumber,
+  PY_S,
+} from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 import { isMajor, normalizeMajor } from "../dictionaries/majors.js";
 import { isTitle, titleDomain } from "../dictionaries/titles.js";
@@ -73,8 +81,8 @@ const _SCHOOL_ANCHORS: readonly string[] = [
 ];
 
 function hasSchoolAnchor(text: string, start: number, end: number, window = 15): boolean {
-  const head = text.slice(Math.max(0, start - window), start);
-  const tail = text.slice(end, end + window);
+  const head = cpWindowBefore(text, start, window);
+  const tail = cpWindowAfter(text, end, window);
   return _SCHOOL_ANCHORS.some((kw) => head.includes(kw) || tail.includes(kw));
 }
 
@@ -273,7 +281,7 @@ const _POSITION_ANCHORS: readonly string[] = ["직급", "직책", "직위", "보
 const _POSITION_PATTERN = /(?<![가-힣A-Za-z])([가-힣]{1,6})(?![가-힣A-Za-z])/g;
 
 function positionAnchorBefore(text: string, start: number, window = 12): string | null {
-  const head = text.slice(Math.max(0, start - window), start);
+  const head = cpWindowBefore(text, start, window);
   for (const kw of _POSITION_ANCHORS) {
     if (head.includes(kw)) {
       return kw;
@@ -356,10 +364,13 @@ export function detectPosition(text: string): DetectionResult[] {
 // "32세/30살" — 조사·연결어미 다양 ("30살인데/30살밖에/41세이다").
 // 원본 주석: "한글 lookahead 제거 — KDPII gold 와 substring overlap 최대화".
 // 뒤쪽 가드는 숫자 직후만 거부한다 — 한글 어미(세이다/세다)는 매칭 허용.
-const _AGE_PATTERN = /(?<![0-9])([0-9]{1,3})\s*(?:세|살)(?![0-9])/g;
+const _AGE_PATTERN = new RegExp(
+  String.raw`(?<![0-9])(\p{Nd}{1,3})${PY_S}*(?:세|살)(?![0-9])`,
+  "gu",
+);
 
 // 연령대 — "30대/20대 후반/40대 초반" 등 ("X0대" 형식, 10~99)
-const _AGE_RANGE_PATTERN = /(?<![0-9])([0-9]{1,2}0)대(?![0-9가-힣])/g;
+const _AGE_RANGE_PATTERN = /(?<![0-9])(\p{Nd}{1,2}0)대(?![0-9가-힣])/gu;
 
 // 한글 음역 — "서른두 살", "스물여섯 살", "마흔 다섯 살" 등
 const _KOREAN_AGE_TENS: ReadonlyArray<readonly [string, number]> = [
@@ -384,8 +395,10 @@ const _KOREAN_AGE_ONES: ReadonlyMap<string, number> = new Map([
   ["여덟", 8],
   ["아홉", 9],
 ]);
-const _KOREAN_AGE_PATTERN =
-  /(?<![가-힣])(스무|(?:열|스물|서른|마흔|쉰|예순|일흔|여든|아흔)(?:\s*(?:한|두|세|네|다섯|여섯|일곱|여덟|아홉))?|한|두|세|네|다섯|여섯|일곱|여덟|아홉)\s*살/g;
+const _KOREAN_AGE_PATTERN = new RegExp(
+  `(?<![가-힣])(스무|(?:열|스물|서른|마흔|쉰|예순|일흔|여든|아흔)(?:${PY_S}*(?:한|두|세|네|다섯|여섯|일곱|여덟|아홉))?|한|두|세|네|다섯|여섯|일곱|여덟|아홉)${PY_S}*살`,
+  "gu",
+);
 
 // 한자어 나이 명사 — 환갑/칠순/팔순 등 (60대 이상 명시적 호칭)
 const _KOREAN_AGE_NOUN: ReadonlyMap<string, number> = new Map([
@@ -406,7 +419,10 @@ const _KOREAN_AGE_NOUN_PATTERN =
   /(?<![가-힣])(환갑|회갑|진갑|고희연|고희|칠순|산수|팔순|구순|졸수|백수|백세)(?![가-힣])/g;
 
 // 영유아 연령 — N개월 + 키워드 anchor ("아기/돌/생후/만") 필요
-const _INFANT_MONTH_PATTERN = /(?<![0-9])([0-9]{1,2})\s*개월(?![0-9])/g;
+const _INFANT_MONTH_PATTERN = new RegExp(
+  String.raw`(?<![0-9])(\p{Nd}{1,2})${PY_S}*개월(?![0-9])`,
+  "gu",
+);
 const _INFANT_ANCHORS: readonly string[] = [
   "아기",
   "아이",
@@ -424,14 +440,21 @@ const _INFANT_ANCHORS: readonly string[] = [
   "출산",
 ];
 
-const _HEIGHT_PATTERN =
-  /(?<![0-9.])([0-9]{2,3}(?:\.[0-9]{1,2})?)\s*(?:cm|센티(?:미터)?|㎝)(?![A-Za-z])/gi;
+const _HEIGHT_PATTERN = new RegExp(
+  String.raw`(?<![0-9.])(\p{Nd}{2,3}(?:\.\p{Nd}{1,2})?)${PY_S}*(?:cm|센티(?:미터)?|㎝)(?![A-Za-z])`,
+  "giu",
+);
 
 // 키 (m 단위): 1.75m / 1m75 — 위험은 일반 거리와 충돌 (대소문자 구분 — Python 원본)
-const _HEIGHT_M_PATTERN = /(?<![0-9.])(1\.[0-9]{1,2})\s*m(?![A-Za-z])/g;
+const _HEIGHT_M_PATTERN = new RegExp(
+  String.raw`(?<![0-9.])(1\.\p{Nd}{1,2})${PY_S}*m(?![A-Za-z])`,
+  "gu",
+);
 
-const _WEIGHT_PATTERN =
-  /(?<![0-9.])([0-9]{1,3}(?:\.[0-9]{1,2})?)\s*(?:kg|키로(?:그램)?|킬로(?:그램)?|㎏|kilogram)(?![A-Za-z])/gi;
+const _WEIGHT_PATTERN = new RegExp(
+  String.raw`(?<![0-9.])(\p{Nd}{1,3}(?:\.\p{Nd}{1,2})?)${PY_S}*(?:kg|키로(?:그램)?|킬로(?:그램)?|㎏|kilogram)(?![A-Za-z])`,
+  "giu",
+);
 
 /** '서른두', '스물여섯', '마흔다섯' 등을 숫자로 변환.
  *
@@ -467,7 +490,7 @@ export function detectMeasurements(text: string): DetectionResult[] {
   const results: DetectionResult[] = [];
   const seenAge: Span[] = [];
   for (const m of text.matchAll(_AGE_PATTERN)) {
-    const age = Number(m[1]);
+    const age = ndToNumber(m[1] as string);
     if (0 <= age && age <= 150) {
       const span: Span = [m.index!, m.index! + m[0]!.length];
       seenAge.push(span);
@@ -489,7 +512,7 @@ export function detectMeasurements(text: string): DetectionResult[] {
 
   // 연령대 ("30대/40대 후반")
   for (const m of text.matchAll(_AGE_RANGE_PATTERN)) {
-    const age = Number(m[1]);
+    const age = ndToNumber(m[1] as string);
     if (10 <= age && age <= 90) {
       const span: Span = [m.index!, m.index! + m[0]!.length];
       if (spanOverlapsSeen(span, seenAge)) {
@@ -566,7 +589,7 @@ export function detectMeasurements(text: string): DetectionResult[] {
 
   // 영유아 연령 — N개월 + anchor 필요 (일반 N개월 차이/일정/근무 등 거부)
   for (const m of text.matchAll(_INFANT_MONTH_PATTERN)) {
-    const months = Number(m[1]);
+    const months = ndToNumber(m[1] as string);
     if (!(0 <= months && months <= 60)) {
       // 5세 이하만
       continue;
@@ -576,8 +599,8 @@ export function detectMeasurements(text: string): DetectionResult[] {
       continue;
     }
     // anchor 윈도우 25자
-    const windowStart = Math.max(0, span[0] - 25);
-    const windowEnd = Math.min(text.length, span[1] + 10);
+    const windowStart = cpIndexBefore(text, span[0], 25);
+    const windowEnd = cpIndexAfter(text, span[1], 10);
     if (!_INFANT_ANCHORS.some((a) => text.slice(windowStart, windowEnd).includes(a))) {
       continue;
     }
@@ -598,7 +621,7 @@ export function detectMeasurements(text: string): DetectionResult[] {
   }
 
   for (const m of text.matchAll(_HEIGHT_PATTERN)) {
-    const height = Number(m[1]);
+    const height = ndToNumber(m[1] as string);
     if (50 <= height && height <= 250) {
       results.push(
         makeDetection({
@@ -617,7 +640,7 @@ export function detectMeasurements(text: string): DetectionResult[] {
   }
 
   for (const m of text.matchAll(_HEIGHT_M_PATTERN)) {
-    const heightM = Number(m[1]);
+    const heightM = ndToNumber(m[1] as string);
     if (0.5 <= heightM && heightM <= 2.5) {
       results.push(
         makeDetection({
@@ -636,7 +659,7 @@ export function detectMeasurements(text: string): DetectionResult[] {
   }
 
   for (const m of text.matchAll(_WEIGHT_PATTERN)) {
-    const weight = Number(m[1]);
+    const weight = ndToNumber(m[1] as string);
     if (1 <= weight && weight <= 300) {
       results.push(
         makeDetection({

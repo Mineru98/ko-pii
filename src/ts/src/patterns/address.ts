@@ -11,7 +11,18 @@
  *
  * Legal basis: 개인정보보호법 제2조 (거주지 식별 가능 정보).
  */
+
+import { UNIT_TAIL } from "../context/addressUnits.js";
 import { stripTrailingParticle } from "../context/particles.js";
+import { ForwardIntervalIndex } from "../core/intervalIndex.js";
+import {
+  cpWindowAfter,
+  cpWindowBefore,
+  PY_S,
+  PY_S_CHARS,
+  pySplitWs,
+  pyStrip,
+} from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 import { ALL_DISTRICTS } from "../dictionaries/generated/districts.js";
 import {
@@ -56,19 +67,37 @@ const _LOOSE_ANCHORS: readonly string[] = [
 ];
 
 // Optional 시·도 + 0~2 시·군·구 (성남시 분당구 같은 2단계) + road + 번지
-const _PATTERN_ROAD =
-  /(?:([가-힣]{1,8}(?:특별시|광역시|특별자치도|특별자치시|도))\s*)?((?:[가-힣]{1,8}(?:시|군|구)\s*){0,2})([가-힣A-Za-z0-9]{1,16}(?:대로|로|길))\s*([0-9]+(?:-[0-9]+)?)(?![0-9-])/g;
+const _PATTERN_ROAD = new RegExp(
+  `(?:([가-힣]{1,8}(?:특별시|광역시|특별자치도|특별자치시|도))${PY_S}*)?((?:[가-힣]{1,8}(?:시|군|구)${PY_S}*){0,2})` +
+    `([가-힣A-Za-z0-9]{1,16}(?:대로|로|길)(?:[ \\t]+[0-9]+(?:번)?길)?)${PY_S}*([0-9]+(?:-[0-9]+)?)(?![0-9-]|(?:번)?길)`,
+  "gu",
+);
 
 // 지번 주소: 동/읍/면/리 + 번지수 (0~2 시·군·구 허용)
-const _PATTERN_JIBUN =
-  /(?:([가-힣]{1,8}(?:특별시|광역시|특별자치도|특별자치시|도))\s*)?((?:[가-힣]{1,8}(?:시|군|구)\s*){0,2})([가-힣]{1,8}(?:동|읍|면|리))\s*([0-9]+(?:-[0-9]+)?)(?![0-9-])(?:\s*번지)?/g;
+const _PATTERN_JIBUN = new RegExp(
+  `(?:([가-힣]{1,8}(?:특별시|광역시|특별자치도|특별자치시|도))${PY_S}*)?((?:[가-힣]{1,8}(?:시|군|구)${PY_S}*){0,2})` +
+    `([가-힣]{1,8}(?:동|읍|면|리))${PY_S}*([0-9]+(?:-[0-9]+)?)(?![0-9-])(?:${PY_S}*번지)?`,
+  "gu",
+);
 
 // 동호수 확장 패턴 — 주소 직후 "(N동N호)" / "N동 N호" / "N층" / "(아파트명)"
 // sticky 플래그로 re.match(text, pos) 위치 앵커를 재현한다 (PORTING.md 참조).
-const _PATTERN_DETAIL = /\s*(?:[0-9]+동\s*[0-9]+호|[0-9]+동|[0-9]+호|[0-9]+층)/y;
+const _DETAIL_PREFIX = `${PY_S}*(?:[,/-]${PY_S}*)?`;
+const _UNIT =
+  `(?:(?:지하|지상)${PY_S}*[0-9]+층` +
+  "|[Bb][0-9]+(?:층|호실|호)" +
+  "|[0-9]+(?:동|호실|호|층)" +
+  "|[A-Za-z]동" +
+  "|[가-힣]동(?=[ \\t]*[0-9]+(?:호실|호|층)))";
+const _UNIT_END = `(?=${_UNIT}|${UNIT_TAIL})`;
+// u 플래그: UNIT_TAIL 의 \p{L}/\p{N} (Python 유니코드 \W) 사용.
+const _PATTERN_DETAIL = new RegExp(_DETAIL_PREFIX + _UNIT + _UNIT_END, "uy");
 
 // 괄호 안 상세 — "(신정동,롯데캐슬킹덤아파트)" 등
-const _PATTERN_PAREN_DETAIL = /\s*\([가-힣A-Za-z0-9,·\s]+\)/y;
+const _PATTERN_PAREN_DETAIL = new RegExp(
+  `${_DETAIL_PREFIX}\\([가-힣A-Za-z0-9,·${PY_S_CHARS}\\-]+\\)`,
+  "uy",
+);
 
 // 건물명/단지명 — 도로명+번호 뒤 상세주소. 임의 고유명사라 사전 대신 위치로 식별.
 //  (a) bridge: 뒤에 숫자 동/호/층이 이어지면 양쪽 anchor 로 끼인 건물명
@@ -83,16 +112,19 @@ const _BLDG_SUFFIX =
   "자이|래미안|푸르지오|더샵|아이파크|힐스테이트|디에이치|e편한세상|" +
   "위브|센트레빌|롯데캐슬|데시앙|스위첸|꿈에그린|베르디움|리슈빌|코아루|" +
   "우미린|한라비발디|효성해링턴|어울림|하늘채|호반써밋|아크로|써밋|주공";
+// 알 수 없는 bridge 단어는 한 줄에 머물러야 한다 — 다른 레코드를 삼키지 않는다.
 const _PATTERN_BLDG = new RegExp(
-  `\\s+[가-힣A-Za-z0-9]{2,}(?=\\s+[0-9]+(?:동|호|층))` + // (a) 뒤에 동/호/층
-    `|\\s+[가-힣A-Za-z0-9]*(?:${_BLDG_SUFFIX})`, // (b) 건물 접미사
-  "y",
+  String.raw`(?: +| *, *)[가-힣A-Za-z0-9]{2,}(?= +\p{Nd}+(?:동|호|층))` + // (a) 뒤에 동/호/층
+    `|(?:${PY_S}+|${PY_S}*,${PY_S}*)[가-힣A-Za-z0-9]*(?:${_BLDG_SUFFIX})`, // (b) 건물 접미사
+  "uy",
 );
 
 // 대화체 단독 주소 — 시군구 또는 동 (번지 옵션), 광역 없음
 // 강한 anchor keyword 25자 윈도우 내 필수.
-const _PATTERN_LOOSE =
-  /(?<![가-힣])([가-힣]{2,}(?:시|군|구|동|읍|면|리))(?:\s+([가-힣]+(?:동|읍|면|리)))?(?:\s+([0-9]+(?:-[0-9]+)?))?(?![가-힣])/g;
+const _PATTERN_LOOSE = new RegExp(
+  `(?<![가-힣])([가-힣]{2,}(?:시|군|구|동|읍|면|리))(?:${PY_S}+([가-힣]+(?:동|읍|면|리)))?(?:${PY_S}+([0-9]+(?:-[0-9]+)?))?(?![가-힣])`,
+  "gu",
+);
 
 // loose 1토큰 예외 허용 — 광역 약칭 또는 큰 시
 const _LOOSE_ALLOWED_CITIES: ReadonlySet<string> = new Set([
@@ -143,8 +175,8 @@ function _hasAnchor(
 function _hasLooseAnchor(text: string, start: number, end: number): string | null {
   // 대화체 anchor — 매치 *주변* (앞·뒤) 25자 윈도우에서 강한 keyword 검색.
   // '살던 응암동에서' (앞) / '구로구로 이사했고' (뒤) 모두 커버.
-  const head = text.slice(Math.max(0, start - 25), start);
-  const tail = text.slice(end, Math.min(text.length, end + 12));
+  const head = cpWindowBefore(text, start, 25);
+  const tail = cpWindowAfter(text, end, 12);
   for (const kw of _LOOSE_ANCHORS) {
     if (head.includes(kw) || tail.includes(kw)) {
       return kw;
@@ -158,7 +190,7 @@ function _firstDistrictOf(districtsStr: string): string | null {
   if (!districtsStr) {
     return null;
   }
-  const parts = districtsStr.split(/\s+/);
+  const parts = pySplitWs(districtsStr);
   return parts.length > 0 ? parts[0]! : null;
 }
 
@@ -179,23 +211,20 @@ function _extendWithDetail(det: DetectionResult, text: string): DetectionResult 
       m = _PATTERN_BLDG.exec(text);
     }
     if (m === null) {
+      _PATTERN_PAREN_DETAIL.lastIndex = pos;
+      m = _PATTERN_PAREN_DETAIL.exec(text);
+    }
+    if (m === null) {
       break;
     }
     extendedEnd = m.index + m[0].length;
     pos = extendedEnd;
   }
 
-  // 괄호 상세 "(신정동,롯데캐슬킹덤아파트)"
-  _PATTERN_PAREN_DETAIL.lastIndex = pos;
-  const m2 = _PATTERN_PAREN_DETAIL.exec(text);
-  if (m2 !== null) {
-    extendedEnd = m2.index + m2[0].length;
-  }
-
   if (extendedEnd === det.end) {
     return det;
   }
-  return { ...det, text: text.slice(det.start, extendedEnd).trim(), end: extendedEnd };
+  return { ...det, text: pyStrip(text.slice(det.start, extendedEnd)), end: extendedEnd };
 }
 
 export function detect(text: string): DetectionResult[] {
@@ -207,7 +236,7 @@ export function detect(text: string): DetectionResult[] {
     const mStart = m.index!;
     const mEnd = mStart + m[0]!.length;
     const city = m[1] ?? null;
-    const districts = (m[2] ?? "").trim();
+    const districts = pyStrip(m[2] ?? "");
     // 시·도 prefix 가 있다면 *실제 한국 17개 광역지자체* 인지 검증
     if (city !== null && !isProvince(city)) {
       continue;
@@ -224,7 +253,7 @@ export function detect(text: string): DetectionResult[] {
     }
     let det = makeDetection({
       label: LABEL,
-      text: m[0]!.trim(),
+      text: pyStrip(m[0]!),
       start: mStart,
       end: mEnd,
       riskLevel: RiskLevel.MEDIUM,
@@ -246,15 +275,16 @@ export function detect(text: string): DetectionResult[] {
   }
 
   // 2) 지번 주소
+  let occupied = new ForwardIntervalIndex(seen);
   for (const m of text.matchAll(_PATTERN_JIBUN)) {
     const mStart = m.index!;
     const mEnd = mStart + m[0]!.length;
     // road 패턴이 이미 점유한 span 과의 중복 거부
-    if (seen.some(([s, e]) => mStart < e && s < mEnd)) {
+    if (occupied.overlaps(mStart, mEnd)) {
       continue;
     }
     const city = m[1] ?? null;
-    const districts = (m[2] ?? "").trim();
+    const districts = pyStrip(m[2] ?? "");
     // 시·도 prefix 검증 ("바티스타밤이라도" 거부)
     if (city !== null && !isProvince(city)) {
       continue;
@@ -270,7 +300,7 @@ export function detect(text: string): DetectionResult[] {
     }
     let det = makeDetection({
       label: LABEL,
-      text: m[0]!.trim(),
+      text: pyStrip(m[0]!),
       start: mStart,
       end: mEnd,
       riskLevel: RiskLevel.MEDIUM,
@@ -288,10 +318,12 @@ export function detect(text: string): DetectionResult[] {
     });
     det = _extendWithDetail(det, text);
     seen.push([det.start, det.end]);
+    occupied.add(det.start, det.end);
     results.push(det);
   }
 
   // 3) 대화체 단독 주소 — 시군구 또는 동, 강한 keyword anchor 필요
+  occupied = new ForwardIntervalIndex(seen);
   for (const m of text.matchAll(_PATTERN_LOOSE)) {
     const mStart = m.index!;
     const mEnd = mStart + m[0]!.length;
@@ -299,7 +331,7 @@ export function detect(text: string): DetectionResult[] {
     // (예: 가평군 청평면 청평리 45-6 에서 loose 가 "가평군 청평면" 만 떼면
     // jibun 의 "청평리 45-6" 과 인접 → 같은 주소 → loose 거부)
     const ADJACENCY = 30;
-    if (seen.some(([s, e]) => mStart < e + ADJACENCY && s - ADJACENCY < mEnd)) {
+    if (occupied.overlaps(mStart, mEnd, ADJACENCY)) {
       continue; // adjacent to another address match
     }
     const firstToken = m[1]!;
@@ -315,10 +347,11 @@ export function detect(text: string): DetectionResult[] {
       continue;
     }
     seen.push([mStart, mEnd]);
+    occupied.add(mStart, mEnd);
     results.push(
       makeDetection({
         label: LABEL,
-        text: m[0]!.trim(),
+        text: pyStrip(m[0]!),
         start: mStart,
         end: mEnd,
         riskLevel: RiskLevel.MEDIUM,
@@ -337,6 +370,7 @@ export function detect(text: string): DetectionResult[] {
   // 4) 단독 행정구역 — anchor 필수 (대화체) + dict 매칭 (LOW risk)
   // 국가명은 nationality.ts 로 분리 — 여기서는 행정구역만.
   const ADMIN_ALONE_ADJACENCY = 50;
+  occupied = new ForwardIntervalIndex(seen);
   for (const m of text.matchAll(_PATTERN_ADMIN_TOKEN)) {
     const mStart = m.index!;
     const mEnd = mStart + m[0]!.length;
@@ -353,11 +387,7 @@ export function detect(text: string): DetectionResult[] {
       continue;
     }
     const actualEnd = mEnd - (particle !== null ? particle.length : 0);
-    if (
-      seen.some(
-        ([s, e]) => mStart < e + ADMIN_ALONE_ADJACENCY && s - ADMIN_ALONE_ADJACENCY < actualEnd,
-      )
-    ) {
+    if (occupied.overlaps(mStart, actualEnd, ADMIN_ALONE_ADJACENCY)) {
       continue;
     }
     let kind: string;
@@ -380,6 +410,7 @@ export function detect(text: string): DetectionResult[] {
       continue;
     }
     seen.push([mStart, actualEnd]);
+    occupied.add(mStart, actualEnd);
     results.push(
       makeDetection({
         label: LABEL,

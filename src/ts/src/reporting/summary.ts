@@ -38,6 +38,21 @@ function fmt(v: unknown): string {
   return v === null || v === undefined ? "None" : String(v);
 }
 
+/** Python ``repr(str)`` — 라벨·전략 이름처럼 이스케이프가 필요 없는 문자열의 따옴표 규칙. */
+function pyStrRepr(v: unknown): string {
+  if (typeof v !== "string") return fmt(v);
+  const quote = v.includes("'") && !v.includes('"') ? '"' : "'";
+  const body = v.replaceAll("\\", "\\\\").replaceAll(quote, `\\${quote}`);
+  return `${quote}${body}${quote}`;
+}
+
+/** Python ``repr(dict[str, str])`` — 삽입 순서, ``{'A': 'b', 'C': 'd'}``. */
+function pyStrDictRepr(d: Record<string, unknown>): string {
+  return `{${Object.entries(d)
+    .map(([k, v]) => `${pyStrRepr(k)}: ${pyStrRepr(v)}`)
+    .join(", ")}}`;
+}
+
 /** ``AnonymizationResult`` 에 붙은 구조화 요약의 사본을 반환.
  *
  * Python 과 동일하게 요약은 ``Anonymizer`` 가 만들며, 이 함수는 import 경로
@@ -52,6 +67,10 @@ export function formatSummaryText(result: AnonymizationResult): string {
   const lines: string[] = [];
   lines.push(`처리 모드: ${fmt(s.mode)}`);
   lines.push(`치환 전략: ${fmt(s.strategy)}`);
+  const strategies = s.strategies;
+  if (strategies !== null && typeof strategies === "object" && Object.keys(strategies).length > 0) {
+    lines.push(`종류별 전략: ${pyStrDictRepr(strategies as Record<string, unknown>)}`);
+  }
   lines.push(`총 검출: ${fmt(s.total)} 건`);
   lines.push("");
   lines.push(`[결합 위험도] ${(s.combined_risk as string | undefined) ?? "—"}`);

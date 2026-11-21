@@ -6,5 +6,9 @@ export {
   computeCheckDigit as computeCorpRegCheckDigit,
   isValidChecksum as isValidCorpRegChecksum,
 } from "./corpRegChecksum.js";
+export {
+  computeCheckDigit as computeFrnCheckDigit,
+  isValidChecksum as isValidFrnChecksum,
+} from "./frnChecksum.js";
 export { computeCheckDigit as luhnComputeCheckDigit, isValid as luhnIsValid } from "./luhn.js";
 export { computeCheckDigit, isValidChecksum } from "./rrnChecksum.js";

@@ -19,6 +19,7 @@
       "src/**",
       "tests/**",
       "!src/dictionaries/generated/**",
+      "!tests/**/*.fixture.json",
       "!dist/**",
       "!coverage/**"
     ]

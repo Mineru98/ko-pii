@@ -25,7 +25,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { type Dirent, lstatSync, mkdirSync, readdirSync, readlinkSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname, resolve as pathResolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -36,7 +36,12 @@ import { ValueError } from "./core/errors.js";
 import { Action, ProcessingMode } from "./core/modes.js";
 import { pyFormatFixed } from "./core/pyFormat.js";
 import { regexEscape } from "./core/strUtils.js";
-import { readText } from "./io/dispatcher.js";
+import { writeTextAtomic } from "./io/atomic.js";
+import { BoundedReadError, FileReadPolicy, type FileReadPolicyInit } from "./io/bounded.js";
+import type { ExtractionCoverage } from "./io/coverage.js";
+import { defaultReadPolicy, readTextIsolated } from "./io/isolated.js";
+import { validateLabelFilter } from "./labels.js";
+import { normalizeExclusions } from "./patterns/person.js";
 import { ReversibleVault, type VaultDict, type VaultEntryDict } from "./vault/reversible.js";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -53,6 +58,10 @@ export interface FileResult {
   review: number;
   error: string | null;
   elapsedS: number;
+  /** 기계 판독용 실패 코드 (Python ``error_code``). 성공 시 null. */
+  errorCode: string | null;
+  /** 문서 파트 coverage (Python ``coverage``) — 내용 없음. */
+  coverage: ExtractionCoverage | null;
 }
 
 /** Python ``batch.BatchSummary`` 대응. ``vault`` 는 sharedVault 옵션일 때만 채워진다. */
@@ -65,6 +74,8 @@ export interface BatchSummary {
   totalReview: number;
   elapsedS: number;
   results: FileResult[];
+  /** 수집 단계에서 건너뛴 경로 (Python ``skipped``). */
+  skipped: SkippedInput[];
   vault?: ReversibleVault | null;
 }
 
@@ -357,25 +368,169 @@ export function pyGlob(pattern: string, recursive: boolean): string[] {
   return [];
 }
 
-/** os.walk(top-down, followlinks=False) 대응 — 파일 경로만 콜백. */
-function walkFiles(root: string, add: (p: string) => void): void {
-  let entries: import("node:fs").Dirent[];
-  try {
-    entries = readdirSync(root, { withFileTypes: true });
-  } catch {
-    return; // OSError — os.walk 도 무시하고 진행
-  }
-  for (const entry of entries) {
-    // os.walk 는 symlink 파일을 files 에 포함한다 (디렉터리 symlink 만 따라가지 않음).
-    // 대상이 파일인지는 add 쪽 isFile(stat) 이 판정한다.
-    if (entry.isFile() || (entry.isSymbolicLink() && !isDir(pathJoin(root, entry.name)))) {
-      add(pathJoin(root, entry.name));
+/**
+ * Python ``os.walk(top, onerror=...)`` (topdown, followlinks=False) 대응.
+ * ``visit(root, dirs, names)`` 가 ``dirs`` 를 제자리 수정하면 하위 탐색이 바뀐다 (Python 과 동일).
+ * ``false`` 를 반환하면 탐색을 멈춘다 (``break``).
+ */
+function osWalk(
+  top: string,
+  onerror: (path: string) => void,
+  visit: (root: string, dirs: string[], names: string[]) => boolean,
+): void {
+  const stack = [top];
+  while (stack.length > 0) {
+    const root = stack.pop() as string;
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(root === "" ? "." : root, { withFileTypes: true });
+    } catch {
+      onerror(root);
+      continue;
+    }
+    const dirs: string[] = [];
+    const names: string[] = [];
+    for (const entry of entries) {
+      // entry.is_dir() 는 symlink 를 따라간다
+      const dir =
+        entry.isDirectory() || (entry.isSymbolicLink() && isDir(pathJoin(root, entry.name)));
+      (dir ? dirs : names).push(entry.name);
+    }
+    if (!visit(root, dirs, names)) return;
+    for (let i = dirs.length - 1; i >= 0; i--) {
+      const next = pathJoin(root, dirs[i] as string);
+      if (!isLink(next)) stack.push(next);
     }
   }
-  for (const entry of entries) {
-    // Dirent 는 lstat 기반 — symlink 디렉터리는 따라가지 않는다 (followlinks=False)
-    if (entry.isDirectory()) walkFiles(pathJoin(root, entry.name), add);
+}
+
+/** Python ``os.path.islink`` 대응. */
+function isLink(p: string): boolean {
+  try {
+    return lstatSync(p, { throwIfNoEntry: false })?.isSymbolicLink() ?? false;
+  } catch {
+    return false;
   }
+}
+
+/** Python ``posixpath.split`` 대응. */
+function pySplit(p: string): [string, string] {
+  const i = p.lastIndexOf("/") + 1;
+  let head = p.slice(0, i);
+  const tail = p.slice(i);
+  if (head && head !== "/".repeat(head.length)) head = head.replace(/\/+$/, "");
+  return [head, tail];
+}
+
+function joinRealpath(
+  start: string,
+  restIn: string,
+  seen: Map<string, string | null>,
+): [string, boolean] {
+  let path = start;
+  let rest = restIn;
+  if (rest.startsWith("/")) {
+    rest = rest.slice(1);
+    path = "/";
+  }
+  while (rest) {
+    const i = rest.indexOf("/");
+    const name = i < 0 ? rest : rest.slice(0, i);
+    rest = i < 0 ? "" : rest.slice(i + 1);
+    if (!name || name === ".") continue;
+    if (name === "..") {
+      if (path) {
+        const [head, tail] = pySplit(path);
+        path = tail === ".." ? pathJoin(pathJoin(head, ".."), "..") : head;
+      } else {
+        path = "..";
+      }
+      continue;
+    }
+    const newpath = pathJoin(path, name);
+    if (!isLink(newpath)) {
+      path = newpath;
+      continue;
+    }
+    if (seen.has(newpath)) {
+      const known = seen.get(newpath);
+      if (known !== null && known !== undefined) {
+        path = known;
+        continue;
+      }
+      return [pathJoin(newpath, rest), false]; // symlink 루프 — 비엄격 모드는 그대로 반환
+    }
+    seen.set(newpath, null);
+    let target: string;
+    try {
+      target = readlinkSync(newpath);
+    } catch {
+      path = newpath;
+      continue;
+    }
+    const [resolved, ok] = joinRealpath(path, target, seen);
+    if (!ok) return [pathJoin(resolved, rest), false];
+    path = resolved;
+    seen.set(newpath, path);
+  }
+  return [path, true];
+}
+
+/**
+ * Python ``os.path.realpath`` (posix, strict=False) 1:1 포트 — 존재하지 않는 꼬리도 허용하고
+ * 대소문자를 바꾸지 않는다 (``fs.realpathSync`` 는 존재하지 않는 경로에서 실패한다).
+ * @internal
+ */
+export function pyRealpath(p: string): string {
+  const [path] = joinRealpath("", p, new Map());
+  return pathResolve(path || ".");
+}
+
+/** Python ``PurePath.is_relative_to`` (realpath 결과끼리 비교). @internal */
+export function isRelativeTo(path: string, root: string): boolean {
+  if (path === root) return true;
+  return path.startsWith(root.endsWith("/") ? root : `${root}/`);
+}
+
+/** Python ``os.path.samefile`` — 둘 다 존재할 때만 호출한다. @internal */
+export function sameFile(a: string, b: string): boolean {
+  try {
+    const x = statSync(a);
+    const y = statSync(b);
+    return x.dev === y.dev && x.ino === y.ino;
+  } catch {
+    return false;
+  }
+}
+
+/** Python ``os.path.exists`` (symlink 를 따라간다). @internal */
+export function pathExists(p: string): boolean {
+  try {
+    return statSync(p, { throwIfNoEntry: false }) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+/** 배치 입력 수집에서 건너뛴 경로 (Python ``BatchSummary.skipped`` 항목). */
+export interface SkippedInput {
+  input_path: string;
+  reason: string;
+}
+
+function failedResult(path: string, code: string): FileResult {
+  return {
+    inputPath: path,
+    outputPath: null,
+    detections: 0,
+    combinedRisk: "UNKNOWN",
+    blocked: 0,
+    review: 0,
+    error: code,
+    elapsedS: 0,
+    errorCode: code,
+    coverage: null,
+  };
 }
 
 /**
@@ -387,44 +542,93 @@ export function collectFiles(
   recursive = true,
   extensions?: ReadonlySet<string> | null,
 ): string[] {
-  // Python: `extensions or DEFAULT_EXTENSIONS` — 빈 집합도 기본값으로 대체된다.
-  const exts = extensions && extensions.size > 0 ? extensions : DEFAULT_EXTENSIONS;
+  return collectInputs(inputs, recursive, extensions ?? null).files;
+}
+
+/** Python ``batch._collect_inputs`` 1:1 포트. */
+function collectInputs(
+  inputs: Iterable<string>,
+  recursive: boolean,
+  extensions: ReadonlySet<string> | null,
+  options: { outputRoot?: string | null; allowEmpty?: boolean } = {},
+): { files: string[]; errors: FileResult[]; skipped: SkippedInput[] } {
+  const outputRoot = options.outputRoot ?? null;
+  const allowEmpty = options.allowEmpty ?? false;
+  // Python: `extensions if extensions is not None else DEFAULT_EXTENSIONS` — 빈 집합은 그대로.
+  const exts = extensions ?? DEFAULT_EXTENSIONS;
   const seen = new Set<string>();
   const out: string[] = [];
+  const errors: FileResult[] = [];
+  const skipped: SkippedInput[] = [];
 
-  const addIfOk = (p: string): void => {
-    if (seen.has(p)) return;
-    if (!isFile(p)) return;
-    if (!exts.has(pySplitExt(p)[1].toLowerCase())) return;
-    seen.add(p);
-    out.push(p);
+  const fail = (path: string, code: string): void => {
+    errors.push(failedResult(path, code));
+  };
+  const excluded = (path: string): boolean =>
+    outputRoot !== null && isRelativeTo(pyRealpath(path), outputRoot);
+
+  const add = (path: string, explicit: boolean): number => {
+    if (excluded(path)) {
+      skipped.push({ input_path: path, reason: "output_directory" });
+      return 0;
+    }
+    if (!isFile(path)) {
+      fail(path, "file_unavailable");
+      return 0;
+    }
+    if (!exts.has(pySplitExt(path)[1].toLowerCase())) {
+      if (explicit) fail(path, "unsupported_extension");
+      else skipped.push({ input_path: path, reason: "unsupported_extension" });
+      return 0;
+    }
+    const key = pathResolve(path); // normcase(abspath) — posix normcase 는 항등
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(path);
+    }
+    return 1;
+  };
+
+  const visit = (path: string): void => {
+    if (excluded(path)) {
+      skipped.push({ input_path: path, reason: "output_directory" });
+      return;
+    }
+    if (!isDir(path)) {
+      add(path, true);
+      return;
+    }
+    let count = 0;
+    const beforeErrors = errors.length;
+    osWalk(
+      path,
+      (failed) => fail(failed || path, "directory_unavailable"),
+      (root, dirs, names) => {
+        for (const directory of [...dirs]) {
+          const candidate = pathJoin(root, directory);
+          if (excluded(candidate) || isLink(candidate)) {
+            dirs.splice(dirs.indexOf(directory), 1);
+            skipped.push({ input_path: candidate, reason: "directory_not_traversed" });
+          }
+        }
+        for (const name of names) count += add(pathJoin(root, name), false);
+        return recursive;
+      },
+    );
+    if (!count && errors.length === beforeErrors && !allowEmpty) fail(path, "no_input_files");
   };
 
   for (const item of inputs) {
-    // Glob support
     if (hasMagic(item)) {
-      for (const p of pyGlob(item, recursive)) addIfOk(p);
-      continue;
-    }
-    if (isFile(item)) {
-      addIfOk(item);
-      continue;
-    }
-    if (isDir(item)) {
-      if (recursive) {
-        walkFiles(item, addIfOk);
-      } else {
-        let names: string[];
-        try {
-          names = readdirSync(item);
-        } catch {
-          continue; // OSError
-        }
-        for (const fname of names) addIfOk(pathJoin(item, fname));
-      }
+      const matches = pyGlob(item, recursive);
+      if (matches.length === 0 && !allowEmpty) fail(item, "glob_no_matches");
+      for (const match of matches) visit(match);
+    } else {
+      visit(item);
     }
   }
-  return out.sort(pyCompare);
+  if (out.length === 0 && errors.length === 0 && !allowEmpty) fail("(batch)", "no_input_files");
+  return { files: out.sort(pyCompare), errors, skipped };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -440,6 +644,12 @@ export interface WorkerTask {
   strategy: string;
   include: string[] | null;
   exclude: string[] | null;
+  /** 정규화·정렬된 PERSON 제외어 (Python ``tuple(sorted(normalized_exclusions))``). */
+  personExclusions: string[];
+  /** 구조화 복제 가능한 읽기 정책 (Python ``FileReadPolicy``). */
+  readPolicy: Required<FileReadPolicyInit>;
+  /** 파일별 추출 시간 한도(초). */
+  extractionTimeout: number;
   /** sharedVault + 멀티워커: 워커 vault 가 쓸 고정 salt (지문 일관성). */
   vaultSalt: string | null;
 }
@@ -458,31 +668,65 @@ function toProcessingMode(value: string): ProcessingMode {
   return value as ProcessingMode;
 }
 
+const ERRNO_CLASSES: Readonly<Record<string, string>> = {
+  ENOENT: "FileNotFoundError",
+  EACCES: "PermissionError",
+  EPERM: "PermissionError",
+  EEXIST: "FileExistsError",
+  EISDIR: "IsADirectoryError",
+  ENOTDIR: "NotADirectoryError",
+};
+
+/** Node 시스템 오류(errno 코드 보유) 여부 — Python ``OSError`` 대응. @internal */
+export function isOsError(error: unknown): error is NodeJS.ErrnoException {
+  return (
+    error instanceof Error &&
+    typeof (error as NodeJS.ErrnoException).code === "string" &&
+    typeof (error as NodeJS.ErrnoException).errno === "number"
+  );
+}
+
+/** Python ``type(e).__name__`` 대응 — Node errno 오류는 OSError 하위 클래스명으로. @internal */
+export function pyExceptionName(error: unknown): string {
+  if (isOsError(error)) return ERRNO_CLASSES[error.code as string] ?? "OSError";
+  if (error instanceof SyntaxError) return "JSONDecodeError";
+  if (error instanceof Error) return error.name || "Exception";
+  return "Exception";
+}
+
 /**
  * 단일 파일 처리 — Python ``batch._process_single`` 1:1 포트.
- * read_text 는 Python 과 동일하게 *dispatcher* 를 쓴다 (모든 포맷 정규화 적용).
- * 예외는 잡아 FileResult.error 로 보고한다 (전체 작업 중단 X).
+ * 추출은 격리 워커(``readTextIsolated``)에서 한도·시간 제한과 함께 수행한다.
+ * 예외는 잡아 FileResult.error 로 보고한다 (전체 작업 중단 X). 원문을 담을 수 있는 예외
+ * 메시지는 내보내지 않는다 — BoundedReadError 만 메시지를 그대로 쓴다.
  */
 export async function processSingle(
   task: WorkerTask,
   sharedVault: ReversibleVault | null = null,
 ): Promise<SingleResult> {
-  const t0 = Date.now();
+  const t0 = performance.now();
   const { inputPath, outputPath } = task;
   try {
-    const text = await readText(inputPath);
+    const document = await readTextIsolated(inputPath, {
+      policy: new FileReadPolicy(task.readPolicy),
+      timeout: task.extractionTimeout,
+    });
     const anon = new Anonymizer(
       toProcessingMode(task.mode),
       task.strategy,
       sharedVault ?? (task.vaultSalt ? new ReversibleVault({ salt: task.vaultSalt }) : undefined),
-      task.include ?? undefined,
-      task.exclude ?? undefined,
+      task.include,
+      task.exclude,
+      null,
+      "union",
+      null,
+      task.personExclusions,
     );
-    const result = anon.process(text);
+    const result = anon.process(document.text);
 
     if (outputPath) {
       mkdirSync(dirname(outputPath) || ".", { recursive: true });
-      writeFileSync(outputPath, result.text, "utf8");
+      writeTextAtomic(outputPath, result.text);
     }
 
     const nBlock = result.detections.filter((r) => r.action === Action.BLOCK).length;
@@ -498,14 +742,15 @@ export async function processSingle(
         blocked: nBlock,
         review: nReview,
         error: null,
-        elapsedS: (Date.now() - t0) / 1000,
+        elapsedS: (performance.now() - t0) / 1000,
+        errorCode: null,
+        coverage: document.coverage,
       },
       // 멀티워커 sharedVault 일 때만 워커 vault 를 사전으로 수집
       vaultDict: task.vaultSalt !== null ? (result.vault?.toDict() ?? null) : null,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const name = error instanceof Error ? error.name : "Exception";
+    const bounded = error instanceof BoundedReadError;
     return {
       result: {
         inputPath,
@@ -514,8 +759,10 @@ export async function processSingle(
         combinedRisk: "UNKNOWN",
         blocked: 0,
         review: 0,
-        error: `${name}: ${message}`,
-        elapsedS: (Date.now() - t0) / 1000,
+        error: bounded ? error.message : `${pyExceptionName(error)}: processing failed`,
+        elapsedS: (performance.now() - t0) / 1000,
+        errorCode: bounded ? error.code : "processing_failed",
+        coverage: bounded ? error.coverage : null,
       },
       vaultDict: null,
     };
@@ -539,6 +786,11 @@ function printProgress(done: number, total: number, r: FileResult): void {
 // 공개 진입점
 // ─────────────────────────────────────────────────────────────────────
 
+/** Python ``str.casefold`` 근사 — 특수 확장 문자(ß→ss 등)는 대문자 경유로 접는다. */
+function caseFold(s: string): string {
+  return s.toUpperCase().toLowerCase();
+}
+
 /** Python ``batch._output_path_for`` 1:1 포트. */
 export function outputPathFor(inputPath: string, outputDir: string, suffix = ""): string {
   const name = basename(inputPath);
@@ -553,8 +805,18 @@ export interface ProcessPathsOptions {
   workers?: number;
   include?: Iterable<string> | null;
   exclude?: Iterable<string> | null;
+  /** PERSON 검출에서 제외할 도메인 용어 (Python ``person_exclusions``). */
+  personExclusions?: Iterable<string> | null;
   extensions?: ReadonlySet<string> | null;
   progress?: boolean;
+  /** 파일·압축·텍스트 한도 (기본 ``defaultReadPolicy()``). */
+  readPolicy?: FileReadPolicy | null;
+  /** 파일별 추출 시간 한도(초, 기본 30). 유한한 양수. */
+  extractionTimeout?: number;
+  /** 빈 디렉터리·매칭 없는 glob 을 실패로 보지 않는다 (명시 파일 누락은 여전히 실패). */
+  allowEmpty?: boolean;
+  /** 예정 출력과 충돌하면 모든 쓰기 전에 거부할 설정 파일 경로. */
+  protectedPaths?: Iterable<string>;
   /**
    * TS 확장 — 문서 간 토큰 일관성 (원본 모듈 docstring 의도).
    * - workers<=1: 하나의 vault 를 모든 파일이 공유 (토큰 일관).
@@ -710,9 +972,9 @@ function mergeVaultDicts(dicts: VaultDict[]): ReversibleVault | null {
  *
  * Notes:
  * -----
- * 워커가 1 이면 in-process 처리 (sharedVault 시 vault 공유). 2 이상이면
- * worker_threads 풀이므로 Python 과 동일하게 *vault 공유 불가* — 각 워커는 자체
- * vault. 토큰 일관성이 필요하면 workers=1 사용.
+ * 워커 수와 관계없이 파일마다 별도 Anonymizer/Vault 를 사용한다 (sharedVault TS 확장 제외).
+ * 문서 간 토큰 일관성이나 감사 가능한 가역 Vault 가 필요하면 단일 파일 API 를 사용한다.
+ * protectedPaths 의 설정 파일과 예정 출력이 충돌하면 모든 쓰기 전에 거부한다.
  */
 export async function processPaths(
   inputs: Iterable<string>,
@@ -726,8 +988,13 @@ export async function processPaths(
     workers = 1,
     include = null,
     exclude = null,
+    personExclusions = null,
     extensions = null,
     progress = true,
+    readPolicy = null,
+    extractionTimeout = 30.0,
+    allowEmpty = false,
+    protectedPaths = [],
     sharedVault = false,
   } = options;
   const modeValue = typeof mode === "string" ? mode : (mode as string);
@@ -736,15 +1003,30 @@ export async function processPaths(
   if (!(Object.values(ProcessingMode) as string[]).includes(modeValue)) {
     throw new ValueError(`'${modeValue}' is not a valid ProcessingMode`);
   }
-  // 1회용 이터러블(generator)도 안전하도록 한 번만 소비한다.
-  const includeArr = include ? [...include] : [];
-  const excludeArr = exclude ? [...exclude] : [];
-  const includeList = includeArr.length > 0 ? includeArr : null;
-  const excludeList = excludeArr.length > 0 ? excludeArr : null;
-
-  const files = collectFiles(inputs, recursive, extensions);
+  const normalizedExclusions = normalizeExclusions(personExclusions);
+  const includeValues = validateLabelFilter(include, "include");
+  const excludeValues = validateLabelFilter(exclude, "exclude");
+  if (
+    !Number.isInteger(workers) ||
+    workers < 1 ||
+    typeof extractionTimeout !== "number" ||
+    !Number.isFinite(extractionTimeout) ||
+    extractionTimeout <= 0
+  ) {
+    throw new ValueError("workers and extraction timeout must be positive");
+  }
+  const inputValues = [...inputs];
+  const protectedReal = [...protectedPaths].map((p) => pyRealpath(p));
+  const outputRoot = pyRealpath(outputDir);
+  for (const value of inputValues) {
+    if (isRelativeTo(pyRealpath(value), outputRoot)) {
+      throw new ValueError("output directory must differ from and must not contain an input path");
+    }
+  }
+  const collected = collectInputs(inputValues, recursive, extensions, { outputRoot, allowEmpty });
+  const files = collected.files;
   const summary: BatchSummary = {
-    totalFiles: files.length,
+    totalFiles: files.length + collected.errors.length,
     succeeded: 0,
     failed: 0,
     totalDetections: 0,
@@ -752,31 +1034,51 @@ export async function processPaths(
     totalReview: 0,
     elapsedS: 0,
     results: [],
+    skipped: collected.skipped,
     vault: null,
   };
-  const t0 = Date.now();
+  const t0 = performance.now();
+  const policyInit = (readPolicy ?? defaultReadPolicy()).toInit();
+  const exclusionList = [...normalizedExclusions].sort(pyCompare);
 
   // 출력 경로 유일성 보장 — 서로 다른 디렉토리의 동명 파일이 같은
   // out/<stem>.txt 로 충돌해 마지막 결과가 이전 결과를 덮어쓰던 데이터 손실
   // 방지 (#12). 첫 파일은 <stem>.txt 유지, 충돌 시에만 입력경로 해시 부여.
+  // 대소문자 무시 파일시스템을 위해 casefold 로 비교한다.
   const seenOut = new Set<string>();
   const tasks: WorkerTask[] = [];
   const sharedSalt = sharedVault && workers > 1 ? new ReversibleVault().salt : null;
   for (const f of files) {
     let outPath = outputPathFor(f, outputDir);
-    if (seenOut.has(outPath)) {
+    if (seenOut.has(caseFold(outPath))) {
       const [stem, ext] = pySplitExt(outPath);
       const h = createHash("sha1").update(pathResolve(f), "utf8").digest("hex").slice(0, 8);
       outPath = `${stem}_${h}${ext}`;
+      let number = 2;
+      while (seenOut.has(caseFold(outPath))) {
+        outPath = `${stem}_${h}_${number}${ext}`;
+        number += 1;
+      }
     }
-    seenOut.add(outPath);
+    seenOut.add(caseFold(outPath));
+    for (const path of protectedReal) {
+      if (
+        pyRealpath(outPath) === path ||
+        (pathExists(outPath) && pathExists(path) && sameFile(outPath, path))
+      ) {
+        throw new ValueError("batch output conflicts with a protected configuration file");
+      }
+    }
     tasks.push({
       inputPath: f,
       outputPath: outPath,
       mode: modeValue,
       strategy,
-      include: includeList,
-      exclude: excludeList,
+      include: includeValues,
+      exclude: excludeValues,
+      personExclusions: exclusionList,
+      readPolicy: policyInit,
+      extractionTimeout,
       vaultSalt: sharedVault && workers > 1 ? sharedSalt : null,
     });
   }
@@ -797,7 +1099,7 @@ export async function processPaths(
     vaultDicts = outcome.vaultDicts;
   }
 
-  for (const r of results) {
+  for (const r of [...collected.errors, ...results]) {
     summary.results.push(r);
     if (r.error) {
       summary.failed += 1;
@@ -809,7 +1111,7 @@ export async function processPaths(
     }
   }
 
-  summary.elapsedS = (Date.now() - t0) / 1000;
+  summary.elapsedS = (performance.now() - t0) / 1000;
   if (progress) {
     process.stderr.write("\n");
   }

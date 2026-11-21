@@ -1,5 +1,6 @@
 /**
- * Vault 암호화 — 개인정보보호법 제29조 (안전조치의무) 직접 대응.
+ * Vault 저장 파일 암호화 — 저장 상태 보호용 구성 요소이며, 이것만으로 접근통제나
+ * 법적 준수를 보장하지 않는다.
  * Python `ko_pii.vault.encrypted` 1:1 포트 (외부 패키지 없이 `node:crypto` 사용).
  *
  * 알고리즘:
@@ -20,8 +21,9 @@
  */
 
 import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
-import { closeSync, openSync, readFileSync, readSync, writeFileSync } from "node:fs";
+import { closeSync, openSync, readFileSync, readSync } from "node:fs";
 import { ValueError } from "../core/errors.js";
+import { writeBytesAtomic } from "../io/atomic.js";
 import { ReversibleVault } from "./reversible.js";
 
 /** 8 bytes (대문자 KPIIVT + version 1.0). */
@@ -102,7 +104,8 @@ export function saveEncrypted(vault: ReversibleVault, path: string, password: st
   const plaintext = Buffer.from(vault.dumps(null), "utf8");
   // AAD = magic + version → integrity binds to the file format
   const ciphertextWithTag = encryptRaw(key, nonce, plaintext, MAGIC);
-  writeFileSync(path, Buffer.concat([MAGIC, salt, nonce, ciphertextWithTag]));
+  // 원자적 교체 — 실패해도 기존 .kvault 를 잘라내지 않는다 (Python `write_bytes_atomic`).
+  writeBytesAtomic(path, Buffer.concat([MAGIC, salt, nonce, ciphertextWithTag]));
 }
 
 /** Decrypt and return a vault. Raises Error on wrong password.
@@ -110,7 +113,14 @@ export function saveEncrypted(vault: ReversibleVault, path: string, password: st
 export function loadEncrypted(source: string | Buffer, password: string): ReversibleVault {
   const blob = typeof source === "string" ? readFileSync(source) : source;
   const plaintext = decryptBlob(blob, password);
-  return ReversibleVault.loads(plaintext.toString("utf8"));
+  // Python `plaintext.decode("utf-8")` 은 엄격 디코딩 — 잘못된 UTF-8 은 UnicodeDecodeError(ValueError).
+  let json: string;
+  try {
+    json = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(plaintext);
+  } catch {
+    throw new ValueError("vault plaintext is not valid UTF-8");
+  }
+  return ReversibleVault.loads(json);
 }
 
 /** 파일이 암호화된 vault 인지 확인 (magic byte 검사). */

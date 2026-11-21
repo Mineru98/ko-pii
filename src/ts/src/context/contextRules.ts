@@ -18,7 +18,7 @@
  */
 
 import { pyFormatFixed } from "../core/pyFormat.js";
-import { FIELD_LABELS_NAME } from "../dictionaries/generated/field_labels.js";
+import { cpIndexBefore, cpWindowAfter, pySplitWs } from "../core/strUtils.js";
 import {
   isAgency,
   isCommonWord,
@@ -26,6 +26,7 @@ import {
   isTitle,
   surnamePrefixLen,
 } from "../dictionaries/index.js";
+import { nameFieldBefore } from "./nameFields.js";
 import { PARTICLES, stripTrailingParticle } from "./particles.js";
 
 /** Python NameCandidate dataclass 대응. */
@@ -64,28 +65,15 @@ export type AgencySentenceCache = Map<string, boolean>;
 /** Python str.isspace() 문자 클래스 — str.strip() 근사용. */
 const PY_WS =
   "[\\t\\n\\u000b\\u000c\\r\\u001c-\\u001f \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]";
-const RE_PY_STRIP = new RegExp(`^${PY_WS}+|${PY_WS}+$`, "g");
 const RE_PY_RSTRIP = new RegExp(`${PY_WS}+$`);
-
-function pyStrip(s: string): string {
-  return s.replace(RE_PY_STRIP, "");
-}
 
 function pyRstrip(s: string): string {
   return s.replace(RE_PY_RSTRIP, "");
 }
 
-function pyLstripColons(s: string): string {
-  return s.replace(/^[:：]+/, "");
-}
-
 /** Python `" a b".split()` 동등 — `re.finditer(r"\S+", s)` 와 동일한 토큰열. */
 function wordIter(text: string): string[] {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return [];
-  }
-  return trimmed.split(/\s+/);
+  return pySplitWs(text);
 }
 
 /** Python: all("가" <= ch <= "힣" for ch in name) — 빈 문자열은 all() 이 참. */
@@ -103,35 +91,9 @@ function looksKorean(name: string): boolean {
 // 개별 신호 판정 (Python 비공개 헬퍼 대응)
 // ---------------------------------------------------------------------------
 
-/** FIELD_LABELS_NAME 의 결정적 순회 순서 — 아래 hasFieldLabelBefore 참조. */
-const FIELD_LABELS_BY_LENGTH: readonly string[] = [...FIELD_LABELS_NAME].sort((a, b) => {
-  const byLength = [...b].length - [...a].length;
-  if (byLength !== 0) return byLength;
-  return a < b ? -1 : a > b ? 1 : 0;
-});
-
-/** Look for a name-field label like "성명:" within `window` chars before.
- *
- * 반환값은 매칭된 라벨 (없으면 null).
- */
+/** 인접한 필드 라벨만 본다 — 다른 제목의 부분 문자열은 아니다 (nameFieldBefore 위임). */
 export function hasFieldLabelBefore(text: string, start: number, window = 6): string | null {
-  const head = text.slice(Math.max(0, start - window - 4), start);
-  // Python 과 같은 결정적 순서: 가장 긴 라벨부터, 같은 길이는 코드 포인트 순
-  // (`sorted(FIELD_LABELS_NAME, key=lambda s: (-len(s), s))`). 접미가 겹치는 쌍
-  // (평가자/피평가자 등)에서 실제 필드명인 긴 쪽이 evidence 에 남는다.
-  for (const label of FIELD_LABELS_BY_LENGTH) {
-    // Allow "성명:", "성명 :", "성명 ", etc.
-    const idx = head.lastIndexOf(label);
-    if (idx === -1) {
-      continue;
-    }
-    const between = head.slice(idx + label.length);
-    const stripped = pyStrip(pyLstripColons(pyStrip(between)));
-    if (stripped === "") {
-      return label;
-    }
-  }
-  return null;
+  return nameFieldBefore(text, start, window);
 }
 
 /** `word` → title 정식형 (조사·연결어미 제거 후 dict 매칭). */
@@ -168,7 +130,7 @@ export function hasTitleAdjacent(
 ): [string | null, boolean] {
   // After the candidate (most common: "홍길동 과장") — only the first word
   // counts as "adjacent".
-  const tail = text.slice(end, end + window + 6);
+  const tail = cpWindowAfter(text, end, window + 6);
   const tailWords = wordIter(tail);
   const firstWord = tailWords[0];
   if (firstWord !== undefined) {
@@ -179,7 +141,7 @@ export function hasTitleAdjacent(
   }
 
   // Before the candidate (e.g., "과장 홍길동")
-  const headStart = Math.max(0, start - window - 6);
+  const headStart = cpIndexBefore(text, start, window + 6);
   const head = text.slice(headStart, start);
   const rev = pyRstrip(head);
   if (rev) {
@@ -201,14 +163,24 @@ export function hasAgencyInSentence(
   start: number,
   end: number,
   cache?: AgencySentenceCache | null,
+  boundaries?: readonly number[] | null,
 ): boolean {
   // Extract sentence boundaries: . / 다. / 음. / line break
-  const before = text.slice(0, start);
-  const left = Math.max(before.lastIndexOf("."), before.lastIndexOf("\n")) + 1;
-  const rightDot = text.indexOf(".", end);
-  const rightNl = text.indexOf("\n", end);
-  const candidates = [rightDot, rightNl].filter((r) => r !== -1);
-  const right = candidates.length > 0 ? Math.min(...candidates) : text.length;
+  let left: number;
+  let right: number;
+  if (boundaries == null) {
+    const before = text.slice(0, start);
+    left = Math.max(before.lastIndexOf("."), before.lastIndexOf("\n")) + 1;
+    const rightDot = text.indexOf(".", end);
+    const rightNl = text.indexOf("\n", end);
+    const candidates = [rightDot, rightNl].filter((r) => r !== -1);
+    right = candidates.length > 0 ? Math.min(...candidates) : text.length;
+  } else {
+    left = boundaries[Math.max(0, bisectRight(boundaries, start) - 1)] as number;
+    const nextBoundary = bisectRight(boundaries, end);
+    right =
+      nextBoundary < boundaries.length ? (boundaries[nextBoundary] as number) - 1 : text.length;
+  }
   // 같은 문장의 후보들은 동일한 (left, right) 범위를 공유 → 한 번만 단어 순회하도록
   // 캐시(없으면 O(후보×단어)=O(n²); 긴 문서·이름 다수에서 quadratic 폭주를 막는다).
   const key = `${left},${right}`;
@@ -220,6 +192,30 @@ export function hasAgencyInSentence(
     cache.set(key, result);
   }
   return result;
+}
+
+/** Python ``bisect_right``. */
+function bisectRight(arr: readonly number[], x: number): number {
+  let lo = 0;
+  let hi = arr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (x < (arr[mid] as number)) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+
+/** 문장 경계 인덱스 — 각 `.`/줄바꿈 다음 위치 (Python ``_agency_sentence_boundaries``).
+ * 뒤 구분자를 포함해 색인 경로와 단독 경로가 같은 결과를 낸다.
+ */
+export function agencySentenceBoundaries(text: string): number[] {
+  const out = [0];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "." || ch === "\n") out.push(i + 1);
+  }
+  return out;
 }
 
 /** Check if right after the candidate there is a Korean particle. */
@@ -244,6 +240,7 @@ export function scoreCandidate(
   deterministicNearby = false,
   nameDictionaryBoost = 0.0,
   agencyCache?: AgencySentenceCache | null,
+  agencyBoundaries?: readonly number[] | null,
 ): Score {
   const ev: string[] = [];
   let score = 0.0;
@@ -308,7 +305,7 @@ export function scoreCandidate(
   }
 
   // Agency mention in same sentence
-  if (hasAgencyInSentence(text, cand.start, cand.end, agencyCache)) {
+  if (hasAgencyInSentence(text, cand.start, cand.end, agencyCache, agencyBoundaries)) {
     score += 0.1;
     ev.push("pos:agency_in_sentence");
   }

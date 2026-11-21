@@ -1,6 +1,6 @@
 {
   "name": "ko-pii",
-  "version": "1.16.0",
+  "version": "1.27.0",
   "description": "한국어 PII 검출 + 가역 가명화 라이브러리 (TypeScript 포트, 코어 의존성 0)",
   "license": "MIT",
   "author": "Marker-Inc-Korea",
@@ -51,6 +51,21 @@
       "import": "./dist/tabular.mjs",
       "require": "./dist/tabular.cjs"
     },
+    "./structured": {
+      "types": "./dist/structured.d.mts",
+      "import": "./dist/structured.mjs",
+      "require": "./dist/structured.cjs"
+    },
+    "./profile": {
+      "types": "./dist/profile.d.mts",
+      "import": "./dist/profile.mjs",
+      "require": "./dist/profile.cjs"
+    },
+    "./policyPreview": {
+      "types": "./dist/policyPreview.d.mts",
+      "import": "./dist/policyPreview.mjs",
+      "require": "./dist/policyPreview.cjs"
+    },
     "./reporting": {
       "types": "./dist/reporting/index.d.mts",
       "import": "./dist/reporting/index.mjs",
@@ -76,7 +91,9 @@
     "ko-pii": "./dist/cli/bin.mjs",
     "ko-pii-mcp-server": "./dist/mcp/bin.mjs",
     "ko-pii-benchmark": "./dist/eval/benchmarkBin.mjs",
-    "ko-pii-klue-bench": "./dist/eval/klueBenchBin.mjs"
+    "ko-pii-klue-bench": "./dist/eval/klueBenchBin.mjs",
+    "ko-pii-evaluate": "./dist/eval/domainBin.mjs",
+    "ko-pii-compare-policies": "./dist/policyPreviewBin.mjs"
   },
   "files": [
     "dist"
@@ -116,14 +133,10 @@
     "zod": "^4.5.4"
   },
   "peerDependencies": {
-    "@modelcontextprotocol/sdk": ">=1.0.0",
-    "zod": ">=3.25.0"
+    "@modelcontextprotocol/sdk": ">=1.0.0"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
-      "optional": true
-    },
-    "zod": {
       "optional": true
     }
   },

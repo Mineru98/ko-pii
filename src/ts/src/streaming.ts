@@ -82,6 +82,7 @@ export class PreForwardAnonymizer {
     if (typeof chunk !== "string") {
       throw new TypeError(`feed() expects str, got ${pyTypeName(chunk)}`);
     }
+    if (!chunk) return this.status;
     const length = codePointLength(chunk);
     if (this.chars + length > this.maxChars) {
       this.chunks = [];

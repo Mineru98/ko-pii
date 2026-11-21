@@ -8,7 +8,7 @@
  */
 import type { DetectionResult } from "../core/types.js";
 import { ReversibleVault } from "../vault/reversible.js";
-import { applySubstitutions } from "./apply.js";
+import { applySubstitutions, prepareDetections } from "./apply.js";
 import type { ModesVault } from "./vault.js";
 
 /**
@@ -37,8 +37,9 @@ export function tokenize(
   detections: Iterable<DetectionResult>,
   vault?: ModesVault | null,
 ): [string, ModesVault] {
+  // 원문 결속 검증을 Vault 생성·기록보다 먼저 — 실패 시 Vault 는 변경되지 않는다.
+  const list = prepareDetections(text, detections);
   const v: ModesVault = vault ?? new ReversibleVault();
-  const list = [...detections]; // consume iterator once
 
   const replace = (d: DetectionResult): string =>
     v.store(d.label, d.text, d.riskLevel, d.legal_basis, d.start, { ...d.extra });

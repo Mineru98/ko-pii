@@ -37,6 +37,8 @@ export interface XmlElement {
   attrs: Record<string, string>;
   /** Python ``elem.text`` — 첫 자식 요소 앞 텍스트. 없으면 null. 엔티티 디코딩 완료. */
   text: string | null;
+  /** Python ``elem.tail`` — 이 요소 닫힘 뒤 다음 형제 앞 텍스트. 없으면 null. */
+  tail: string | null;
   children: XmlElement[];
 }
 
@@ -116,6 +118,8 @@ const parser = new XMLParser({
   ignoreDeclaration: true,
   // CDATA 는 엔티티 디코딩 없이 원문 그대로 text 에 이어붙여야 한다 (ET 의미론).
   cdataPropName: CDATA_KEY,
+  // fxp 기본 중첩 한도(100)는 expat 에 없는 제한이다 — 깊은 표/목록 구조도 ET 처럼 읽는다.
+  maxNestedTags: 1_000_000,
 });
 
 function elementItemsOf(rec: FxpItem): unknown[] {
@@ -134,49 +138,79 @@ function attrsOf(rec: FxpItem): Record<string, string> {
   return raw;
 }
 
-/** fxp preserveOrder 항목 배열 → 요소들 + 첫 자식 앞 텍스트. */
+interface ConvertFrame {
+  items: unknown[];
+  index: number;
+  ns: ReadonlyMap<string, string>;
+  /** 자식 요소·텍스트를 받는 부모 (최상위는 가짜 요소). */
+  owner: XmlElement;
+}
+
+/**
+ * fxp preserveOrder 항목 배열 → 요소들 + 첫 자식 앞 텍스트.
+ * 명시 스택으로 순회한다 — 깊게 중첩된 문서(표 안의 표 등)도 호출 스택 한도 없이 ET 처럼 읽는다.
+ */
 function convertChildren(
   items: unknown[],
   parentNs: ReadonlyMap<string, string>,
 ): { elements: XmlElement[]; text: string | null } {
-  const elements: XmlElement[] = [];
-  let text: string | null = null;
-  for (const item of items) {
+  const top: XmlElement = {
+    local: "",
+    nsUri: null,
+    attrs: {},
+    text: null,
+    tail: null,
+    children: [],
+  };
+  const stack: ConvertFrame[] = [{ items, index: 0, ns: parentNs, owner: top }];
+  while (stack.length > 0) {
+    const frame = stack[stack.length - 1]!;
+    if (frame.index >= frame.items.length) {
+      stack.pop();
+      continue;
+    }
+    const item = frame.items[frame.index];
+    frame.index += 1;
     if (typeof item !== "object" || item === null) continue;
     const rec = item as FxpItem;
-    if ("#text" in rec) {
-      // Python elem.text — 첫 자식 요소 앞의 텍스트만 의미가 있다. CDATA 로 끊긴
+    const owner = frame.owner;
+    const appendText = (piece: string): void => {
+      // Python elem.text — 첫 자식 요소 앞 텍스트, 그 뒤는 직전 자식의 tail. CDATA 로 끊긴
       // 조각들은 ET 처럼 하나로 이어붙인다.
+      const last = owner.children[owner.children.length - 1];
+      if (last === undefined) owner.text = (owner.text ?? "") + piece;
+      else last.tail = (last.tail ?? "") + piece;
+    };
+    if ("#text" in rec) {
       const v = rec["#text"];
-      if (elements.length === 0 && typeof v === "string") {
-        text = (text ?? "") + decodeXmlChars(v);
-      }
+      if (typeof v === "string") appendText(decodeXmlChars(v));
       continue;
     }
     if (CDATA_KEY in rec) {
-      if (elements.length === 0) {
-        let raw = "";
-        for (const piece of elementItemsOf(rec)) {
-          const v = (piece as FxpItem)["#text"];
-          if (typeof v === "string") raw += v; // CDATA 내부는 디코딩하지 않는다
-        }
-        text = (text ?? "") + raw;
+      let raw = "";
+      for (const piece of elementItemsOf(rec)) {
+        const v = (piece as FxpItem)["#text"];
+        if (typeof v === "string") raw += v; // CDATA 내부는 디코딩하지 않는다
       }
+      appendText(raw);
       continue;
     }
     const tagKey = Object.keys(rec).find((k) => k !== ":@");
     if (tagKey === undefined) continue;
     if (tagKey.startsWith("?")) continue; // 처리 명령(processing instruction) — ET 도 무시
-    elements.push(convertElement(tagKey, rec, parentNs));
+    const [element, ns] = elementShell(tagKey, rec, frame.ns);
+    owner.children.push(element);
+    stack.push({ items: elementItemsOf(rec), index: 0, ns, owner: element });
   }
-  return { elements, text };
+  return { elements: top.children, text: top.text };
 }
 
-function convertElement(
+/** 요소 껍데기(태그·네임스페이스·속성) + 자식에게 물려줄 네임스페이스 스코프. */
+function elementShell(
   tagKey: string,
   rec: FxpItem,
   parentNs: ReadonlyMap<string, string>,
-): XmlElement {
+): [XmlElement, ReadonlyMap<string, string>] {
   const rawAttrs = attrsOf(rec);
 
   // 네임스페이스 선언 스택 (기본 + 접두어).
@@ -212,8 +246,7 @@ function convertElement(
     }
   }
 
-  const { elements, text } = convertChildren(elementItemsOf(rec), ns);
-  return { local, nsUri, attrs, text, children: elements };
+  return [{ local, nsUri, attrs, text: null, tail: null, children: [] }, ns];
 }
 
 // XML 1.0 에서 허용되지 않는 문자 — expat "not well-formed (invalid token)".
@@ -379,8 +412,24 @@ function normalizeEntityValue(value: string): string {
  * 요소가 된다. 외부(SYSTEM/PUBLIC)·매개변수 엔티티는 등록하지 않는다 — 참조하면 뒤의
  * decodeXmlChars 가 "undefined entity" ParseError 를 낸다 (ET 실측과 같은 결과).
  */
+/** 주석·CDATA·PI 밖에서 처음 나오는 ``<!DOCTYPE`` 위치 (없으면 -1). CDATA 안 문자열은 선언이 아니다. */
+function findDoctype(xml: string): number {
+  let i = xml.indexOf("<");
+  while (i >= 0) {
+    if (xml.startsWith("<!DOCTYPE", i)) return i;
+    let close = -1;
+    if (xml.startsWith("<!--", i)) close = xml.indexOf("-->", i + 4) + 3;
+    else if (xml.startsWith("<![CDATA[", i)) close = xml.indexOf("]]>", i + 9) + 3;
+    else if (xml.startsWith("<?", i)) close = xml.indexOf("?>", i + 2) + 2;
+    else close = i + 1;
+    if (close < i + 1) return -1; // 닫히지 않은 블록 — 이후는 모두 그 안이다
+    i = xml.indexOf("<", close);
+  }
+  return -1;
+}
+
 function expandInternalEntities(xml: string): string {
-  const start = xml.indexOf("<!DOCTYPE");
+  const start = findDoctype(xml);
   if (start < 0) return xml;
   const n = xml.length;
   let subsetStart = -1;
@@ -557,10 +606,69 @@ export function parseXmlBytes(xmlBytes: Uint8Array): XmlElement {
   return parseXmlFromString(decodeXmlBytes(xmlBytes));
 }
 
-/** Python ``root.iter()`` 대응 — 루트 포함 pre-order (문서 순서) 순회. */
-export function* iterElements(root: XmlElement): Generator<XmlElement> {
-  yield root;
-  for (const child of root.children) {
-    yield* iterElements(child);
+/** Python ``elem.itertext()`` 대응 — text, 자식 itertext, 자식 tail 을 문서 순서로 (명시 스택). */
+export function itertext(root: XmlElement): string {
+  const out: string[] = [];
+  const stack: Array<[XmlElement, boolean]> = [[root, false]];
+  while (stack.length > 0) {
+    const [elem, closing] = stack.pop()!;
+    if (closing) {
+      if (elem !== root && elem.tail) out.push(elem.tail);
+      continue;
+    }
+    if (elem.text) out.push(elem.text);
+    stack.push([elem, true]);
+    for (let i = elem.children.length - 1; i >= 0; i--) stack.push([elem.children[i]!, false]);
   }
+  return out.join("");
+}
+
+/** Python ``root.iter()`` 대응 — 루트 포함 pre-order (문서 순서) 순회. 명시 스택 (깊이 무관). */
+export function* iterElements(root: XmlElement): Generator<XmlElement> {
+  const stack: XmlElement[] = [root];
+  while (stack.length > 0) {
+    const elem = stack.pop()!;
+    yield elem;
+    for (let i = elem.children.length - 1; i >= 0; i--) stack.push(elem.children[i]!);
+  }
+}
+
+/** XML S (공백) — 프롤로그 스캔용. */
+const XML_SPACE = new Set([" ", "\t", "\r", "\n"]);
+
+/**
+ * 문서 프롤로그(XML 선언·주석·PI·공백 뒤)에 DOCTYPE 선언이 있는지 — Python bounded 의
+ * expat ``StartDoctypeDeclHandler`` 판정 대응. 인코딩은 파서처럼 해석하므로(UTF-16 선언 포함)
+ * 바이트 검색으로 놓치는 경우가 없고, CDATA·본문 안의 ``<!DOCTYPE`` 문자열은 선언이 아니다.
+ * 디코드 실패(미지원 인코딩 등)는 false — expat 도 선언에 닿기 전에 오류로 끝나며, 그 오류는
+ * 추출기의 엄격한 파서가 coverage 로 보고한다.
+ */
+export function hasDoctypeDeclaration(xmlBytes: Uint8Array): boolean {
+  let text: string;
+  try {
+    text = decodeXmlBytes(xmlBytes);
+  } catch {
+    return false;
+  }
+  let i = text.startsWith("﻿") ? 1 : 0;
+  if (text.startsWith("<?xml", i)) {
+    const end = text.indexOf("?>", i);
+    if (end < 0) return false;
+    i = end + 2;
+  }
+  for (;;) {
+    while (i < text.length && XML_SPACE.has(text[i]!)) i++;
+    if (text.startsWith("<!--", i)) {
+      const end = text.indexOf("-->", i + 4);
+      if (end < 0) return false;
+      i = end + 3;
+    } else if (text.startsWith("<?", i)) {
+      const end = text.indexOf("?>", i + 2);
+      if (end < 0) return false;
+      i = end + 2;
+    } else {
+      break;
+    }
+  }
+  return /^<!DOCTYPE[ \t\r\n]+[^ \t\r\n>[]/.test(text.slice(i, i + 64));
 }

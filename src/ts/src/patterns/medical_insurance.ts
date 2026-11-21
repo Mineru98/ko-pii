@@ -15,6 +15,7 @@
  * Legal basis: 개인정보보호법 제2조; 국민건강보험법 제96조 (자료의 보호).
  */
 
+import { cpWindowBefore, PY_S } from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 
 const LABEL = "MEDICAL_INSURANCE";
@@ -22,7 +23,7 @@ const LEGAL_BASIS = "개인정보보호법 제2조; 국민건강보험법 제96�
 const CATEGORY = "일반개인정보";
 
 const CONTEXT_WINDOW = 25;
-const KEYWORD_RE = /건강\s*보험|의료\s*보험|보험증/;
+const KEYWORD_RE = new RegExp(`건강${PY_S}*보험|의료${PY_S}*보험|보험증`, "u");
 // 건강보험증번호 형식 2종: 순수 11자리, 또는 '증번호' 표기형 N-NNNNNNNNNN
 // (1자리 종별 코드 + 하이픈 + 10자리). 키워드 anchor 가 있어 FP 위험은 낮다.
 const NUMBER_RE = /(?<![0-9-])((?:[0-9]-[0-9]{10})|(?:[0-9]{11}))(?![0-9-])/g;
@@ -31,8 +32,7 @@ export function detect(text: string): DetectionResult[] {
   const out: DetectionResult[] = [];
   for (const m of text.matchAll(NUMBER_RE)) {
     if (m.index === undefined) continue;
-    const windowStart = Math.max(0, m.index - CONTEXT_WINDOW);
-    const prefixWindow = text.slice(windowStart, m.index);
+    const prefixWindow = cpWindowBefore(text, m.index, CONTEXT_WINDOW);
     if (!KEYWORD_RE.test(prefixWindow)) continue;
     // group 1 이 매치 전체를 감싸므로 m.start(1) === m.start(), m.end(1) === m.end()
     const digits = m[1];

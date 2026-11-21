@@ -12,7 +12,10 @@
  *   - "년생" suffix (88년생 = 1988년생)
  *   - 키워드 없는 단순 날짜 (예: "2024년 4월 15일 회의") 는 검출 안 함
  */
+
 import { stripTrailingParticle } from "../context/particles.js";
+import { ForwardIntervalIndex } from "../core/intervalIndex.js";
+import { cpWindowAfter, cpWindowBefore, ndToNumber, PY_S } from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 import { isCommonWord } from "../dictionaries/commonWords.js";
 import { surnamePrefixLen } from "../dictionaries/surnames.js";
@@ -99,19 +102,24 @@ const _NON_BIRTH_KEYWORDS: readonly string[] = [
 ];
 
 function _hasNonBirthKeywordBefore(text: string, start: number, window = 15): boolean {
-  const head = text.slice(Math.max(0, start - window), start);
+  const head = cpWindowBefore(text, start, window);
   return _NON_BIRTH_KEYWORDS.some((kw) => head.includes(kw));
 }
 
 // 패턴 1: YYYY년 M월 D일 / YYYY년 MM월 DD일
-const _PATTERN_KOREAN =
-  /(?<![0-9])([0-9]{4}|[0-9]{2})\s*년\s*([0-9]{1,2})\s*월\s*([0-9]{1,2})\s*일/g;
+const _PATTERN_KOREAN = new RegExp(
+  String.raw`(?<![0-9])(\p{Nd}{4}|\p{Nd}{2})${PY_S}*년${PY_S}*(\p{Nd}{1,2})${PY_S}*월${PY_S}*(\p{Nd}{1,2})${PY_S}*일`,
+  "gu",
+);
 
 // 패턴 2: YYYY.M.D / YYYY-MM-DD / YYYY/MM/DD / YY.MM.DD (구분자 통일 — 후방참조 \2)
-const _PATTERN_NUMERIC = /(?<![0-9])([0-9]{2,4})([./-])([0-9]{1,2})\2([0-9]{1,2})(?![0-9])/g;
+const _PATTERN_NUMERIC = /(?<![0-9])(\p{Nd}{2,4})([./-])(\p{Nd}{1,2})\2(\p{Nd}{1,2})(?![0-9])/gu;
 
 // 패턴 3: YY년생 / YYYY년생 (연도만)
-const _PATTERN_BIRTH_YEAR = /(?<![0-9])([0-9]{2,4})\s*년\s*생/g;
+const _PATTERN_BIRTH_YEAR = new RegExp(
+  String.raw`(?<![0-9])(\p{Nd}{2,4})${PY_S}*년${PY_S}*생`,
+  "gu",
+);
 
 function _normalizeYear(year: number): number | null {
   // 2자리 연도를 4자리로 정규화. 1900 ~ 현재년도 범위만 허용.
@@ -134,7 +142,7 @@ function _validDate(year: number, month: number, day: number): boolean {
 }
 
 function _hasKeywordBefore(text: string, start: number, window = 25): string | null {
-  const head = text.slice(Math.max(0, start - window), start);
+  const head = cpWindowBefore(text, start, window);
   for (const kw of _KEYWORDS) {
     if (head.includes(kw)) {
       return kw;
@@ -145,7 +153,7 @@ function _hasKeywordBefore(text: string, start: number, window = 25): string | n
 
 function _hasBirthMarkerAfter(text: string, end: number): boolean {
   // 패턴 매치 끝 뒤에 '생' (예: "88년생") 이 붙어있는지.
-  return text.slice(end, end + 2).startsWith("생");
+  return cpWindowAfter(text, end, 2).startsWith("생");
 }
 
 // 이름 끝 음절 자주 등장 패턴 — ko_pii.patterns.person._NAME_FINAL_SYLLABLES 와
@@ -247,8 +255,8 @@ function _hasPersonContextNearby(text: string, start: number, end: number, windo
   // "이계용, 88년 7월 4일" → "이계용" = "용" (조사 X) → True
   // "96년 7월 29일 조윤경" → "조윤경" → True
   // "회의는 2024년 4월 15일" → "회의는" → "는" 조사 → False
-  const head = text.slice(Math.max(0, start - window), start);
-  const tail = text.slice(end, end + window);
+  const head = cpWindowBefore(text, start, window);
+  const tail = cpWindowAfter(text, end, window);
   for (const chunk of [head, tail]) {
     for (const m of chunk.matchAll(_HANGUL_TOKEN)) {
       // biome-ignore lint/style/noNonNullAssertion: 정규식 그룹 보장 접근
@@ -288,12 +296,12 @@ export function detect(text: string): DetectionResult[] {
     const mStart = m.index!;
     // biome-ignore lint/style/noNonNullAssertion: 정규식 그룹 보장 접근
     const mEnd = mStart + m[0]!.length;
-    const year = _normalizeYear(Number(m[1]!));
+    const year = _normalizeYear(ndToNumber(m[1]!));
     if (year === null) {
       continue;
     }
-    const month = Number(m[2]!);
-    const day = Number(m[3]!);
+    const month = ndToNumber(m[2]!);
+    const day = ndToNumber(m[3]!);
     if (!_validDate(year, month, day)) {
       continue;
     }
@@ -335,18 +343,19 @@ export function detect(text: string): DetectionResult[] {
   }
 
   // 패턴 2: 숫자 구분자 (YYYY.M.D)
+  let occupied = new ForwardIntervalIndex(seen);
   for (const m of text.matchAll(_PATTERN_NUMERIC)) {
     const mStart = m.index!;
     const mEnd = mStart + m[0]!.length;
-    if (seen.some(([s, e]) => mStart < e && s < mEnd)) {
+    if (occupied.overlaps(mStart, mEnd)) {
       continue;
     }
-    const year = _normalizeYear(Number(m[1]!));
+    const year = _normalizeYear(ndToNumber(m[1]!));
     if (year === null) {
       continue;
     }
-    const month = Number(m[3]!);
-    const day = Number(m[4]!);
+    const month = ndToNumber(m[3]!);
+    const day = ndToNumber(m[4]!);
     if (!_validDate(year, month, day)) {
       continue;
     }
@@ -360,6 +369,7 @@ export function detect(text: string): DetectionResult[] {
       continue;
     }
     seen.push([mStart, mEnd]);
+    occupied.add(mStart, mEnd);
     results.push(
       makeDetection({
         label: LABEL,
@@ -386,17 +396,19 @@ export function detect(text: string): DetectionResult[] {
   }
 
   // 패턴 3: YY년생 (연도만, "생" marker 자체가 anchor)
+  occupied = new ForwardIntervalIndex(seen);
   for (const m of text.matchAll(_PATTERN_BIRTH_YEAR)) {
     const mStart = m.index!;
     const mEnd = mStart + m[0]!.length;
-    if (seen.some(([s, e]) => mStart < e && s < mEnd)) {
+    if (occupied.overlaps(mStart, mEnd)) {
       continue;
     }
-    const year = _normalizeYear(Number(m[1]!));
+    const year = _normalizeYear(ndToNumber(m[1]!));
     if (year === null) {
       continue;
     }
     seen.push([mStart, mEnd]);
+    occupied.add(mStart, mEnd);
     results.push(
       makeDetection({
         label: LABEL,

@@ -16,6 +16,7 @@
  * Legal basis: 개인정보보호법 시행령 제19조 (고유식별정보의 범위 — 운전면허번호).
  */
 
+import { cpWindowBefore } from "../core/strUtils.js";
 import type { DetectionResult } from "../core/types.js";
 import { makeDetection, RiskLevel } from "../core/types.js";
 
@@ -38,7 +39,7 @@ const PATTERN_NO_HYPHEN = /(?<![0-9])([0-9]{2})([0-9]{2})([0-9]{6})([0-9]{2})(?!
 const KEYWORDS: readonly string[] = ["운전면허", "면허번호", "면허증"];
 
 function hasKeywordBefore(text: string, start: number, window = 15): string | null {
-  const head = text.slice(Math.max(0, start - window), start);
+  const head = cpWindowBefore(text, start, window);
   for (const kw of KEYWORDS) {
     if (head.includes(kw)) {
       return kw;

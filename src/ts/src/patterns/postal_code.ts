@@ -9,6 +9,7 @@
  * 5자리 첫 2자리 (시·도 코드, 우정사업본부 공개 데이터) 화이트리스트 검증.
  */
 
+import { PY_S } from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 
 const LABEL = "POSTAL_CODE";
@@ -38,7 +39,10 @@ function seq(fromInclusive: number, toInclusive: number): number[] {
 
 const LEGACY = /(?<![0-9])([0-9]{3}-[0-9]{3})(?![0-9])/g;
 
-const NEW_WITH_KEYWORD = /(?:우편\s*번호|우편번호|우편)\s*:?\s*([0-9]{5})(?![0-9])/dg;
+const NEW_WITH_KEYWORD = new RegExp(
+  `(?:우편${PY_S}*번호|우편번호|우편)${PY_S}*:?${PY_S}*([0-9]{5})(?![0-9])`,
+  "dgu",
+);
 
 export function detect(text: string): DetectionResult[] {
   const out: DetectionResult[] = [];

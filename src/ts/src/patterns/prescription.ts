@@ -21,6 +21,7 @@
  * 위험도: HIGH (건강 정보 결합 → 민감속성).
  */
 
+import { cpWindowBefore, ndToNumber } from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 
 const LABEL = "PRESCRIPTION_ID";
@@ -40,10 +41,10 @@ const KEYWORDS: readonly string[] = [
 ];
 
 // 처방전 발행번호: 12자리 = 날짜 8 + 일련 4
-const ISSUANCE_PATTERN = /(?<![0-9])([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{4})(?![0-9])/g;
+const ISSUANCE_PATTERN = /(?<![0-9])(\p{Nd}{4})(\p{Nd}{2})(\p{Nd}{2})(\p{Nd}{4})(?![0-9])/gu;
 
 // 의료기관기호: 8자리 (HIRA 표준) — anchor 필수
-const INSTITUTION_PATTERN = /(?<![0-9])([0-9]{8})(?![0-9])/g;
+const INSTITUTION_PATTERN = /(?<![0-9])(\p{Nd}{8})(?![0-9])/gu;
 
 const INSTITUTION_KEYWORDS: readonly string[] = [
   "의료기관기호",
@@ -64,7 +65,7 @@ function hasKeywordBefore(
   window: number,
   keywords: readonly string[],
 ): string | null {
-  const head = text.slice(Math.max(0, start - window), start);
+  const head = cpWindowBefore(text, start, window);
   for (const kw of keywords) {
     if (head.includes(kw)) return kw;
   }
@@ -73,10 +74,10 @@ function hasKeywordBefore(
 
 /** Python datetime.date(y, m, d) 유효성 — 실제 달력 검증 (윤년 포함). */
 function isValidIssuanceDate(yyyy: string, mm: string, dd: string): boolean {
-  // 정규식이 순수 숫자임을 보장하므로 int() ValueError 분기는 발생 불가
-  const y = Number(yyyy);
-  const m = Number(mm);
-  const d = Number(dd);
+  // 정규식이 Nd 숫자열임을 보장하므로 int() ValueError 분기는 발생 불가
+  const y = ndToNumber(yyyy);
+  const m = ndToNumber(mm);
+  const d = ndToNumber(dd);
   if (y < 1990 || y > 2099) return false;
   if (m < 1 || m > 12) return false;
   const isLeap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;

@@ -15,8 +15,24 @@ const CATEGORY = "일반개인정보";
 
 const VALID_BIN_FIRST_DIGITS: ReadonlySet<string> = new Set(["2", "3", "4", "5", "6", "9"]);
 
-const PATTERN =
-  /(?<![0-9])(?:[0-9]{4}[-. /]\s?[0-9]{4}[-. /]\s?[0-9]{4}[-. /]\s?[0-9]{1,7}|[0-9]{13,19})(?![0-9])/g;
+// 명시적 구분자는 줄바꿈될 수 있고, 공백만으로 나뉜 그룹은 한 줄에 머문다.
+const HARD_SEPARATOR = String.raw`[-./](?:\r\n|[ \r\n])?`;
+const SEPARATOR = `(?:${HARD_SEPARATOR}| {1,2})`;
+const HARD_BLOCK = `[0-9]+(?:${HARD_SEPARATOR}[0-9]+)*`;
+const SHORT_BLOCK = `[0-9]{1,7}(?![0-9])(?:${HARD_SEPARATOR}[0-9]+)*`;
+// 형식·체크섬 검증 전에 연결된 묶음 전체를 본다. 공백으로 나뉜 완전한 번호들은 하나의
+// 과대 후보가 아니라 별도 필드로 남는다.
+const CANDIDATE = new RegExp(
+  `(?<![0-9])(?:${SHORT_BLOCK}(?: {1,2}${SHORT_BLOCK})*|${HARD_BLOCK})`,
+  "g",
+);
+const FOUR_GROUPS = `[0-9]{4}${SEPARATOR}`.repeat(3);
+const PATTERN_BODY =
+  `(?<![0-9])(?:[0-9]{4}${SEPARATOR}[0-9]{6}${SEPARATOR}[0-9]{4,5}` +
+  `|${FOUR_GROUPS}(?:[0-9]{4}${SEPARATOR}[0-9]{1,3}|[0-9]{1,7})` +
+  "|[0-9]{13,19})(?![0-9])";
+/** Python ``_PATTERN.fullmatch`` 대응. */
+const PATTERN_FULL = new RegExp(`^(?:${PATTERN_BODY})$`);
 
 const BRAND_BY_FIRST_DIGIT: Record<string, string> = {
   "3": "amex_or_jcb_or_diners",
@@ -33,9 +49,10 @@ function brandFor(firstDigit: string): string {
 
 export function detect(text: string): DetectionResult[] {
   const out: DetectionResult[] = [];
-  for (const m of text.matchAll(PATTERN)) {
+  for (const m of text.matchAll(CANDIDATE)) {
     if (m.index === undefined) continue;
     const raw = m[0];
+    if (!PATTERN_FULL.test(raw)) continue;
     const digits = raw.replace(/\D/g, "");
     if (!(digits.length >= 13 && digits.length <= 19)) continue;
     const first = digits[0];

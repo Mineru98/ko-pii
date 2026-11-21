@@ -1,7 +1,7 @@
 /**
  * 사업자등록번호 (Business Registration Number) detection.
  *
- * 10-digit format: XXX-XX-XXXXX, optional hyphens.
+ * 10-digit format: XXX-XX-XXXXX, with optional hyphens, dots or single spaces.
  *
  * Legal status: 사업자등록번호 자체는 법인의 경우 개인정보로 보기 어렵지만,
  * 개인사업자의 경우 사업자등록번호가 곧 개인을 식별하는 정보가 됨 → 보수적으로
@@ -18,7 +18,12 @@ const LABEL = "BUSINESS_REG";
 const LEGAL_BASIS = "개인정보보호법 제2조 (개인사업자의 경우 개인 식별 정보)";
 const CATEGORY = "일반개인정보";
 
-const PATTERN = /(?<![0-9])([0-9]{3})-?([0-9]{2})-?([0-9]{5})(?![0-9])/g;
+// 단일 공백만 — 탭·줄바꿈·여러 칸 열 경계는 아니다.
+const SEPARATOR = "(?: ?[-.] ?| ?)";
+const PATTERN = new RegExp(
+  `(?<![0-9])([0-9]{3})${SEPARATOR}([0-9]{2})${SEPARATOR}([0-9]{5})(?![0-9])`,
+  "g",
+);
 
 export function detect(text: string): DetectionResult[] {
   const results: DetectionResult[] = [];

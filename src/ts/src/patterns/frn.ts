@@ -7,12 +7,16 @@
  *   5, 6 → 1900s foreigner (male, female)
  *   7, 8 → 2000s foreigner
  *
- * Checksum: same weighted-sum algorithm as RRN; post-2020 randomization applies.
+ * Legacy checksum: the RRN weighted-sum digit plus 2, modulo 10. A mismatch
+ * reduces confidence; it does not prove invalid identity or a particular issue
+ * year. The birth date is not the issue date.
  *
  * Legal basis: 개인정보보호법 시행령 제19조 (고유식별정보의 범위 — 외국인등록번호),
  * 출입국관리법 제31조.
  */
-import { isValidChecksum } from "../checksum/rrnChecksum.js";
+
+import { isValidChecksum } from "../checksum/frnChecksum.js";
+import { PY_S, PY_S_CHARS } from "../core/strUtils.js";
 import type { DetectionResult } from "../core/types.js";
 import { makeDetection, RiskLevel } from "../core/types.js";
 
@@ -20,7 +24,10 @@ const LABEL = "FRN";
 const LEGAL_BASIS = "개인정보보호법 시행령 제19조; 출입국관리법 제31조";
 const CATEGORY = "고유식별정보";
 
-const PATTERN = /(?<![0-9])([0-9]{6})(?:\s?[-./]\s?|[-./\s]{0,2})([0-9]{7})(?![0-9])/g;
+const PATTERN = new RegExp(
+  `(?<![0-9])([0-9]{6})(?:${PY_S}?[-./]${PY_S}?|[-./${PY_S_CHARS}]{0,2})([0-9]{7})(?![0-9])`,
+  "gu",
+);
 
 const CENTURY_BY_GENDER_DIGIT = new Map<number, number>([
   [5, 1900],
@@ -44,6 +51,13 @@ function isValidDate(year: number, month: number, day: number): boolean {
 
 interface BirthDate {
   iso: string;
+  ymd: number;
+}
+
+/** Python date.today() 대응 — 로컬 시간 기준 YYYYMMDD 정수. */
+function todayYmd(): number {
+  const now = new Date();
+  return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
 }
 
 /** Python _decode_birth_date 대응 — 유효 날짜 아니면 null. */
@@ -57,7 +71,7 @@ function decodeBirthDate(yymmdd: string, genderDigit: number): BirthDate | null 
   const iso =
     `${String(year).padStart(4, "0")}-` +
     `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  return { iso };
+  return { iso, ymd: year * 10000 + month * 100 + day };
 }
 
 export function detect(text: string): DetectionResult[] {
@@ -68,7 +82,7 @@ export function detect(text: string): DetectionResult[] {
     const back = m[2] as string;
     const genderDigit = Number(back.charAt(0));
     const birth = decodeBirthDate(front, genderDigit);
-    if (birth === null) continue;
+    if (birth === null || birth.ymd > todayYmd()) continue;
 
     const digitsOnly = front + back;
     const checksumOk = isValidChecksum(digitsOnly);
@@ -79,7 +93,7 @@ export function detect(text: string): DetectionResult[] {
       evidence.push("checksum:valid");
       confidence = 1.0;
     } else {
-      evidence.push("checksum:invalid_or_post_2020");
+      evidence.push("checksum:unverified");
       confidence = 0.7;
     }
 

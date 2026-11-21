@@ -1,5 +1,7 @@
 /** 33종 PII 카테고리 정본 레지스트리 — Python ko_pii.labels 대응. */
 
+import { ValueError } from "./core/errors.js";
+
 /** (한글명, 그룹, 검출 방식) */
 export const LABEL_INFO: Readonly<Record<string, readonly [string, string, string]>> = {
   // 결정적 검증 (체크섬·화이트리스트)
@@ -8,7 +10,6 @@ export const LABEL_INFO: Readonly<Record<string, readonly [string, string, strin
   BUSINESS_REG: ["사업자등록번호", "결정적 검증", "국세청 가중합 체크섬"],
   CORP_REG: ["법인등록번호", "결정적 검증", "법인 체크섬 (RRN 우선)"],
   DRIVER_LICENSE: ["운전면허번호", "결정적 검증", "지방청 코드 화이트리스트"],
-  PASSPORT: ["여권번호", "결정적 검증", "prefix(M/S/PP 등) + 8자리"],
   CARD: ["카드번호", "결정적 검증", "BIN 화이트리스트 + Luhn"],
   PNU: ["토지번호", "결정적 검증", "19자리 + 시·도 코드"],
   // 키워드 anchor (키워드 + 형식 모두 필요)
@@ -21,6 +22,11 @@ export const LABEL_INFO: Readonly<Record<string, readonly [string, string, strin
   PETITION_ID: ["민원번호", "키워드 anchor", "민원/청구/정보공개 키워드"],
   COURT_CASE: ["사건번호", "키워드 anchor", "사건유형(가합/고합/헌가 등)"],
   // 형식 검증
+  PASSPORT: [
+    "여권번호",
+    "형식 검증",
+    "1자 prefix + 숫자 8자리 또는 숫자 3자리 + 영문 1자 + 숫자 4자리",
+  ],
   PHONE: ["전화번호", "형식 검증", "010~019/02/0NN/070/15xx/+82"],
   EMAIL: ["이메일", "형식 검증", "RFC 5322"],
   IP: ["IP", "형식 검증", "IPv4 옥텟 + IPv6"],
@@ -51,3 +57,32 @@ export const GROUPS: readonly string[] = [
 ];
 
 export const ALL_LABELS: readonly string[] = Object.keys(LABEL_INFO);
+
+const LABEL_SET: ReadonlySet<string> = new Set(ALL_LABELS);
+
+/** 라벨 필터 검증 — Python labels.validate_label_filter 대응.
+ *
+ * 필터를 한 번 구체화하고 조용한 검출기 오설정을 거부한다. 라벨은 레지스트리 철자 그대로.
+ * null/undefined 는 제한 없음, 빈 include 는 거부, 빈 exclude 는 아무것도 제외하지 않음.
+ * 반환은 첫 등장 순서를 보존한 중복 제거 배열 (Python tuple(dict.fromkeys(...))).
+ */
+export function validateLabelFilter(
+  values: Iterable<unknown> | null | undefined,
+  name: string,
+): string[] | null {
+  if (values === null || values === undefined) return null;
+  if (typeof values === "string") {
+    throw new ValueError(`${name} must be a collection of category labels`);
+  }
+  if (typeof (values as { [Symbol.iterator]?: unknown })[Symbol.iterator] !== "function") {
+    throw new TypeError(`${name} must be an iterable of category labels`);
+  }
+  const result = [...values];
+  if (result.some((value) => typeof value !== "string" || !LABEL_SET.has(value))) {
+    throw new ValueError(`${name} contains an unknown category label; use ko-pii --labels`);
+  }
+  if (name === "include" && result.length === 0) {
+    throw new ValueError("include must contain at least one category label; use None for all");
+  }
+  return [...new Set(result as string[])];
+}

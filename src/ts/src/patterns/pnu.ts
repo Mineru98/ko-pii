@@ -21,6 +21,7 @@
  * 등기 정보와 결합 시 식별·재산 추정 가능. STRICT 모드에서 REVIEW.
  */
 
+import { ndToNumber } from "../core/strUtils.js";
 import type { DetectionResult } from "../core/types.js";
 import { makeDetection, RiskLevel } from "../core/types.js";
 
@@ -29,7 +30,7 @@ const LEGAL_BASIS = "공간정보의 구축 및 관리 등에 관한 법률; 개
 const CATEGORY = "참조정보";
 
 // 19자리 숫자, 주변에 다른 숫자가 없는 boundary
-const PATTERN = /(?<![0-9])([0-9]{19})(?![0-9])/g;
+const PATTERN = /(?<![0-9])(\p{Nd}{19})(?![0-9])/gu;
 
 // 시도 행정구역 코드 (행정안전부 표준)
 // 11=서울 21=부산 22=대구 23=인천 24=광주 25=대전 26=울산 29=세종
@@ -76,19 +77,21 @@ interface PnuInfo {
 }
 
 function parseValidPnu(digits: string): PnuInfo | null {
-  if (digits.length !== 19) {
+  // Python len()/슬라이스는 코드 포인트 단위 — 아스트랄 Nd(수학 숫자)도 한 자리.
+  const cps = [...digits];
+  if (cps.length !== 19) {
     return null;
   }
-  const sido = digits.slice(0, 2);
+  const sido = cps.slice(0, 2).join("");
   if (!VALID_SIDO_CODES.has(sido)) {
     return null;
   }
-  const sigungu = digits.slice(2, 5);
-  const eupmyeondong = digits.slice(5, 8);
-  const ri = digits.slice(8, 10);
-  const parcelType = digits.slice(10, 11);
-  const bonbun = digits.slice(11, 15);
-  const bubun = digits.slice(15, 19);
+  const sigungu = cps.slice(2, 5).join("");
+  const eupmyeondong = cps.slice(5, 8).join("");
+  const ri = cps.slice(8, 10).join("");
+  const parcelType = cps.slice(10, 11).join("");
+  const bonbun = cps.slice(11, 15).join("");
+  const bubun = cps.slice(15, 19).join("");
 
   // 필지구분 1~9
   if (parcelType === "0") {
@@ -105,8 +108,8 @@ function parseValidPnu(digits: string): PnuInfo | null {
     eupmyeondong_code: eupmyeondong,
     ri_code: ri,
     parcel_type: parcelType,
-    bonbun: Number(bonbun),
-    bubun: Number(bubun),
+    bonbun: ndToNumber(bonbun),
+    bubun: ndToNumber(bubun),
     is_san: parcelType === "2",
   };
   return info;

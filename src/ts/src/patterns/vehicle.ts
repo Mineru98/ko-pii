@@ -8,6 +8,7 @@
  * 총 약 50개 한글 문자만 유효 — 그 외 한글이 들어가면 FP 가 거의 확실.
  */
 
+import { cpWindowAfter, PY_S } from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 
 const LABEL = "VEHICLE";
@@ -84,7 +85,12 @@ function vehiclePurpose(hangul: string): string {
   return "private";
 }
 
-const PATTERN = /(?<![0-9가-힣])([0-9]{2,3})\s?([가-힣])\s?([0-9]{4})(?![0-9])/g;
+// Python str.lstrip() 공백 집합.
+const LEADING_WS = new RegExp(`^${PY_S}+`, "u");
+const PATTERN = new RegExp(
+  `(?<![0-9가-힣])([0-9]{2,3})${PY_S}?([가-힣])${PY_S}?([0-9]{4})(?![0-9])`,
+  "gu",
+);
 
 // 차량번호 뒤에 따라오면 차량 X — 한국어 수량·통화 단위어
 const FOLLOWING_UNIT_REJECT: readonly string[] = [
@@ -124,7 +130,7 @@ const FOLLOWING_UNIT_REJECT: readonly string[] = [
 
 /** 차량번호 뒤에 한국어 수량/통화 단위가 따라오면 차량 아님. */
 function hasUnitAfter(text: string, end: number): string | null {
-  const tail = text.slice(end, end + 8).replace(/^\s+/, "");
+  const tail = cpWindowAfter(text, end, 8).replace(LEADING_WS, "");
   for (const unit of FOLLOWING_UNIT_REJECT) {
     if (tail.startsWith(unit)) return unit;
   }

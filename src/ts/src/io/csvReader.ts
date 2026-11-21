@@ -13,7 +13,9 @@
  *   TS 에서는 빈 문자열 키 "" 로 표현) 버킷.
  */
 
+import { ValueError } from "../core/errors.js";
 import { readText as plainReadText } from "./plain.js";
+import { pyIsBlank } from "./pyStr.js";
 import { setField } from "./recordOrder.js";
 
 /** Python csv.Error 대응. */
@@ -30,6 +32,8 @@ export interface CsvDialect {
   quotechar: string;
   doublequote: boolean;
   skipinitialspace: boolean;
+  /** Python ``strict`` — 닫는 따옴표 뒤 잡음·미종결 따옴표를 csv.Error 로. 기본 false. */
+  strict?: boolean;
 }
 
 /** Python csv.excel 대응. */
@@ -72,7 +76,7 @@ export function readRecords(path: string): Record<string, string>[] {
 
 /** 디코드된 텍스트로부터 readRecords 본체 (테스트/재사용용). */
 export function readRecordsFromText(raw: string): CsvRecord[] {
-  if (!raw.trim()) return [];
+  if (pyIsBlank(raw)) return [];
   // Sniff delimiter — Python: csv.Sniffer().sniff(raw[:8192], delimiters=",\t;|")
   let dialect: CsvDialect;
   try {
@@ -82,8 +86,17 @@ export function readRecordsFromText(raw: string): CsvRecord[] {
     // Fallback to comma or tab heuristic
     dialect = cpSlice(raw, 1024).includes("\t") ? EXCEL_TAB : EXCEL;
   }
-  const rows = parseCsvRows(raw, dialect);
-  return dictReaderRecords(rows);
+  // io.StringIO(raw, newline="") 로 넘겨야 csv 파서가 따옴표 안의 줄바꿈(멀티라인 셀)을 보존한다.
+  // Sniffer sets doublequote=False when the sample has no escaped quotes;
+  // that also makes strict parsing accept junk after a closing quote.
+  const rows = iterCsvRows(raw, { ...dialect, doublequote: true, strict: true });
+  try {
+    return dictReaderRecords(rows);
+  } catch (error) {
+    // An unclosed quote can absorb later rows into an unmapped text column.
+    if (error instanceof CsvError) throw new ValueError("invalid CSV record syntax");
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -518,6 +531,11 @@ enum ParserState {
 
 /** Python `csv.reader(StringIO(raw), dialect)` 재현 — 행별('\n' 유지) 처리 + EOF 규칙. */
 export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
+  return [...iterCsvRows(raw, d)];
+}
+
+/** parseCsvRows 의 지연 평가판 — Python csv.reader 처럼 행 단위로 내보낸다 (오류 순서 보존). */
+function* iterCsvRows(raw: string, d: CsvDialect): Generator<string[]> {
   const records: string[][] = [];
   let fields: string[] = [];
   let cur = "";
@@ -657,6 +675,9 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
             state = ParserState.START_FIELD;
             break;
           }
+          if (d.strict) {
+            throw new CsvError(`'${d.delimiter}' expected after '${d.quotechar}'`);
+          }
           // strict=False: illegal character - add to field
           addChar(c);
           state = ParserState.IN_FIELD;
@@ -678,32 +699,38 @@ export function parseCsvRows(raw: string, d: CsvDialect): string[][] {
         }
       }
     }
+    yield* records.splice(0);
   }
   // EOF 규칙 (CPython Reader_iternext): field_len != 0 or state == IN_QUOTED_FIELD
   if (fields.length !== 0 || state === ParserState.IN_QUOTED_FIELD) {
+    if (d.strict) throw new CsvError("unexpected end of data");
     saveField();
     finishRecord();
   }
-  return records;
+  yield* records;
 }
 
-/** StringIO(initial, newline="\n") 줄 이터레이션 재현 — "\n" 을 행 끝에 유지. */
+/**
+ * StringIO(initial, newline="") 줄 이터레이션 재현 — 보편 개행(\n, \r, \r\n)에서 끊고
+ * 종결자는 변환 없이 행 끝에 유지한다.
+ */
 function iterLines(raw: string): string[] {
-  if (raw === "") return [];
-  const parts = raw.split("\n");
-  const lines: string[] = [];
-  for (let i = 0; i < parts.length - 1; i++) lines.push(`${parts[i]!}\n`);
-  const last = parts[parts.length - 1]!;
-  if (last !== "") lines.push(last);
-  return lines;
+  const lines = raw.match(/[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$/g);
+  return lines ?? [];
 }
 
 /** Python csv.DictReader: `while row == []` skip + zip(fieldnames, row) + restkey/restval. */
-function dictReaderRecords(rows: string[][]): CsvRecord[] {
-  if (rows.length === 0) return [];
-  const fieldnames = rows[0]!;
+function dictReaderRecords(rows: Iterable<string[]>): CsvRecord[] {
+  const iterator = rows[Symbol.iterator]();
+  const first = iterator.next();
+  if (first.done) return [];
+  const fieldnames = first.value;
+  if (fieldnames.some((key) => pyIsBlank(key)) || new Set(fieldnames).size !== fieldnames.length) {
+    throw new ValueError("CSV headers must be nonempty and unique");
+  }
   const out: CsvRecord[] = [];
-  for (const row of rows.slice(1)) {
+  for (let next = iterator.next(); !next.done; next = iterator.next()) {
+    const row = next.value;
     if (row.length === 0) continue; // 빈 행 스킵
     const record: CsvRecord = {};
     const common = Math.min(fieldnames.length, row.length);

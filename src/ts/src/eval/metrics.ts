@@ -5,6 +5,8 @@
  * - **strict**: 라벨 + (start, end) 가 정확히 일치해야 TP.
  * - **partial**: 라벨이 같고 span 이 겹치면 TP. (오프셋 1~2 자 차이 허용)
  *
+ * 각 구간은 최대 한 번만 대응하며, partial 은 순서와 무관한 최대 일대일 매칭을 쓴다.
+ *
  * 기본 정책은 ``partial`` — 검출 모듈이 조사·구두점을 포함/배제하는 차이는
  * 일상적이라서 strict 만 보면 점수가 과소평가됨.
  *
@@ -12,6 +14,7 @@
  * 가져올 때는 호출자가 변환).
  */
 import { pyStrCompare } from "../cli/argparse.js";
+import { ValueError } from "../core/errors.js";
 import { pyFormatFixed } from "../core/pyFormat.js";
 import type { DetectionResult } from "../core/types.js";
 import { padLeft, padRight } from "./pyCompat.js";
@@ -101,38 +104,93 @@ function setDefault(metrics: Map<string, PerLabelMetrics>, label: string): PerLa
   return m;
 }
 
+function validateMode(mode: string): void {
+  if (mode !== "strict" && mode !== "partial") {
+    throw new ValueError("match mode must be 'strict' or 'partial'");
+  }
+}
+
+/** 반복 증가 경로(BFS)로 구한 최대 일대일 매칭 크기 (Python ``_matching_size``). */
+export function matchingSize(edges: number[][], predictionCount: number): number {
+  const owners = new Array<number>(predictionCount).fill(-1);
+  const matches = new Array<number>(edges.length).fill(-1);
+  let count = 0;
+  for (let root = 0; root < edges.length; root++) {
+    const queue: number[] = [root];
+    let head = 0;
+    const parents = new Map<number, number>();
+    let free = -1;
+    while (head < queue.length && free === -1) {
+      const goldIndex = queue[head++] as number;
+      for (const predictionIndex of edges[goldIndex] as number[]) {
+        if (parents.has(predictionIndex)) continue;
+        parents.set(predictionIndex, goldIndex);
+        const owner = owners[predictionIndex] as number;
+        if (owner === -1) {
+          free = predictionIndex;
+          break;
+        }
+        queue.push(owner);
+      }
+    }
+    if (free === -1) continue;
+    count += 1;
+    while (free !== -1) {
+      const goldIndex = parents.get(free) as number;
+      const previous = matches[goldIndex] as number;
+      matches[goldIndex] = free;
+      owners[free] = goldIndex;
+      free = previous;
+    }
+  }
+  return count;
+}
+
 export function scoreDocument(
   gold: GoldDocument,
   predictions: Iterable<DetectionResult>,
   mode = "partial",
 ): Map<string, PerLabelMetrics> {
-  const preds = [...predictions];
-  const metrics = new Map<string, PerLabelMetrics>();
-  const matchedPred = new Set<number>();
-
-  // Recall pass: each gold span tries to find a prediction match.
+  validateMode(mode);
+  const goldByLabel = new Map<string, GoldSpan[]>();
+  const predByLabel = new Map<string, DetectionResult[]>();
   for (const g of gold.spans) {
-    const m = setDefault(metrics, g.label);
-    let hitIdx = -1;
-    for (let i = 0; i < preds.length; i++) {
-      if (matchedPred.has(i)) continue;
-      if (spansMatch(g, preds[i]!, mode)) {
-        hitIdx = i;
-        break;
-      }
-    }
-    if (hitIdx >= 0) {
-      m.tp += 1;
-      matchedPred.add(hitIdx);
-    } else {
-      m.fn += 1;
-    }
+    const list = goldByLabel.get(g.label);
+    if (list) list.push(g);
+    else goldByLabel.set(g.label, [g]);
   }
-
-  // FP pass: predictions that matched nothing.
-  for (let i = 0; i < preds.length; i++) {
-    if (matchedPred.has(i)) continue;
-    setDefault(metrics, preds[i]!.label).fp += 1;
+  for (const p of predictions) {
+    const list = predByLabel.get(p.label);
+    if (list) list.push(p);
+    else predByLabel.set(p.label, [p]);
+  }
+  const metrics = new Map<string, PerLabelMetrics>();
+  const labels = [...new Set([...goldByLabel.keys(), ...predByLabel.keys()])].sort(pyStrCompare);
+  for (const label of labels) {
+    const goldSpans = goldByLabel.get(label) ?? [];
+    const preds = predByLabel.get(label) ?? [];
+    let tp: number;
+    if (mode === "strict") {
+      // Counter 교집합 — (start, end) 별 min(gold 수, 예측 수) 합.
+      const goldCounts = new Map<string, number>();
+      for (const g of goldSpans) {
+        const k = `${g.start},${g.end}`;
+        goldCounts.set(k, (goldCounts.get(k) ?? 0) + 1);
+      }
+      const predCounts = new Map<string, number>();
+      for (const p of preds) {
+        const k = `${p.start},${p.end}`;
+        predCounts.set(k, (predCounts.get(k) ?? 0) + 1);
+      }
+      tp = 0;
+      for (const [k, n] of goldCounts) tp += Math.min(n, predCounts.get(k) ?? 0);
+    } else {
+      const edges = goldSpans.map((g) =>
+        preds.flatMap((p, i) => (spansMatch(g, p, mode) ? [i] : [])),
+      );
+      tp = matchingSize(edges, preds.length);
+    }
+    metrics.set(label, new PerLabelMetrics(label, tp, preds.length - tp, goldSpans.length - tp));
   }
   return metrics;
 }
@@ -147,6 +205,7 @@ export function scoreCorpus(
   predictFn: (text: string) => Iterable<DetectionResult>,
   mode = "partial",
 ): BenchmarkReport {
+  validateMode(mode);
   const report = new BenchmarkReport({ matchMode: mode });
   for (const doc of goldDocs) {
     report.documentCount += 1;

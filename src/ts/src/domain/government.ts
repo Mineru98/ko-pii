@@ -24,7 +24,7 @@ const CATEGORY = "참조정보";
 // 한국 정부 문서번호 — 한글기관코드 + 부서약어 + 연도 + 일련번호
 // 예: 기재부-인사-2024-00123, 행안부-총무과-2025-00567
 const DOC_ID =
-  /(?<![A-Za-z0-9가-힣])(([가-힣]{2,6})-[가-힣A-Za-z0-9]{2,10}-(?:19|20)[0-9]{2}-[0-9]{4,6})(?![A-Za-z0-9가-힣])/g;
+  /(?<![A-Za-z0-9가-힣])(([가-힣]{2,6})-[가-힣A-Za-z0-9]{2,10}-(?:19|20)\p{Nd}{2}-\p{Nd}{4,6})(?![A-Za-z0-9가-힣])/gu;
 
 export function detect(text: string): DetectionResult[] {
   const results: DetectionResult[] = [];

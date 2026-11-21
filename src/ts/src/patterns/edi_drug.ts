@@ -14,6 +14,7 @@
  * 위험도: LOW (코드 자체는 PII 아니지만 처방·환자정보와 결합 시 가산).
  */
 
+import { cpSlice, cpWindowBefore } from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 
 const LABEL = "EDI_DRUG";
@@ -21,9 +22,9 @@ const LEGAL_BASIS = "약사법 제31조; 개인정보보호법 제2조";
 const CATEGORY = "참조정보";
 
 // 13자리 KD 코드 우선 (longer-first), 그 다음 9자리 EDI
-const PATTERN_13 = /(?<![0-9])([0-9]{13})(?![0-9])/g;
+const PATTERN_13 = /(?<![0-9])(\p{Nd}{13})(?![0-9])/gu;
 
-const PATTERN_9 = /(?<![0-9])([0-9]{9})(?![0-9])/g;
+const PATTERN_9 = /(?<![0-9])(\p{Nd}{9})(?![0-9])/gu;
 
 // FP 위험으로 제거된 키워드:
 //   - "표준코드" : 일반 산업·제품 표준 코드와 충돌 (의약품 한정 단서 부족)
@@ -39,7 +40,7 @@ const KEYWORDS: readonly string[] = [
 ];
 
 function hasKeywordBefore(text: string, start: number, window = 18): string | null {
-  const head = text.slice(Math.max(0, start - window), start);
+  const head = cpWindowBefore(text, start, window);
   for (const kw of KEYWORDS) {
     if (head.includes(kw)) return kw;
   }
@@ -76,10 +77,10 @@ export function detect(text: string): DetectionResult[] {
         extra: {
           category: CATEGORY,
           format: "kd_code_13",
-          country_id: digits.slice(0, 3),
-          company_id: digits.slice(3, 7),
-          item_id: digits.slice(7, 12),
-          check_digit: digits[12],
+          country_id: cpSlice(digits, 0, 3),
+          company_id: cpSlice(digits, 3, 7),
+          item_id: cpSlice(digits, 7, 12),
+          check_digit: cpSlice(digits, 12, 13),
         },
       }),
     );
@@ -108,8 +109,8 @@ export function detect(text: string): DetectionResult[] {
         extra: {
           category: CATEGORY,
           format: "edi_9",
-          company_id: digits.slice(0, 4),
-          item_id: digits.slice(4, 9),
+          company_id: cpSlice(digits, 0, 4),
+          item_id: cpSlice(digits, 4, 9),
         },
       }),
     );

@@ -11,7 +11,7 @@
  *
  * Legal basis: 개인정보보호법 제2조; 국가공무원법 제22조.
  */
-import { regexEscape } from "../core/strUtils.js";
+import { cpWindowBefore, PY_S, pyStrip, regexEscape } from "../core/strUtils.js";
 import type { DetectionResult } from "../core/types.js";
 import { makeDetection, RiskLevel } from "../core/types.js";
 
@@ -24,15 +24,18 @@ const CATEGORY = "일반개인정보";
 const KEYWORDS: readonly string[] = ["사번", "공무원번호", "직원번호", "임용번호", "사원번호"];
 
 // 키워드가 *숫자 직전에* (콜론·전각콜론·공백 옵션) 위치해야만 매칭.
-const ANCHOR = new RegExp(`(?:${KEYWORDS.map((kw) => regexEscape(kw)).join("|")})\\s*[:：]?\\s*$`);
+const ANCHOR = new RegExp(
+  `(?:${KEYWORDS.map((kw) => regexEscape(kw)).join("|")})${PY_S}*[:：]?${PY_S}*$`,
+  "u",
+);
 
-const PATTERN = /(?<![0-9])([0-9]{4,12})(?![0-9])/g;
+const PATTERN = /(?<![0-9])(\p{Nd}{4,12})(?![0-9])/gu;
 
 function keywordDirectlyBefore(text: string, start: number, window = 20): string | null {
-  const head = text.slice(Math.max(0, start - window), start);
+  const head = cpWindowBefore(text, start, window);
   const m = ANCHOR.exec(head);
   if (m) {
-    return (m[0] as string).replace(/[ :：]+$/, "").trim();
+    return pyStrip((m[0] as string).replace(/[ :：]+$/, ""));
   }
   return null;
 }

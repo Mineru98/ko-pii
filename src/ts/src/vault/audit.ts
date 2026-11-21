@@ -2,9 +2,10 @@
  * Vault 감사 로그 — 모든 `reveal()` / `store()` 호출 추적.
  * Python `ko_pii.vault.audit` 1:1 포트.
  *
- * 개인정보보호법 제29조 (안전조치의무) 의 *처리 이력 기록* 요건 직접 대응.
+ * 처리 이력을 남기기 위한 로컬 기록 도구다. 이것만으로 접근통제·무결성 보호 또는
+ * 법적 준수를 보장하지 않는다 (파일 쓰기 권한이 있으면 누구나 수정 가능).
  *
- * 저장 포맷: JSON Lines (`.jsonl`) — append-only, 검색·집계 친화적.
+ * 저장 포맷: JSON Lines (`.jsonl`) — append 방식이며 검색·집계에 적합하다.
  * 각 라인:
  *   {"ts": "ISO-8601", "action": "reveal", "token": "<RRN_1>", "label": "RRN",
  *    "actor": "user@host", "context": "..."}
@@ -36,7 +37,7 @@ export interface AuditLogOptions {
   now?: () => string;
 }
 
-/** Append-only JSONL 감사 로그.
+/** Append-style JSONL 감사 로그.
  *
  * Usage::
  *
@@ -85,8 +86,14 @@ export class AuditLog {
     this.record("reveal", { token, label: label ?? null, ...opts });
   }
 
-  recordAnonymize(count: number, mode: string, opts: AuditRecordOptions = {}): void {
-    this.record("anonymize", { ...opts, extra: { count, mode } });
+  /** `status` 기본 "completed" (Python `record_anonymize(..., status="completed")`). */
+  recordAnonymize(
+    count: number,
+    mode: string,
+    opts: Omit<AuditRecordOptions, "extra"> & { status?: string } = {},
+  ): void {
+    const { status = "completed", ...rest } = opts;
+    this.record("anonymize", { ...rest, extra: { count, mode, status } });
   }
 
   /** Python: line-buffered open("a") + flush. Node 에선 append 마다 open/write/close. */

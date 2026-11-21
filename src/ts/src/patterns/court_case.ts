@@ -3,6 +3,7 @@
  * 구조: ``YYYY`` + ``부호문자`` + ``일련번호`` (대법원 사건별 부호문자 예규 기준).
  * 위험도 MEDIUM — 사건번호 자체는 PII 가 아니지만 당사자 정보 추적 가능.
  */
+import { ndToNumber } from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 
 const LABEL = "COURT_CASE";
@@ -71,11 +72,11 @@ const CODE_ALTS = SORTED_CODES.map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&
 
 const PATTERN = new RegExp(
   "(?<![0-9가-힣])" +
-    "((?:19|20)[0-9]{2})" + // 연도
+    String.raw`((?:19|20)\p{Nd}{2})` + // 연도 (원본 \d = 유니코드 Nd)
     `(${CODE_ALTS})` + // 부호문자
-    "([0-9]{1,6})" + // 일련번호
+    String.raw`(\p{Nd}{1,6})` + // 일련번호
     "(?![0-9가-힣])",
-  "g",
+  "gu",
 );
 
 const INSTANCE_BY_CODE: Record<string, string> = {
@@ -111,7 +112,7 @@ export function* detect(text: string): Generator<DetectionResult> {
     const code = m[2] as string;
     const serial = m[3] as string;
     // Serial must have at least 1 non-zero digit (일련번호 0 placeholder 거부)
-    if (Number.parseInt(serial, 10) === 0) continue;
+    if (ndToNumber(serial) === 0) continue;
     yield makeDetection({
       label: LABEL,
       text: m[0],

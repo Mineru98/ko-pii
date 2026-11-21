@@ -34,7 +34,9 @@ import { RiskLevel } from "../core/types.js"; // INFO=1 LOW=2 MEDIUM=3 HIGH=4 CR
 
 | Python | TypeScript |
 |---|---|
-| `\d` | `[0-9]` (Python 은 전각도 매칭 — 원본은 정규화로 전각을 폴딩하므로 동등) |
+| `\d` / `\D` | `\p{Nd}` / `\P{Nd}` + `u` 플래그 (`PY_D`/`PY_ND`). 원본이 `[0-9]` 를 쓴 자리는 `[0-9]` 그대로 |
+| `\s` / `\S` | `PY_S` / `PY_NS` (클래스 안은 `PY_S_CHARS`) + `u` — JS `\s` 와 집합이 다르다 (U+001C~1F·U+0085 포함, U+FEFF 제외) |
+| `\w` / `\W` / `\b` | `PY_W` / `PY_NW` (`[\p{L}\p{N}_]`) + `u`, `\b` 는 이 집합의 lookaround 로. JS `\w`·`\b` 는 ASCII 전용 |
 | `(?P<name>...)` | `(?<name>...)` |
 | `re.finditer(pat, s)` | `s.matchAll(new RegExp(pat, "g"))` (플래그 g 필수, lastIndex 공유 주의) |
 | `re.search` / `re.match(s, pos)` | `.exec()` + sticky 플래그 `y` 와 `re.lastIndex = pos` |
@@ -43,6 +45,17 @@ import { RiskLevel } from "../core/types.js"; // INFO=1 LOW=2 MEDIUM=3 HIGH=4 CR
 | `re.IGNORECASE` | `i` 플래그, `re.MULTILINE` → `m` |
 | lookbehind `(?<!...)` | 동일 지원 (JS 가 오히려 가변폭 허용) |
 | `[가-힣]` 등 범위 | 동일. 유니코드 이스케이프는 `\uAC00` 형태 권장 |
+
+`\d` 를 `[0-9]` 로 옮기면 안 된다. 정규화는 숫자를 접지만, 보이지 않는 문자가 값을 이어 붙인
+입력은 detect.ts 가 **정규화하지 않은 원문**에서 검출기를 한 번 더 돌린다. 이 패스에서 Python
+`\d` 는 아랍-인도·전각·수학 숫자 등 Nd 전체에 매칭하므로 `[0-9]` 포트는 PII 를 평문으로 남긴다.
+`PY_*` 상수는 `core/strUtils.ts` 에 있다. 숫자 값을 계산할 때는 `Number()` 대신 `ndToNumber()`
+(Python `int()`/`float()` 처럼 Nd 를 값으로 읽는다), 매치한 숫자열의 길이·슬라이스는 코드 포인트
+(`[...s]`, `cpSlice`)로, 키워드 창 `text[max(0, start - n):start]` 은 `cpWindowBefore`/`cpWindowAfter`
+로, 겹침 해소의 span 길이는 `pySpanLength` 로 잰다 — 아스트랄 Nd(수학 숫자 등)가 섞이면 UTF-16
+길이와 달라진다. `str.strip()`/`str.split()` 은 `pyStrip`/`pySplitWs` (JS `trim()` 과 공백 집합이 다르다).
+알려진 차이: `\p{Nd}` 는 Node 의 Unicode 버전(Python 3.12 는 15.0)을 따르므로 이후 추가된 Nd 숫자는
+TS 만 숫자로 본다 (더 가리는 쪽).
 
 정규식 리터럴에 `g` 플래그를 쓰면 `lastIndex` 가 모듈 수준에서 공유된다. 함수 재진입
 안전을 위해 matchAll 또는 호출마다 `re.lastIndex = 0` 리셋.
@@ -62,7 +75,7 @@ import { RiskLevel } from "../core/types.js"; // INFO=1 LOW=2 MEDIUM=3 HIGH=4 CR
 | `f"{x}"` | 템플릿 리터럴 |
 | dataclasses.replace(d, ...) | `{ ...d, field }` |
 | `Optional[str]` | `string \| null` |
-| `int(d)` (한 글자 숫자) | `Number(d)` |
+| `int(s)` / `float(s)` (정규식이 `\d` 로 잡은 숫자열) | `ndToNumber(s)` — `Number()` 는 비ASCII 숫자를 NaN 으로 만든다 |
 
 ## 존재하는 재단 (import 해 사용 — 재구현 금지)
 
@@ -100,3 +113,20 @@ import { RiskLevel } from "../core/types.js"; // INFO=1 LOW=2 MEDIUM=3 HIGH=4 CR
 - 위험도: `RiskLevel.CRITICAL` 등 enum 사용. `int(d.risk_level)` 대응은 `d.riskLevel`
 - confidence 는 0~1 float. 골드 대조 시 정확히 일치해야 함 (같은 산술 사용)
 - evidence 배열 순서도 Python 과 동일하게
+
+## Python 1.27.0 대비 알려진 차이 (의도적으로 남김)
+
+- 오프셋: 검출 span·trace·인증서 `source_span` 은 UTF-16 단위. 아스트랄 문자가 있을 때만 Python
+  코드 포인트 값과 다르다 (HTML 리포트의 `data-start`/`data-end` 는 코드 포인트로 변환해 일치).
+- 숫자 표현: JS 는 `1.0` 과 `1` 을 구분하지 못해 Python 이 float 로 거부하는 정수 필드 값을 받아들인다.
+  2^53 초과 정수는 bigint 로 보존한다.
+- ZIP: bzip2·LZMA 압축 멤버는 런타임 의존성 없이 풀 수 없어 `invalid_archive` 로 거부한다 (Python 은 처리).
+- 오류 문구: 라이브러리 수준 JSON·XML·UTF-8 파싱 예외의 세부 메시지는 Python 과 다를 수 있다
+  (예외 계열·CLI 오류 코드는 같다).
+- 메모리 상한: Python 은 Linux 에서 주소 공간 512 MiB, TS 는 모든 플랫폼에서 V8 힙 512 MiB (힙 밖 Buffer 제외).
+- 타임스탬프: 감사 로그·Vault 시각은 ms 해상도 (Python 은 µs).
+- Unicode 버전: `\p{Nd}` 는 Node 의 Unicode 버전을 따르므로 Python 3.12(Unicode 15) 이후 추가된
+  숫자 문자도 숫자로 본다 (더 많이 가리는 방향).
+- Node 20: CLI JSON 출력의 int/float 원문 보존은 `JSON.parse` reviver source 접근(Node 21+)을 쓰며
+  Node 20 에서는 일반 JS 숫자 포맷으로 폴백한다.
+- Python 전용: ML·Presidio·LangChain·LlamaIndex 어댑터, `ko-pii-classify`, `get_privacy_filter_adapter`.

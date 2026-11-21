@@ -1,8 +1,7 @@
 /**
  * 확장자 기반 자동 디스패처 — Python ko_pii.io_.dispatcher 대응.
  *
- * 모든 포맷의 raw 텍스트에 text_normalizer 를 적용해 셀 줄바꿈/래핑으로 쪼개진
- * PII 를 검출 전에 복원한다 (원본과 동일).
+ * 모든 포맷의 raw 텍스트에 text_normalizer(기본: 자릿수 분할 공백 축소만)를 적용한다.
  */
 import * as csvReader from "./csvReader.js";
 import * as docx from "./docx.js";
@@ -59,8 +58,8 @@ export async function readText(path: string): Promise<string> {
   } else {
     raw = plain.readText(path);
   }
-  // 셀 줄바꿈/래핑으로 쪼개진 PII 를 검출 전에 복원 — 모든 포맷 공통.
-  // pdf 는 내부에서도 적용하지만 정규화는 idempotent.
+  // Preserve numeric row boundaries. Supported wrapped identifiers are handled
+  // by whitespace-aware detectors, not by joining arbitrary extracted rows.
   const [normalized] = normalizeForDetection(raw);
   return normalized;
 }

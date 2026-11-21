@@ -14,8 +14,9 @@
  * - inflate 자체가 실패하는 손상 스트림은 Python 이 zlib.error 를 그대로 던지듯
  *   ZlibError 로 전파한다 (bounded except 절에 없어서 탈출하는 실측 동작).
  *
- * 텍스트 추출은 dispatcher.read_text 로 위인한다 — Python 과 동일하게 모든 포맷의
- * raw 텍스트에 text_normalizer 정규화가 적용되고, docx/xlsx/hwpx 도 라우팅된다.
+ * 텍스트 추출: docx/xlsx/hwpx 는 파트별 coverage 를 내는 inspectText 로 읽고 실패 파트가
+ * 있으면 document_extraction_incomplete 로 거부한다. 그 밖의 포맷은 dispatcher.readText 로
+ * 위임한다. 모든 포맷에 text_normalizer 정규화가 적용된다.
  */
 
 import { createHash } from "node:crypto";
@@ -24,7 +25,17 @@ import { lstatSync, readFileSync, statSync } from "node:fs";
 import { extname } from "node:path";
 import { ValueError } from "../core/errors.js";
 import { codePointLength } from "../core/strUtils.js";
+import type { ExtractionCoverage } from "./coverage.js";
+import { DocumentExtractionError } from "./coverage.js";
 import { readText as dispatcherReadText } from "./dispatcher.js";
+import { inspectText as inspectDocx } from "./docx.js";
+import { inspectText as inspectHwpx } from "./hwpx.js";
+import { PdfExtractionError } from "./pdf.js";
+import { TextDecodingError } from "./plain.js";
+import { pyIsBlank } from "./pyStr.js";
+import { normalizeForDetection } from "./textNormalizer.js";
+import { inspectText as inspectXlsx } from "./xlsx.js";
+import { hasDoctypeDeclaration } from "./xmlEt.js";
 import type { ZipEntryInfo } from "./zipFile.js";
 import { isZipfileEocd, parseCentralDirectory, readZipEntry, ZlibError } from "./zipFile.js";
 
@@ -46,13 +57,20 @@ const BINARY_EXTENSIONS: ReadonlySet<string> = new Set([...ZIP_EXTENSIONS, ".pdf
 const OLE_SIGNATURE = Buffer.from("d0cf11e0a1b11ae1", "hex");
 
 /** Machine-readable rejection raised before content reaches a guard. */
-export class BoundedReadError extends Error {
+export class BoundedReadError extends ValueError {
   readonly code: string;
+  /** 문서 파트 coverage (내용 없음) — 파트 추출 실패에서만 채워진다. */
+  readonly coverage: ExtractionCoverage | null;
 
-  constructor(code: string, message: string) {
+  constructor(
+    code: string,
+    message: string,
+    options: { coverage?: ExtractionCoverage | null } = {},
+  ) {
     super(message);
     this.name = "BoundedReadError";
     this.code = code;
+    this.coverage = options.coverage ?? null;
   }
 }
 
@@ -83,34 +101,64 @@ export class FileReadPolicy {
   readonly rejectSymlinks: boolean;
 
   constructor(init: FileReadPolicyInit = {}) {
-    this.maxFileBytes = init.maxFileBytes ?? 16 * 1024 * 1024;
-    this.maxArchiveMembers = init.maxArchiveMembers ?? 2_048;
-    this.maxArchiveMemberBytes = init.maxArchiveMemberBytes ?? 16 * 1024 * 1024;
-    this.maxDecompressedBytes = init.maxDecompressedBytes ?? 64 * 1024 * 1024;
-    this.maxCompressionRatio = init.maxCompressionRatio ?? 200.0;
-    this.maxTextChars = init.maxTextChars ?? 2_000_000;
-    this.allowedExtensions = init.allowedExtensions ?? DEFAULT_BOUNDED_EXTENSIONS;
-    this.rejectSymlinks = init.rejectSymlinks ?? true;
+    // `??` 가 아니라 undefined 만 기본값으로 — Python 은 None 을 명시하면 거부한다.
+    const pick = <T>(value: T | undefined, fallback: T): T =>
+      value === undefined ? fallback : value;
+    this.maxFileBytes = pick(init.maxFileBytes, 16 * 1024 * 1024);
+    this.maxArchiveMembers = pick(init.maxArchiveMembers, 2_048);
+    this.maxArchiveMemberBytes = pick(init.maxArchiveMemberBytes, 16 * 1024 * 1024);
+    this.maxDecompressedBytes = pick(init.maxDecompressedBytes, 64 * 1024 * 1024);
+    this.maxCompressionRatio = pick(init.maxCompressionRatio, 200.0);
+    this.maxTextChars = pick(init.maxTextChars, 2_000_000);
+    this.allowedExtensions = pick(init.allowedExtensions, DEFAULT_BOUNDED_EXTENSIONS);
+    this.rejectSymlinks = pick(init.rejectSymlinks, true);
 
-    const integerLimits = [
+    // 런타임 값은 타입 선언을 믿지 않는다 (JS 호출자·CLI·워커 경계) — Python __post_init__ 대응.
+    const integerLimits: unknown[] = [
       this.maxFileBytes,
       this.maxArchiveMembers,
       this.maxArchiveMemberBytes,
       this.maxDecompressedBytes,
       this.maxTextChars,
     ];
-    if (integerLimits.some((value) => value < 1)) {
-      throw new ValueError("all bounded-read limits must be positive");
+    if (
+      integerLimits.some(
+        (value) => typeof value !== "number" || !Number.isInteger(value) || value < 1,
+      )
+    ) {
+      throw new ValueError("all bounded-read limits must be positive integers");
     }
-    if (this.maxCompressionRatio < 1.0) {
-      throw new ValueError("max_compression_ratio must be at least 1.0");
+    const ratio: unknown = this.maxCompressionRatio;
+    if (typeof ratio !== "number" || !Number.isFinite(ratio) || ratio < 1.0) {
+      throw new ValueError("max_compression_ratio must be finite and at least 1.0");
     }
-    if (this.allowedExtensions.length === 0) {
+    const extensions: unknown = this.allowedExtensions;
+    if (!extensions || (Array.isArray(extensions) && extensions.length === 0)) {
       throw new ValueError("allowed_extensions must not be empty");
     }
-    if (this.allowedExtensions.some((value) => !value.startsWith("."))) {
+    if (
+      !Array.isArray(extensions) ||
+      extensions.some((value) => typeof value !== "string" || !value.startsWith("."))
+    ) {
       throw new ValueError("allowed_extensions entries must start with '.'");
     }
+    if (typeof (this.rejectSymlinks as unknown) !== "boolean") {
+      throw new ValueError("reject_symlinks must be a boolean");
+    }
+  }
+
+  /** 구조화 복제 가능한 초기값 — Python `asdict(policy)` 대응 (격리 워커 전달용). */
+  toInit(): Required<FileReadPolicyInit> {
+    return {
+      maxFileBytes: this.maxFileBytes,
+      maxArchiveMembers: this.maxArchiveMembers,
+      maxArchiveMemberBytes: this.maxArchiveMemberBytes,
+      maxDecompressedBytes: this.maxDecompressedBytes,
+      maxCompressionRatio: this.maxCompressionRatio,
+      maxTextChars: this.maxTextChars,
+      allowedExtensions: [...this.allowedExtensions],
+      rejectSymlinks: this.rejectSymlinks,
+    };
   }
 }
 
@@ -122,6 +170,8 @@ export interface BoundedDocument {
   extension: string;
   archiveMembers: number;
   declaredDecompressedBytes: number;
+  /** docx/xlsx/hwpx 의 파트 coverage. 그 밖의 포맷은 null. */
+  coverage: ExtractionCoverage | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -263,17 +313,20 @@ function validateArchive(
         }
       }
       const casefolded = name.toLowerCase();
-      if (casefolded.endsWith(".xml") || casefolded.endsWith(".rels")) {
+      if (
+        casefolded.endsWith(".xml") ||
+        casefolded.endsWith(".rels") ||
+        (extension === ".hwpx" && name === "Contents/content.hpf")
+      ) {
         xmlInfos.push(info);
       }
     }
 
-    // OOXML and HWPX do not require DTDs. Reject them before the XML parser
-    // sees the payload so internal entity expansion cannot amplify a small,
-    // otherwise valid archive member in parser memory.
+    // OOXML and HWPX do not require DTDs. Let the parser handle encodings (a byte
+    // search misses UTF-16 declarations); a DTD is rejected before any entity is
+    // expanded by the extraction parser.
     for (const info of xmlInfos) {
-      const content = asciiUpper(readZipEntry(buf, info));
-      if (content.includes("<!DOCTYPE") || content.includes("<!ENTITY")) {
+      if (hasDoctypeDeclaration(readZipEntry(buf, info))) {
         reject("xml_dtd_rejected", "archive XML contains a DTD or entity declaration");
       }
     }
@@ -286,6 +339,7 @@ function validateArchive(
     }
     if (
       extension === ".hwpx" &&
+      !names.has("Contents/content.hpf") &&
       ![...names].some((name) => name.startsWith("Contents/section") && name.endsWith(".xml"))
     ) {
       reject("format_mismatch", "HWPX archive has no section XML");
@@ -302,16 +356,6 @@ function validateArchive(
   }
 }
 
-/** Python `bytes.upper()` 대응 — ASCII 만 대문자화. */
-function asciiUpper(buf: Buffer): Buffer {
-  const out = Buffer.from(buf); // copy — inflate 결과를 변형하지 않는다
-  for (let i = 0; i < out.length; i++) {
-    const b = out[i]!;
-    if (b >= 0x61 && b <= 0x7a) out[i] = b - 0x20;
-  }
-  return out;
-}
-
 function sha256WithNulCheck(buf: Buffer, rejectNul: boolean): string {
   const digest = createHash("sha256");
   for (let off = 0; off < buf.length; off += 1024 * 1024) {
@@ -325,17 +369,30 @@ function sha256WithNulCheck(buf: Buffer, rejectNul: boolean): string {
 }
 
 // ---------------------------------------------------------------------------
-// 텍스트 추출 (dispatcher.read_text 대응)
+// 텍스트 추출
 // ---------------------------------------------------------------------------
 
+const ZIP_INSPECTORS = {
+  ".docx": inspectDocx,
+  ".hwpx": inspectHwpx,
+  ".xlsx": inspectXlsx,
+} as const;
+
 /**
- * Python `dispatcher.read_text(str(source))` 대응 — 확장자 라우팅 + 모든 포맷
- * 공통 text_normalizer 정규화까지 dispatcher 가 수행한다. hwpx/docx/xlsx 추출기도
- * Python 처럼 동작한다 (Python 은 선택 의존성 미설치 시 ImportError →
- * extractor_unavailable 이지만, TS 포트는 모든 추출기를 내장한다).
+ * zip 포맷은 파트 coverage 를 남기는 inspectText + requireComplete, 그 밖은
+ * dispatcher.readText (확장자 라우팅 + text_normalizer). Python 은 선택 의존성 미설치 시
+ * ImportError → extractor_unavailable 이지만, TS 포트는 모든 추출기를 내장한다.
  */
-async function extractText(path: string): Promise<string> {
-  return dispatcherReadText(path);
+async function extractText(
+  path: string,
+  extension: string,
+): Promise<[string, ExtractionCoverage | null]> {
+  if (extension === ".docx" || extension === ".hwpx" || extension === ".xlsx") {
+    const result = await ZIP_INSPECTORS[extension](path);
+    const [text] = normalizeForDetection(result.requireComplete());
+    return [text, result.coverage];
+  }
+  return [await dispatcherReadText(path), null];
 }
 
 /**
@@ -365,13 +422,22 @@ export async function readTextBounded(
   }
   const sourceDigest = sha256WithNulCheck(buf, !BINARY_EXTENSIONS.has(extension));
   let text: string;
+  let coverage: ExtractionCoverage | null;
   try {
-    text = await extractText(path);
+    [text, coverage] = await extractText(path, extension);
   } catch (error) {
     if (error instanceof BoundedReadError) throw error;
+    if (error instanceof DocumentExtractionError) {
+      throw new BoundedReadError(error.code, error.message, { coverage: error.coverage });
+    }
+    if (error instanceof TextDecodingError) throw new BoundedReadError(error.code, error.message);
+    if (error instanceof PdfExtractionError) reject(error.code, error.message);
     // Python: ImportError → extractor_unavailable (TS 는 추출기 내장 — 해당 없음),
     // 그 외 모든 예외는 extract_failed 로 수렴한다 (csv.Error 포함 — 실측).
     reject("extract_failed", "document text extraction failed");
+  }
+  if (BINARY_EXTENSIONS.has(extension) && pyIsBlank(text)) {
+    reject("no_extractable_text", "document has no extractable text; review or OCR is required");
   }
   if (codePointLength(text) > activePolicy.maxTextChars) {
     reject("extracted_text_too_large", "extracted text exceeds max_text_chars");
@@ -398,5 +464,6 @@ export async function readTextBounded(
     extension,
     archiveMembers: members,
     declaredDecompressedBytes: decompressed,
+    coverage,
   };
 }

@@ -18,7 +18,7 @@ const LEGAL_BASIS = "개인정보보호법 제2조; 민원처리에 관한 법�
 const CATEGORY = "참조정보";
 
 const PATTERN =
-  /(?<![A-Za-z0-9가-힣])((?:19|20)[0-9]{2}-(?:민원|정보공개|이의신청|행정심판)-[0-9]{4,8}|(?:민원|정보공개|이의신청|행정심판)-(?:19|20)[0-9]{2}-[0-9]{4,8})(?![A-Za-z0-9가-힣])/g;
+  /(?<![A-Za-z0-9가-힣])((?:19|20)\p{Nd}{2}-(?:민원|정보공개|이의신청|행정심판)-\p{Nd}{4,8}|(?:민원|정보공개|이의신청|행정심판)-(?:19|20)\p{Nd}{2}-\p{Nd}{4,8})(?![A-Za-z0-9가-힣])/gu;
 
 export function detect(text: string): DetectionResult[] {
   const results: DetectionResult[] = [];

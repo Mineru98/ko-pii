@@ -3,6 +3,8 @@
  * Python 원본: src/ko_pii/patterns/phone.py — 1:1 포팅 (골드 마스터 기준).
  */
 
+import { selectNonOverlapping } from "../core/overlap.js";
+import { PY_S_CHARS } from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 
 const LABEL = "PHONE";
@@ -11,48 +13,48 @@ const CATEGORY = "일반개인정보";
 
 // International prefix: +82, 0082, or 82- (less common). The body strips the
 // leading 0 of the area code per ITU-T E.123 conventions.
-const INTL_PREFIX = String.raw`(?:\+82|0082|82)[-.\s]?(?:\(0\)[-.\s]?)?`;
+const SEP = `[-.${PY_S_CHARS}]`;
+const AREA_SEP = `[-.${PY_S_CHARS})\\]]`;
+const INTL_PREFIX = String.raw`(?:\+82|0082|82)${SEP}?(?:\(0\)${SEP}?)?`;
+// 가입자 번호 본체 — 원본 ``\d`` 는 유니코드 Nd (원문 재검사 패스에서 의미가 있다).
+const BODY = String.raw`${SEP}{0,3}(\p{Nd}{3,4})${SEP}{0,3}(\p{Nd}{4})(?![0-9])`;
 
 // 정규식은 모듈 상수 + matchAll 사용 (matchAll 은 내부 복제본으로 순회하므로
 // lastIndex 공유 문제 없음 — PORTING.md 참조).
-const MOBILE = /(?<![0-9+])(01[01679])[-.\s]{0,3}([0-9]{3,4})[-.\s]{0,3}([0-9]{4})(?![0-9])/g;
+const MOBILE = new RegExp(String.raw`(?<![0-9+])(01[016789])${BODY}`, "gu");
 
-const MOBILE_INTL = new RegExp(
-  String.raw`(?<![0-9])` +
-    INTL_PREFIX +
-    String.raw`(1[01679])[-.\s]{0,3}([0-9]{3,4})[-.\s]{0,3}([0-9]{4})(?![0-9])`,
-  "g",
-);
+const MOBILE_INTL = new RegExp(String.raw`(?<![0-9])${INTL_PREFIX}(1[016789])${BODY}`, "gu");
 
 // 국제표기 유선 — +82-2-... (서울) / +82-3x-... (지역). leading 0 생략.
-const SEOUL_INTL = new RegExp(
-  String.raw`(?<![0-9])` +
-    INTL_PREFIX +
-    String.raw`(2)[-.\s]{0,3}([0-9]{3,4})[-.\s]{0,3}([0-9]{4})(?![0-9])`,
-  "g",
-);
+const SEOUL_INTL = new RegExp(String.raw`(?<![0-9])${INTL_PREFIX}(2)${BODY}`, "gu");
 
 const REGIONAL_INTL = new RegExp(
-  String.raw`(?<![0-9])` +
-    INTL_PREFIX +
-    String.raw`(3[1-3]|4[1-4]|5[1-5]|6[1-4]|70)[-.\s]{0,3}([0-9]{3,4})[-.\s]{0,3}([0-9]{4})(?![0-9])`,
-  "g",
+  String.raw`(?<![0-9])${INTL_PREFIX}(3[1-3]|4[1-4]|5[1-5]|6[1-4]|70)${BODY}`,
+  "gu",
 );
 
-const SEOUL = /(?<![0-9+])(02)[-.\s)\]]{0,3}([0-9]{3,4})[-.\s]{0,3}([0-9]{4})(?![0-9])/g;
+const AREA_BODY = String.raw`${AREA_SEP}{0,3}(\p{Nd}{3,4})${SEP}{0,3}(\p{Nd}{4})(?![0-9])`;
 
-const REGIONAL =
-  /(?<![0-9+])(03[1-3]|04[1-4]|05[1-5]|06[1-4]|070)[-.\s)\]]{0,3}([0-9]{3,4})[-.\s]{0,3}([0-9]{4})(?![0-9])/g;
+const SEOUL = new RegExp(String.raw`(?<![0-9+])(02)${AREA_BODY}`, "gu");
 
-// 괄호 지역번호 표기 — "(" 포함 전체 span 선점용. 표준 괄호 표기는 대부분
-// "(02)1234-5678" 형태이며, 국제 prefix("+(82)..." 등)는 뒤의 INTL 패턴이
-// 담당하므로 여기서는 숫자 앞뒤 가드만 둔다.
-const PAREN_AREA =
-  /(?<![0-9A-Za-z])\((01[01679]|02|03[1-3]|04[1-4]|05[1-5]|06[1-4]|070)\)[-.\s]{0,3}([0-9]{3,4})[-.\s]{0,3}([0-9]{4})(?![0-9])/g;
+const REGIONAL = new RegExp(
+  String.raw`(?<![0-9+])(03[1-3]|04[1-4]|05[1-5]|06[1-4]|070)${AREA_BODY}`,
+  "gu",
+);
+
+// 괄호 지역번호 표기 — "(" 포함 전체 span 선점용. 유효 한국 prefix 만 허용해 '(2024) 발표'·
+// '(주) 회사' 같은 괄호 텍스트 FP 를 차단한다.
+const PAREN_AREA = new RegExp(
+  String.raw`(?<![0-9A-Za-z])\((01[016789]|02|03[1-3]|04[1-4]|05[1-5]|06[1-4]|070)\)${BODY}`,
+  "gu",
+);
 
 // 대표번호 (15xx/16xx/17xx/18xx) — 8자리, 사업장/콜센터 (1500~1899 대역).
 // 4-4 형식과 동일해 단독 구분 불가 — recall 우선으로 채택 (문서화된 한계).
-const REPRESENTATIVE = /(?<![0-9+])(1[5-8][0-9]{2})[-.\s]{0,3}([0-9]{4})(?![0-9])/g;
+const REPRESENTATIVE = new RegExp(
+  String.raw`(?<![0-9+])(1[5-8]\p{Nd}{2})${SEP}{0,3}(\p{Nd}{4})(?![0-9])`,
+  "gu",
+);
 
 function emit(m: RegExpMatchArray, phoneType: string, international = false): DetectionResult {
   const start = m.index;
@@ -60,7 +62,7 @@ function emit(m: RegExpMatchArray, phoneType: string, international = false): De
   const raw = m[0];
   const prefix = m[1];
   if (prefix === undefined) throw new Error("prefix 그룹 누락");
-  const digits = raw.replace(/\D/g, "");
+  const digits = raw.replace(/\P{Nd}/gu, "");
   const ev = ["pattern:phone", `type:${phoneType}`];
   if (international) ev.push("intl:+82");
   // 위험도 분기 — 휴대전화는 개인 직통 (HIGH), 유선/VoIP 는 가입자 추적
@@ -85,16 +87,6 @@ function emit(m: RegExpMatchArray, phoneType: string, international = false): De
   });
 }
 
-type Span = readonly [number, number];
-
-function overlaps(span: Span, seen: Span[]): boolean {
-  const [s, e] = span;
-  for (const [ss, ee] of seen) {
-    if (s < ee && ss < e) return true;
-  }
-  return false;
-}
-
 function phoneTypeForPrefix(prefix: string): string {
   if (prefix.startsWith("01")) return "mobile";
   if (prefix === "070") return "voip";
@@ -102,80 +94,25 @@ function phoneTypeForPrefix(prefix: string): string {
 }
 
 export function detect(text: string): DetectionResult[] {
-  const out: DetectionResult[] = [];
-  const seen: Span[] = [];
-
-  // 괄호 지역번호 표기 먼저 — 여는 괄호까지 포함한 전체 span 을 선점.
-  for (const m of text.matchAll(PAREN_AREA)) {
-    if (m.index === undefined) continue;
-    const span: Span = [m.index, m.index + m[0].length];
-    if (overlaps(span, seen)) continue;
-    const prefix = m[1];
-    if (prefix === undefined) continue;
-    seen.push(span);
-    out.push(emit(m, phoneTypeForPrefix(prefix)));
+  // 패턴 우선순위·방출 순서를 보존한다 (위험도 우선 아님): 괄호/국제 표기가 국내형처럼 보이는
+  // 핵심부를 소유해야 한다.
+  const candidates: DetectionResult[] = [];
+  const patterns: ReadonlyArray<readonly [RegExp, boolean]> = [
+    [PAREN_AREA, false],
+    [MOBILE_INTL, true],
+    [SEOUL_INTL, true],
+    [REGIONAL_INTL, true],
+    [MOBILE, false],
+    [REGIONAL, false],
+    [SEOUL, false],
+    [REPRESENTATIVE, false],
+  ];
+  for (const [pattern, international] of patterns) {
+    for (const m of text.matchAll(pattern)) {
+      const prefix = (international ? "0" : "") + (m[1] as string);
+      const phoneType = pattern === REPRESENTATIVE ? "representative" : phoneTypeForPrefix(prefix);
+      candidates.push(emit(m, phoneType, international));
+    }
   }
-
-  // International forms first — they cover their domestic-looking core.
-  for (const m of text.matchAll(MOBILE_INTL)) {
-    if (m.index === undefined) continue;
-    const span: Span = [m.index, m.index + m[0].length];
-    if (overlaps(span, seen)) continue;
-    seen.push(span);
-    out.push(emit(m, "mobile", true));
-  }
-
-  for (const m of text.matchAll(SEOUL_INTL)) {
-    if (m.index === undefined) continue;
-    const span: Span = [m.index, m.index + m[0].length];
-    if (overlaps(span, seen)) continue;
-    seen.push(span);
-    out.push(emit(m, "landline", true));
-  }
-
-  for (const m of text.matchAll(REGIONAL_INTL)) {
-    if (m.index === undefined) continue;
-    const span: Span = [m.index, m.index + m[0].length];
-    if (overlaps(span, seen)) continue;
-    const g1 = m[1];
-    if (g1 === undefined) continue;
-    seen.push(span);
-    out.push(emit(m, g1 === "70" ? "voip" : "landline", true));
-  }
-
-  for (const m of text.matchAll(MOBILE)) {
-    if (m.index === undefined) continue;
-    const span: Span = [m.index, m.index + m[0].length];
-    if (overlaps(span, seen)) continue;
-    seen.push(span);
-    out.push(emit(m, "mobile"));
-  }
-
-  for (const m of text.matchAll(REGIONAL)) {
-    if (m.index === undefined) continue;
-    const span: Span = [m.index, m.index + m[0].length];
-    if (overlaps(span, seen)) continue;
-    const prefix = m[1];
-    if (prefix === undefined) continue;
-    seen.push(span);
-    out.push(emit(m, prefix === "070" ? "voip" : "landline"));
-  }
-
-  for (const m of text.matchAll(SEOUL)) {
-    if (m.index === undefined) continue;
-    const span: Span = [m.index, m.index + m[0].length];
-    if (overlaps(span, seen)) continue;
-    seen.push(span);
-    out.push(emit(m, "landline"));
-  }
-
-  for (const m of text.matchAll(REPRESENTATIVE)) {
-    if (m.index === undefined) continue;
-    const span: Span = [m.index, m.index + m[0].length];
-    if (overlaps(span, seen)) continue;
-    seen.push(span);
-    out.push(emit(m, "representative"));
-  }
-
-  return out;
+  return selectNonOverlapping(candidates);
 }

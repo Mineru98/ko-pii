@@ -12,15 +12,32 @@
  *
  * 바이트 호환: 라인 직렬화는 Python `json.dumps(..., ensure_ascii=False)` 기본
  * 구분자(`", "` / `": "`)를 재현한다. `float` 인 confidence 는 Python 처럼 정숫값에
- *도 `.0` 을 붙인다 (`1.0` vs JS `1`). Python 이 파일을 통째로 다시 쓰는
- * (임시파일+rename 없는) 단순 rewrite 를 쓰므로 그대로 따른다.
+ * 도 `.0` 을 붙인다 (`1.0` vs JS `1`). 마킹은 원자적 교체(writeTextAtomic), 추가는
+ * O_APPEND 로 기록한다. 손상·스키마 오류·중복 ID 레코드는 건너뛰지 않고 원본을 보존한 채
+ * ``ValueError`` 로 실패한다.
+ *
+ * TS 표현 차이: JSON.parse 는 `1` 과 `1.0` 을 구분하지 못해 span 의 `1.0` 같은 float 표기를
+ * 정수로 받아들인다 (Python 은 거부). 직렬화기는 항상 정수를 쓰므로 수동 편집 파일에서만 다르다.
  */
 import { randomUUID } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  statSync,
+  writeSync,
+} from "node:fs";
 import { dirname } from "node:path";
 import type { DetectionRecord } from "../anonymizer.js";
+import { ValueError } from "../core/errors.js";
 import { pyFloatRepr } from "../core/pyFormat.js";
 import type { DetectionResult } from "../core/types.js";
+import { writeTextAtomic } from "../io/atomic.js";
+import { loadsJson } from "../structured.js";
 import { pyIsoUtcNow, pyStrip } from "../vault/reversible.js";
 
 /** Python `Verdict(str, Enum)` 대응. */
@@ -30,12 +47,26 @@ export enum Verdict {
   FN = "FN", // 진짜였지만 놓침 (사용자 수동 추가)
 }
 
-/** Python `_load` 가 건너뛰는 KeyError 대응 (JSONDecodeError 와 구별). */
-class MissingKeyError extends Error {
-  constructor(key: string) {
-    super(`missing required key: ${key}`);
-    this.name = "MissingKeyError";
-  }
+const ITEM_FIELDS: ReadonlySet<string> = new Set([
+  "id",
+  "doc",
+  "label",
+  "text",
+  "span",
+  "confidence",
+  "evidence",
+  "legal_basis",
+  "verdict",
+  "verdict_at",
+  "verdict_by",
+  "verdict_note",
+]);
+const VERDICTS: ReadonlySet<unknown> = new Set(["OK", "FP", "FN"]);
+/** `u` 플래그에서는 짝 없는 서로게이트만 매칭된다 — Python 의 UTF-8 인코딩 실패 대응. */
+const LONE_SURROGATE = /[\uD800-\uDFFF]/u;
+
+function isPlainDict(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
 /** Python `ReviewItem.to_dict()` (dataclass asdict) 형태 — 필드 선언 순서 유지. */
@@ -44,7 +75,7 @@ export interface ReviewItemDict {
   doc: string;
   label: string;
   text: string;
-  span: number[];
+  span: (number | bigint)[];
   confidence: number;
   evidence: string[];
   legal_basis: string | null;
@@ -59,7 +90,7 @@ export class ReviewItem {
   doc: string;
   label: string;
   text: string;
-  span: number[];
+  span: (number | bigint)[];
   confidence: number;
   evidence: string[];
   legal_basis: string | null;
@@ -73,7 +104,7 @@ export class ReviewItem {
     doc: string,
     label: string,
     text: string,
-    span: number[],
+    span: (number | bigint)[],
     confidence: number,
     evidence: string[] = [],
     legal_basis: string | null = null,
@@ -113,43 +144,76 @@ export class ReviewItem {
     };
   }
 
-  static fromDict(d: Record<string, unknown>): ReviewItem {
-    const requiredString = (key: string): string => {
+  /** 엄격 검증 — 알 수 없는 필드·잘못된 span/confidence/verdict 는 값 없는 ``ValueError``. */
+  static fromDict(d: unknown): ReviewItem {
+    if (
+      !isPlainDict(d) ||
+      !["id", "label", "text", "span"].every((k) => Object.hasOwn(d, k)) ||
+      !Object.keys(d).every((k) => ITEM_FIELDS.has(k))
+    ) {
+      throw new ValueError("invalid review item fields");
+    }
+    for (const key of ["id", "label", "text"]) {
       const v = d[key];
-      if (v === undefined) throw new MissingKeyError(key);
-      return typeof v === "string" ? v : String(v);
-    };
-    const optString = (key: string): string | null => {
-      const v = d[key];
-      return v === undefined || v === null ? null : String(v);
-    };
-    const rawSpan = d.span;
-    if (rawSpan === undefined) throw new MissingKeyError("span");
-    const span = Array.isArray(rawSpan) ? rawSpan.map((x) => Number(x)) : [];
+      if (typeof v !== "string" || !v) throw new ValueError("invalid review item string");
+    }
+    for (const key of ["doc", "verdict_note"]) {
+      if (Object.hasOwn(d, key) && typeof d[key] !== "string") {
+        throw new ValueError("invalid review metadata");
+      }
+    }
+    for (const key of ["legal_basis", "verdict_at", "verdict_by"]) {
+      const v = Object.hasOwn(d, key) ? d[key] : null;
+      if (v !== null && v !== undefined && typeof v !== "string") {
+        throw new ValueError("invalid review metadata");
+      }
+    }
+    const span = d.span;
+    const confidence = Object.hasOwn(d, "confidence") ? d.confidence : 0.0;
+    const evidence = Object.hasOwn(d, "evidence") ? d.evidence : [];
+    if (
+      !Array.isArray(span) ||
+      span.length !== 2 ||
+      // Python ``type(n) is int`` — 안전 범위 밖 JSON 정수는 bigint 로 들어온다.
+      span.some((n) => typeof n !== "bigint" && (typeof n !== "number" || !Number.isInteger(n))) ||
+      !(
+        0 <= (span[0] as number | bigint) &&
+        (span[0] as number | bigint) < (span[1] as number | bigint)
+      )
+    ) {
+      throw new ValueError("invalid review span");
+    }
+    if (
+      typeof confidence !== "number" ||
+      !(0 <= confidence && confidence <= 1) ||
+      !Number.isFinite(confidence)
+    ) {
+      throw new ValueError("invalid review confidence");
+    }
+    if (!Array.isArray(evidence) || evidence.some((e) => typeof e !== "string")) {
+      throw new ValueError("invalid review evidence");
+    }
+    const verdict = Object.hasOwn(d, "verdict") ? d.verdict : null;
+    if (verdict !== null && verdict !== undefined && !VERDICTS.has(verdict)) {
+      throw new ValueError("invalid review verdict");
+    }
+    const opt = (key: string): string | null =>
+      Object.hasOwn(d, key) ? ((d[key] as string | null | undefined) ?? null) : null;
     return new ReviewItem(
-      requiredString("id"),
-      d.doc === undefined ? "" : String(d.doc),
-      requiredString("label"),
-      requiredString("text"),
-      span,
-      pyFloat(d.confidence === undefined ? 0.0 : d.confidence),
-      Array.isArray(d.evidence) ? (d.evidence as string[]) : [],
-      optString("legal_basis"),
-      optString("verdict"),
-      optString("verdict_at"),
-      optString("verdict_by"),
-      d.verdict_note === undefined ? "" : String(d.verdict_note),
+      d.id as string,
+      Object.hasOwn(d, "doc") ? (d.doc as string) : "",
+      d.label as string,
+      d.text as string,
+      [...(span as (number | bigint)[])],
+      confidence,
+      [...(evidence as string[])],
+      opt("legal_basis"),
+      opt("verdict"),
+      opt("verdict_at"),
+      opt("verdict_by"),
+      Object.hasOwn(d, "verdict_note") ? (d.verdict_note as string) : "",
     );
   }
-}
-
-/** Python `float()` 대응 — bool 은 int 서브클래스이므로 1.0/0.0, 나머지 비숫자는 TypeError. */
-function pyFloat(v: unknown): number {
-  if (typeof v === "number") return v;
-  if (typeof v === "boolean") return v ? 1 : 0;
-  if (typeof v === "string") return Number(v);
-  const t = v === null ? "NoneType" : typeof v === "object" ? "dict" : typeof v;
-  throw new TypeError(`float() argument must be a string or a real number, not '${t}'`);
 }
 
 /** Python `json.dumps(item.to_dict(), ensure_ascii=False)` 바이트 동등 라인. */
@@ -204,34 +268,115 @@ export class ReviewQueue {
   private load(): void {
     if (this.loaded) return;
     if (!existsSync(this.path)) {
+      this.items = [];
       this.loaded = true;
       return;
     }
-    const content = readFileSync(this.path, "utf8");
+    // Python open(encoding="utf-8"): BOM 을 벗기지 않고, 잘못된 UTF-8 은 디코딩 오류.
+    let content: string;
+    try {
+      content = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+        readFileSync(this.path),
+      );
+    } catch {
+      throw new ValueError("'utf-8' codec can't decode review queue bytes");
+    }
+    const loaded: ReviewItem[] = [];
+    const ids = new Set<string>();
     // Python 텍스트 모드(universal newlines): \n·\r\n·\r 모두 줄 구분. `str.strip()` 은 JS
-    // `trim()` 과 달리 BOM(U+FEFF)을 걷어내지 않는다 (vault/audit.ts replay 와 같은 규칙).
-    for (const rawLine of content.split(/\r\n|\r|\n/)) {
+    // `trim()` 과 달리 BOM(U+FEFF)을 걷어내지 않는다.
+    const lines = content.split(/\r\n|\r|\n/);
+    if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+    for (const [index, rawLine] of lines.entries()) {
       const line = pyStrip(rawLine);
       if (!line) continue;
+      let item: ReviewItem;
       try {
-        const parsed: unknown = JSON.parse(line);
-        if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-          // Python: d["id"] 가 list/str/int 에서 TypeError — 건너뛰지 않고 중단된다.
-          throw new TypeError("review queue line must be a JSON object");
-        }
-        this.items.push(ReviewItem.fromDict(parsed as Record<string, unknown>));
+        item = ReviewItem.fromDict(loadsJson(line));
+        if (ids.has(item.id)) throw new ValueError("duplicate review id");
       } catch (e) {
-        // Python: json.JSONDecodeError / KeyError 만 건너뛴다.
-        if (e instanceof SyntaxError || e instanceof MissingKeyError) continue;
+        if (e instanceof ValueError || e instanceof TypeError) {
+          throw new ValueError(
+            `invalid review queue record at line ${index + 1}; original file preserved`,
+          );
+        }
         throw e;
       }
+      ids.add(item.id);
+      loaded.push(item);
     }
+    this.items = loaded;
     this.loaded = true;
   }
 
-  private save(): void {
+  private save(items: ReviewItem[]): void {
+    const content = ReviewQueue.serialize(items);
     ensureDir(this.path);
-    writeFileSync(this.path, this.items.map((it) => `${serializeItem(it)}\n`).join(""), "utf8");
+    writeTextAtomic(this.path, content);
+  }
+
+  private static serialize(items: ReviewItem[]): string {
+    const validated = items.map((item) => ReviewItem.fromDict(item.toDict()));
+    if (new Set(validated.map((item) => item.id)).size !== validated.length) {
+      throw new ValueError("duplicate review id");
+    }
+    for (const item of validated) {
+      const d = item.toDict();
+      const strings = [
+        d.id,
+        d.doc,
+        d.label,
+        d.text,
+        ...d.evidence,
+        d.legal_basis,
+        d.verdict,
+        d.verdict_at,
+        d.verdict_by,
+        d.verdict_note,
+      ];
+      if (strings.some((v) => typeof v === "string" && LONE_SURROGATE.test(v))) {
+        throw new ValueError("review items must contain valid Unicode");
+      }
+    }
+    return validated.map((item) => `${serializeItem(item)}\n`).join("");
+  }
+
+  private append(items: ReviewItem[]): void {
+    const content = ReviewQueue.serialize(items);
+    if (items.length === 0) return;
+    ensureDir(this.path);
+    let isLink = false;
+    try {
+      isLink = lstatSync(this.path).isSymbolicLink();
+    } catch {
+      isLink = false;
+    }
+    if (isLink) throw new ValueError("review queue must not be a symbolic link");
+    let prefix = "";
+    if (existsSync(this.path) && statSync(this.path).size > 0) {
+      const fd = openSync(this.path, "r");
+      try {
+        const last = Buffer.alloc(1);
+        readSync(fd, last, 0, 1, statSync(this.path).size - 1);
+        if (last[0] !== 0x0a) prefix = "\n";
+      } finally {
+        closeSync(fd);
+      }
+    }
+    try {
+      const fd = openSync(this.path, "a", 0o600);
+      try {
+        const bytes = Buffer.from(prefix + content, "utf8");
+        let offset = 0;
+        while (offset < bytes.length) offset += writeSync(fd, bytes, offset);
+      } finally {
+        closeSync(fd);
+      }
+    } catch (e) {
+      this.loaded = false;
+      throw e;
+    }
+    this.items.push(...items);
   }
 
   // ─────────────────────── 큐 조작
@@ -249,10 +394,7 @@ export class ReviewQueue {
       [...detection.evidence],
       detection.legal_basis,
     );
-    this.items.push(item);
-    // append-only 로 단일 항목 추가 (성능)
-    ensureDir(this.path);
-    appendFileSync(this.path, `${serializeItem(item)}\n`, "utf8");
+    this.append([item]);
     return item;
   }
 
@@ -260,27 +402,22 @@ export class ReviewQueue {
   enqueueReviewRecords(records: Iterable<DetectionRecord>, document = ""): ReviewItem[] {
     this.load();
     const items: ReviewItem[] = [];
-    // buffer + single open
-    ensureDir(this.path);
-    let buffer = "";
     for (const r of records) {
       const d = r.detection;
-      const item = new ReviewItem(
-        randomUUID(),
-        document,
-        d.label,
-        d.text,
-        [d.start, d.end],
-        d.confidence,
-        [...d.evidence],
-        d.legal_basis,
+      items.push(
+        new ReviewItem(
+          randomUUID(),
+          document,
+          d.label,
+          d.text,
+          [d.start, d.end],
+          d.confidence,
+          [...d.evidence],
+          d.legal_basis,
+        ),
       );
-      this.items.push(item);
-      items.push(item);
-      buffer += `${serializeItem(item)}\n`;
     }
-    // Python `open(path, "a")` 는 records 가 비어도 빈 파일을 만든다.
-    appendFileSync(this.path, buffer, "utf8");
+    this.append(items);
     return items;
   }
 
@@ -312,20 +449,27 @@ export class ReviewQueue {
 
   // ─────────────────────── 마킹
 
-  /** 항목에 verdict 부여. true 면 성공, false 면 ID 없음. */
+  /** 항목에 verdict 부여. true 면 성공, false 면 ID 없음. 저장 실패 시 메모리·디스크 모두 유지. */
   mark(
     itemId: string,
     verdict: Verdict | string,
     opts: { by?: string | null; note?: string } = {},
   ): boolean {
+    if (!VERDICTS.has(verdict)) throw new ValueError("invalid review verdict");
     this.load();
-    for (const it of this.items) {
+    for (const [index, it] of this.items.entries()) {
       if (it.id === itemId) {
-        it.verdict = String(verdict);
-        it.verdict_at = pyIsoUtcNow();
-        it.verdict_by = opts.by ?? null;
-        it.verdict_note = opts.note ?? "";
-        this.save(); // 전체 재기록 — 마킹은 빈번하지 않음
+        const updated = ReviewItem.fromDict({
+          ...it.toDict(),
+          verdict: String(verdict),
+          verdict_at: pyIsoUtcNow(),
+          verdict_by: opts.by ?? null,
+          verdict_note: opts.note ?? "",
+        });
+        const candidate = [...this.items];
+        candidate[index] = updated;
+        this.save(candidate);
+        this.items = candidate;
         return true;
       }
     }

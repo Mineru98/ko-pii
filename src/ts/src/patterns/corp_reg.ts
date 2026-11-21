@@ -17,7 +17,9 @@
  */
 
 import { isValidChecksum } from "../checksum/corpRegChecksum.js";
+import { isValidChecksum as isValidFrnChecksum } from "../checksum/frnChecksum.js";
 import { isValidChecksum as isValidRrnChecksum } from "../checksum/rrnChecksum.js";
+import { PY_S, PY_S_CHARS } from "../core/strUtils.js";
 import type { DetectionResult } from "../core/types.js";
 import { makeDetection, RiskLevel } from "../core/types.js";
 
@@ -25,26 +27,34 @@ const LABEL = "CORP_REG";
 const LEGAL_BASIS = "상법 제40조; 법인등기규칙";
 const CATEGORY = "법인식별정보";
 
-const PATTERN = /(?<![0-9])([0-9]{6})(?:\s?[-./]\s?|[-./\s]{0,2})([0-9]{7})(?![0-9])/g;
+const PATTERN = new RegExp(
+  `(?<![0-9])([0-9]{6})(?:${PY_S}?[-./]${PY_S}?|[-./${PY_S_CHARS}]{0,2})([0-9]{7})(?![0-9])`,
+  "gu",
+);
 
-/** Return True if YYMMDD could form a real calendar date in any century. */
-function isValidDatePrefix(yymmdd: string): boolean {
-  const mm = Number(yymmdd.slice(2, 4));
-  const dd = Number(yymmdd.slice(4, 6));
-  if (!(mm >= 1 && mm <= 12)) {
-    return false;
-  }
-  if (!(dd >= 1 && dd <= 31)) {
-    return false;
-  }
-  // date(2000, mm, dd) — 2000 is a leap year, so Feb 29 is valid
+/** Python datetime.date(y, m, d) 유효성 (proleptic Gregorian, 1..9999년). */
+function isValidDate(year: number, month: number, day: number): boolean {
+  if (year < 1 || year > 9999 || month < 1 || month > 12 || day < 1) return false;
   let daysInMonth = 31;
-  if (mm === 4 || mm === 6 || mm === 9 || mm === 11) {
+  if (month === 4 || month === 6 || month === 9 || month === 11) {
     daysInMonth = 30;
-  } else if (mm === 2) {
-    daysInMonth = 29;
+  } else if (month === 2) {
+    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    daysInMonth = leap ? 29 : 28;
   }
-  return dd <= daysInMonth;
+  return day <= daysInMonth;
+}
+
+/** 개인 식별번호로 양보하려면 그럴듯한 완전 생년월일(미래 아님)이어야 한다. */
+function isValidDatePrefix(yymmdd: string, genderDigit: string): boolean {
+  const century = "90".includes(genderDigit) ? 1800 : "1256".includes(genderDigit) ? 1900 : 2000;
+  const year = century + Number(yymmdd.slice(0, 2));
+  const month = Number(yymmdd.slice(2, 4));
+  const day = Number(yymmdd.slice(4, 6));
+  if (!isValidDate(year, month, day)) return false;
+  const now = new Date();
+  const today = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+  return year * 10000 + month * 100 + day <= today;
 }
 
 export function detect(text: string): DetectionResult[] {
@@ -62,8 +72,10 @@ export function detect(text: string): DetectionResult[] {
     if (!isValidChecksum(digits)) {
       continue;
     }
-    if (isValidRrnChecksum(digits) && isValidDatePrefix(front)) {
-      // An actual RRN/FRN coincidentally passes the 법인 checksum;
+    const gender = back.charAt(0);
+    const personalChecksum = "5678".includes(gender) ? isValidFrnChecksum : isValidRrnChecksum;
+    if (personalChecksum(digits) && isValidDatePrefix(front, gender)) {
+      // An RRN/FRN-shaped candidate also passes the corporate checksum;
       // let the RRN/FRN detector claim it.
       continue;
     }

@@ -19,16 +19,11 @@ const INVISIBLE =
   // biome-ignore lint/suspicious/noControlCharactersInRegex: 제어문자·제로폭 제거가 이 모듈의 기능 본질
   /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u206F\u2A74\uFEFF]/;
 
-// 결합표시(ccc != 0) — 숫자 사이에 끼면 PII 를 쪼개는 우회. fast-path 별도 검사.
-// Python `_COMBINING` 과 같이 unicodedata 결합 클래스 전체(생성 테이블)에서 만든다 —
-// 손으로 나열한 BMP 범위만 보면 아스트랄 결합표시(U+1D165 등)가 빠른 경로로 샌다.
-const COMBINING_FAST = new RegExp(
-  `[${COMBINING_RANGES.map(([a, b]) => {
-    const lo = `\\u{${a.toString(16)}}`;
-    return a === b ? lo : `${lo}-\\u{${b.toString(16)}}`;
-  }).join("")}]`,
-  "u",
-);
+// 결합표시 — fast-path 판정 전용. Python `_COMBINING` 과 같은 손 나열 BMP 범위다
+// (느린 경로의 결합 판정은 unicodedata.combining 전체 테이블 = COMBINING_RANGES).
+const COMBINING_FAST =
+  // biome-ignore lint/suspicious/noMisleadingCharacterClass: 결합표시 범위 판정이 목적 (Python _COMBINING 과 동일)
+  /[\u0300-\u036F\u0483-\u0489\u0591-\u05BD\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F]/;
 
 // 비ASCII 숫자 → ASCII 폴딩 테이블 (Python unicodedata 에서 생성 — 위 테이블 참조).
 const DIGIT_FOLD_MAP = new Map<string, string>(
@@ -118,85 +113,163 @@ const DIGIT_HOMOGLYPH: Record<string, string> = {
   Z: "2",
   G: "6",
 };
-const DIGIT_HG_TOKEN = /[0-9OoQlI|SBZG][0-9OoQlI|SBZG\-\u2010-\u2015]*/g;
+const DIGIT_HG_TOKEN = /[A-Za-z0-9_|][A-Za-z0-9_|\-\u2010-\u2015]*/g;
+const DIGIT_HG_PRESENT = /[OoQlI|SBZG]/;
+const DIGIT_HG_ALLOWED: ReadonlySet<string> = new Set([
+  ..."0123456789-\u2010\u2011\u2012\u2013\u2014\u2015",
+  ...Object.keys(DIGIT_HOMOGLYPH),
+]);
+
+/** ASCII 식별자 토큰 전체를 본다 — 토큰 안의 숫자처럼 보이는 꼬리만 보지 않는다. */
+function isDigitHomoglyphToken(token: string): boolean {
+  if (!DIGIT_HG_PRESENT.test(token)) return false;
+  let digits = 0;
+  for (const c of token) {
+    if (!DIGIT_HG_ALLOWED.has(c)) return false;
+    if (c >= "0" && c <= "9") digits += 1;
+  }
+  return digits >= 2;
+}
 
 /** 숫자열 토큰 안의 라틴 호몰로그를 숫자로 폴딩(1:1, 길이 불변). */
 function foldDigitHomoglyphs(text: string): string {
   return text.replace(DIGIT_HG_TOKEN, (s) => {
-    let digits = 0;
-    let hg = 0;
-    for (const c of s) {
-      if (pyIsDigit(c)) digits += 1;
-      if (c in DIGIT_HOMOGLYPH) hg += 1;
-    }
-    if (digits >= 2 && hg >= 1) {
-      let out = "";
-      for (const c of s) out += DIGIT_HOMOGLYPH[c] ?? c;
-      return out;
-    }
-    return s;
+    if (!isDigitHomoglyphToken(s)) return s;
+    let out = "";
+    for (const c of s) out += DIGIT_HOMOGLYPH[c] ?? c;
+    return out;
   });
+}
+
+function hasDigitHomoglyphToken(text: string): boolean {
+  if (!DIGIT_HG_PRESENT.test(text)) return false;
+  for (const m of text.matchAll(DIGIT_HG_TOKEN)) {
+    if (isDigitHomoglyphToken(m[0])) return true;
+  }
+  return false;
 }
 
 /** 정규화(우회 차단)가 필요한가 — detect_all 진입 가드용. */
 export function needsNormalization(text: string): boolean {
-  return !pyIsAscii(text) || INVISIBLE.test(text) || spacedCollapsePositions(text).size > 0;
+  return (
+    !pyIsAscii(text) ||
+    INVISIBLE.test(text) ||
+    spacedCollapsePositions(text).size > 0 ||
+    hasDigitHomoglyphToken(text)
+  );
+}
+
+/** 코드 포인트 1개(아스트랄은 2유닛)를 pos 에서 읽는다. lone surrogate 는 폭 1. */
+function cpAt(text: string, pos: number): string {
+  const cp = text.codePointAt(pos);
+  return cp !== undefined && cp > 0xffff ? text.slice(pos, pos + 2) : text.charAt(pos);
+}
+
+/** 결합표시 + 합성 가능한 한글 음절 하나를 묶는다 — 단어 전체가 아니다.
+ * Python `_normalization_cluster_end` 대응 (인덱스는 UTF-16, 이동은 코드 포인트 단위).
+ */
+function normalizationClusterEnd(text: string, start: number): number {
+  const n = text.length;
+  const firstCh = cpAt(text, start);
+  let end = start + firstCh.length;
+  const first = firstCh.normalize("NFKC");
+  const firstCode = first.length === 1 ? first.charCodeAt(0) : -1;
+  let canTakeTail = firstCode >= 0xac00 && firstCode <= 0xd7a3 && (firstCode - 0xac00) % 28 === 0;
+  if (firstCode >= 0x1100 && firstCode <= 0x1112 && end < n) {
+    const vowelCh = cpAt(text, end);
+    const vowel = vowelCh.normalize("NFKC");
+    const v = vowel.length === 1 ? vowel.charCodeAt(0) : -1;
+    if (v >= 0x1161 && v <= 0x1175) {
+      end += vowelCh.length;
+      canTakeTail = true;
+    }
+  }
+  if (canTakeTail && end < n) {
+    const tailCh = cpAt(text, end);
+    const tail = tailCh.normalize("NFKC");
+    const t = tail.length === 1 ? tail.charCodeAt(0) : -1;
+    if (t >= 0x11a8 && t <= 0x11c2) end += tailCh.length;
+  }
+  while (end < n) {
+    const next = cpAt(text, end);
+    if (!hasCombiningClass(next)) break;
+    end += next.length;
+  }
+  return end;
+}
+
+/** 유니코드 폴딩 뒤 ASCII 숫자 폴딩을 적용하고 원본 offset 을 합성한다. */
+function foldNumericText(text: string, offsets: number[]): [string, number[]] {
+  const folded = foldDigitHomoglyphs(text);
+  const drop = spacedCollapsePositions(folded);
+  if (drop.size === 0) return [folded, offsets];
+  let out = "";
+  const omap: number[] = [];
+  for (let i = 0; i < folded.length; i++) {
+    if (drop.has(i)) continue;
+    out += folded[i];
+    omap.push(offsets.length > 0 ? (offsets[i] as number) : i);
+  }
+  return [out, omap];
+}
+
+export interface NormalizeOptions {
+  /** false 면 여권 S/O/G 같은 문자 그대로 둔다 (유니코드 호환 폴딩·offset 은 유지). 기본 true. */
+  foldNumeric?: boolean;
 }
 
 /**
  * NFKC 폴딩 + 보이지 않는 문자 제거.
  * Returns `[normalized, offsetMap]`. offsetMap[i] 는 normalized[i] (UTF-16 유닛)에
- * 대응하는 원본 UTF-16 위치. 변화가 없으면 normalized === text (offsetMap 은 빈 배열).
+ * 대응하는 원본 UTF-16 위치. 길이·위치가 유지되는 빠른 경로에서는 빈 배열 — 이때도 숫자
+ * 닮은꼴 폴딩으로 내용은 달라질 수 있다.
  */
-export function normalizeUnicode(text: string): [string, number[]] {
-  text = foldDigitHomoglyphs(text);
-  const dropSpaces = spacedCollapsePositions(text);
+export function normalizeUnicode(text: string, options: NormalizeOptions = {}): [string, number[]] {
+  const foldNumeric = options.foldNumeric ?? true;
   // 빠른 경로: 이미 NFKC 이고 보이지 않는/결합/폴딩/조합 자모 문자가 없으면 no-op.
   if (
-    dropSpaces.size === 0 &&
     !INVISIBLE.test(text) &&
     !COMBINING_FAST.test(text) &&
     !FOLD_DIGIT.test(text) &&
     !CONJOINING_JAMO.test(text) &&
     text.normalize("NFKC") === text
   ) {
-    return [text, []];
+    return foldNumeric ? foldNumericText(text, []) : [text, []];
   }
 
   const out: string[] = [];
   const omap: number[] = [];
   const n = text.length;
   let i = 0;
-  // Python 은 코드 포인트 단위로 순회한다. UTF-16 유닛 단위로 돌면 서로게이트 반쪽에는
-  // NFKC/CHAR_FOLD 가 적용되지 않아 아스트랄 숫자(𝟗𝟎𝟎… 수학 숫자 등)가 폴딩되지 않고
-  // 검출을 우회한다. lone surrogate 는 폭 1 로 그대로 통과한다.
-  const cpAt = (pos: number): string => {
-    const cp = text.codePointAt(pos);
-    return cp !== undefined && cp > 0xffff ? text.slice(pos, pos + 2) : text.charAt(pos);
-  };
+  let previousBaseAlpha: boolean | null = null;
+  // Python 은 코드 포인트 단위로 순회한다 — 아스트랄 숫자(𝟗 등)도 폴딩되도록 코드 포인트로 돈다.
   while (i < n) {
-    const ch = cpAt(i);
+    const ch = cpAt(text, i);
     if (INVISIBLE.test(ch)) {
       i += ch.length;
       continue;
     }
-    // 자릿수 분할 우회 구간 안의 ASCII 공백 — invisible 처럼 스킵하되 위치는 다음
-    // 글자의 원본 매핑이 덮어 redact span 이 원본 공백까지 포함한다.
-    if (ch === " " && dropSpaces.has(i)) {
-      i += 1;
-      continue;
-    }
-    // 기본 문자 + 뒤따르는 결합표시/한글 자모를 한 클러스터로 묶어 NFKC.
-    let j = i + ch.length;
-    while (j < n) {
-      const next = cpAt(j);
-      if (!hasCombiningClass(next) && !isConjoiningJamo(next)) break;
-      j += next.length;
+    // L+V(+T) 또는 LV+T 를 한 음절로 합성 (Unicode 3.12). 자모 단어 전체를 한 offset 으로
+    // 매핑하면 접미 경계가 0길이 검출이 되어 원본 이름이 남을 수 있다.
+    const j = normalizationClusterEnd(text, i);
+    const cluster = text.slice(i, j).normalize("NFKC");
+    if (previousBaseAlpha === false) {
+      let allNoise = true;
+      for (const c of cluster) {
+        if (!isConjoiningJamo(c) && !hasCombiningClass(c)) {
+          allNoise = false;
+          break;
+        }
+      }
+      if (allNoise) {
+        // 숫자 잡음 처리는 유지하되 실제 음절은 버리지 않는다.
+        i = j;
+        continue;
+      }
     }
     const baseIsAlpha = pyIsAlpha(ch);
-    for (const fc of text.slice(i, j).normalize("NFKC")) {
+    for (const fc of cluster) {
       // 숫자/기호 베이스에 남는 결합표시·조합용 자모('9001ᄀ01' 우회)는 제거.
-      // 문자 베이스(é, NFD 한글 등 정상 결합)는 보존.
       if (!baseIsAlpha && (hasCombiningClass(fc) || isConjoiningJamo(fc))) {
         continue;
       }
@@ -205,12 +278,26 @@ export function normalizeUnicode(text: string): [string, number[]] {
       // offsetMap 은 출력 UTF-16 유닛마다 한 칸 (아스트랄 출력은 2유닛).
       for (let k = 0; k < folded.length; k++) omap.push(i);
     }
+    previousBaseAlpha = baseIsAlpha;
     i = j;
   }
-  return [out.join(""), omap];
+  const normalized = out.join("");
+  return foldNumeric ? foldNumericText(normalized, omap) : [normalized, omap];
 }
 
-/** 정규화 텍스트 기준 offset 을 원본 기준으로 역매핑 + .text 원본 복원. */
+/** Python ``bisect_right``. */
+function bisectRight(arr: readonly number[], x: number): number {
+  let lo = 0;
+  let hi = arr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (x < (arr[mid] as number)) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+
+/** 정규화 텍스트 기준 offset 을 원본 기준으로 역매핑 + .text 원본 복원 (normalized=true). */
 export function remapToSource(
   detections: DetectionResult[],
   offsetMap: number[],
@@ -218,13 +305,15 @@ export function remapToSource(
 ): DetectionResult[] {
   const n = offsetMap.length;
   return detections.map((det) => {
-    // 인덱스 경계 검사를 통과했으므로 매핑값은 항상 존재한다 (offsetMap 에 구멍 없음).
-    const start = det.start < n ? (offsetMap[det.start] ?? det.start) : det.start;
-    // 검출 끝 = 다음 정규화 글자의 원본 시작 위치(마지막 클러스터의 원본 끝).
+    const start = det.start < n ? (offsetMap[det.start] as number) : det.start;
     let end: number;
-    if (det.end < n) end = offsetMap[det.end] ?? det.end;
+    // 호환 확장(ﬁ→fi 등) 안에서 끝나는 매치는 원본 글자를 통째로 덮어야 한다.
+    if (det.start < det.end && det.end > 0 && det.end <= n) {
+      const following = bisectRight(offsetMap, offsetMap[det.end - 1] as number);
+      end = following < n ? (offsetMap[following] as number) : source.length;
+    } else if (det.end < n) end = offsetMap[det.end] as number;
     else if (det.end === n) end = source.length;
     else end = det.end;
-    return { ...det, start, end, text: source.slice(start, end) };
+    return { ...det, start, end, text: source.slice(start, end), normalized: true };
   });
 }

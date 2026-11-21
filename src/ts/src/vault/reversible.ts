@@ -38,11 +38,12 @@
  */
 
 import { createHash, pbkdf2Sync, randomBytes } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { ValueError } from "../core/errors.js";
 import { pyFloatRepr } from "../core/pyFormat.js";
-import { foldNdDigits } from "../modes/unicodeDigits.js";
-import type { AuditLog } from "./audit.js";
+import { writeTextAtomic } from "../io/atomic.js";
+import { parseJsonOrdered, recordEntries } from "../io/recordOrder.js";
+import type { AuditRecordOptions } from "./audit.js";
 
 export const SCHEMA_VERSION = 1;
 
@@ -88,7 +89,7 @@ function encodeJson(value: unknown, indent: number | null, level: number): strin
     if (value.length === 0) return "[]";
     return `[${open}${value.map((v) => encodeJson(v, indent, level + 1)).join(sep)}${close}]`;
   }
-  const entries = Object.entries(value as Record<string, unknown>).filter(
+  const entries = recordEntries(value as Record<string, unknown>).filter(
     ([, v]) => v !== undefined,
   );
   if (entries.length === 0) return "{}";
@@ -121,8 +122,8 @@ export interface VaultEntryDict {
   original: string;
   risk_level: number;
   legal_basis: string | null;
-  first_seen_offset: number;
-  occurrences: number[];
+  first_seen_offset: number | bigint;
+  occurrences: (number | bigint)[];
   extra: Record<string, unknown>;
 }
 
@@ -132,7 +133,7 @@ export interface VaultDict {
   created_at: string;
   salt: string;
   fingerprint_scheme: string;
-  fingerprint_iterations: number;
+  fingerprint_iterations: number | bigint;
   entries: Record<string, VaultEntryDict>;
 }
 
@@ -144,8 +145,8 @@ export class VaultEntry {
     original: string,
     riskLevel: number,
     legalBasis: string | null = null,
-    firstSeenOffset: number = -1,
-    occurrences: number[] = [],
+    firstSeenOffset: number | bigint = -1,
+    occurrences: (number | bigint)[] = [],
     extra: Record<string, unknown> = {},
   ) {
     this.token = token;
@@ -163,8 +164,8 @@ export class VaultEntry {
   original: string;
   riskLevel: number;
   legalBasis: string | null;
-  firstSeenOffset: number;
-  occurrences: number[];
+  firstSeenOffset: number | bigint;
+  occurrences: (number | bigint)[];
   extra: Record<string, unknown>;
 
   /** Python `VaultEntry.to_dict` 대응 — token 은 제외, 필드 선언 순서 유지. */
@@ -181,22 +182,96 @@ export class VaultEntry {
   }
 }
 
+/** Python ``AuditFailurePolicy`` — 감사 기록 실패 시 처리 방침. */
+export type AuditFailurePolicy = "best_effort" | "raise";
+const AUDIT_FAILURE_POLICIES: readonly string[] = ["best_effort", "raise"];
+
+/**
+ * Vault 가 감사 로그에 요구하는 최소 계약 (Python 의 덕 타이핑 대응).
+ * `AuditLog` 가 구조적으로 만족하며, 테스트용 대체 구현도 받을 수 있다.
+ */
+export interface VaultAuditSink {
+  recordStore(token: string, label: string, opts?: AuditRecordOptions): void;
+  recordReveal(token: string, label?: string | null, opts?: AuditRecordOptions): void;
+}
+
 export interface ReversibleVaultOptions {
   /** 토큰 해시 안정화용 salt. 미지정 시 16바이트 랜덤 hex. */
   salt?: string | null;
   /** 선택 감사 로그 — 모든 store/reveal 호출이 기록된다. */
-  auditLog?: AuditLog | null;
+  auditLog?: VaultAuditSink | null;
   /** hashed/FPE 지문용 비밀 키(pepper). 미지정 시 env `KPII_FINGERPRINT_KEY`. vault JSON 에 저장되지 않는다. */
   secretKey?: string | null;
-  /** 지문 KDF 반복 횟수. 0/미지정 시 기본값 100000. */
-  fingerprintIterations?: number | null;
+  /** 지문 KDF 반복 횟수 (양의 정수). 미지정(null/undefined) 시 기본값 100000. */
+  fingerprintIterations?: number | bigint | null;
+  /**
+   * 감사 기록 실패 처리. `"best_effort"`(기본) 는 기록 실패에도 계속 진행하고,
+   * `"raise"` 는 기록 실패를 그대로 던져 store 를 되돌리고 reveal 을 막는다.
+   */
+  auditFailurePolicy?: AuditFailurePolicy;
+}
+
+/** Python `type(value) is int` 대응 — bool 은 JS 에서 별도 타입이라 자동 제외된다.
+ * JSON 의 안전 범위 밖 정수는 `bigint` 로 들어온다 (`io/recordOrder.parseJsonOrdered`).
+ * 한계: JSON `1.0` 은 JS 에서 정수 `1` 과 구분되지 않아 통과한다 (Python 은 float 로 거부). */
+function isPyInt(value: unknown): value is number | bigint {
+  return typeof value === "bigint" || (typeof value === "number" && Number.isInteger(value));
+}
+
+function positiveIterations(value: unknown): number | bigint {
+  if (!isPyInt(value) || value < 1) {
+    throw new ValueError("Invalid vault fingerprint_iterations: expected a positive integer");
+  }
+  return value;
+}
+
+function validateIdentity(label: unknown, original: unknown): [string, string] {
+  if (typeof label !== "string" || !label || /[<>\r\n]/.test(label)) {
+    throw new ValueError("Invalid vault label");
+  }
+  if (typeof original !== "string") {
+    throw new ValueError("Invalid vault original: expected a string");
+  }
+  return [label, original];
+}
+
+function validateEntryMetadata(
+  risk: unknown,
+  legal: unknown,
+  offset: unknown,
+  extra: unknown,
+): number {
+  if (!isPyInt(risk) || risk < 1 || risk > 5) throw new ValueError("Invalid vault risk_level");
+  if (legal !== null && legal !== undefined && typeof legal !== "string") {
+    throw new ValueError("Invalid vault legal_basis");
+  }
+  if (!isPyInt(offset) || offset < -1) throw new ValueError("Invalid vault offset");
+  if (!isPlainObject(extra)) throw new ValueError("Invalid vault extra: expected an object");
+  return Number(risk); // 1..5 범위 검증 후라 항상 안전한 정수
+}
+
+function validateAuditFailurePolicy(policy: unknown): asserts policy is AuditFailurePolicy {
+  if (typeof policy !== "string" || !AUDIT_FAILURE_POLICIES.includes(policy)) {
+    const allowed = [...AUDIT_FAILURE_POLICIES].sort().join(", ");
+    throw new ValueError(
+      `Unknown audit_failure_policy: ${pyRepr(policy)}; expected one of ${allowed}`,
+    );
+  }
+}
+
+/** Python `repr()` 의 최소 근사 (str → 작은따옴표, 그 외 String). 오류 메시지 전용. */
+function pyRepr(v: unknown): string {
+  if (typeof v === "string") return `'${v.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
+  if (v === null || v === undefined) return "None";
+  if (typeof v === "boolean") return v ? "True" : "False";
+  return String(v);
 }
 
 /** In-memory vault that maps tokens to original PII values.
  *
- * Tokens are deterministic per (label, original) pair so that the same value
- * receives the same token throughout a document — and across multiple runs
- * if the same `salt` is reused.
+ * Once a mapping is stored, the same `(label, original)` pair receives the
+ * same token while that Vault state is reused. New token numbers depend on
+ * insertion order; reusing only the `salt` does not reproduce token IDs.
  */
 export class ReversibleVault {
   /** 공개 salt (공개돼도 무방 — 지문 비밀 키는 저장하지 않는다). */
@@ -206,7 +281,7 @@ export class ReversibleVault {
   /** 지문 비밀 키(pepper) — Python `_secret_key` 대응. 저장되지 않으며 운영자가 재공급한다. */
   secretKey: string;
   /** 지문 KDF 반복 횟수 — Python `_fp_iterations` 대응. */
-  fpIterations: number;
+  fpIterations: number | bigint;
   /** 지문 scheme — Python `_fp_scheme` 대응. */
   fpScheme: string;
 
@@ -215,29 +290,44 @@ export class ReversibleVault {
   private readonly reverse = new Map<string, string>();
   /** label -> 다음 id. */
   private readonly counters = new Map<string, number>();
-  private auditLog: AuditLog | null;
+  private auditLog: VaultAuditSink | null;
+  private auditFailurePolicy: AuditFailurePolicy;
   /** (label, original) -> fingerprint 메모이즈. */
   private readonly fpCache = new Map<string, string>();
 
   constructor(options: ReversibleVaultOptions = {}) {
+    const policy = options.auditFailurePolicy ?? "best_effort";
+    validateAuditFailurePolicy(policy);
     this.salt = options.salt ?? randomSalt();
     this.createdAt = pyIsoUtcNow();
-    this.secretKey = options.secretKey ?? process.env.KPII_FINGERPRINT_KEY ?? "";
-    this.fpIterations = options.fingerprintIterations || DEFAULT_FP_ITERATIONS;
-    this.fpScheme = FP_SCHEME_KDF; // 신규 vault = 강화 KDF
     this.auditLog = options.auditLog ?? null;
+    this.auditFailurePolicy = policy;
+    this.secretKey = options.secretKey ?? process.env.KPII_FINGERPRINT_KEY ?? "";
+    this.fpIterations = positiveIterations(options.fingerprintIterations ?? DEFAULT_FP_ITERATIONS);
+    this.fpScheme = FP_SCHEME_KDF; // 신규 vault = 강화 KDF
   }
 
   // ------------------------------------------------------------------ token
 
   /** Return a stable token for (label, original). Creates one on first use. */
   tokenFor(label: string, original: string): string {
+    validateIdentity(label, original);
     const key = pairKey(label, original);
     const existing = this.reverse.get(key);
-    if (existing !== undefined) return existing;
-    const next = (this.counters.get(label) ?? 0) + 1;
-    this.counters.set(label, next);
-    const token = `<${label}_${next}>`;
+    if (existing !== undefined) {
+      const entry = this.entriesMap.get(existing);
+      if (
+        entry !== undefined &&
+        (entry.token !== existing || entry.label !== label || entry.original !== original)
+      ) {
+        throw new ValueError("Inconsistent vault token mapping");
+      }
+      return existing;
+    }
+    const nextId = (this.counters.get(label) ?? 0) + 1;
+    const token = `<${label}_${nextId}>`;
+    if (this.entriesMap.has(token)) throw new ValueError("Conflicting vault token mapping");
+    this.counters.set(label, nextId);
     this.reverse.set(key, token);
     return token;
   }
@@ -251,10 +341,15 @@ export class ReversibleVault {
     offset = -1,
     extra?: Record<string, unknown> | null,
   ): string {
+    validateEntryMetadata(riskLevel, legalBasis, offset, extra ?? {});
+    const key = pairKey(label, original);
+    const hadReverseMapping = this.reverse.has(key);
+    const previousCounter = this.counters.get(label);
     const token = this.tokenFor(label, original);
-    const existing = this.entriesMap.get(token);
-    const isNew = existing === undefined;
-    if (existing === undefined) {
+    const entry = this.entriesMap.get(token);
+    const isNew = entry === undefined;
+    let appendedOccurrence = false;
+    if (entry === undefined) {
       this.entriesMap.set(
         token,
         new VaultEntry(
@@ -269,14 +364,27 @@ export class ReversibleVault {
         ),
       );
     } else if (offset >= 0) {
-      existing.occurrences.push(offset);
+      entry.occurrences.push(offset);
+      appendedOccurrence = true;
     }
     if (this.auditLog !== null) {
       try {
         // 모든 store 호출 기록 (재저장 포함). new=false 면 기존 토큰 재사용.
         this.auditLog.recordStore(token, label, { extra: { new: isNew } });
-      } catch {
-        // audit failure never blocks data flow
+      } catch (err) {
+        if (this.auditFailurePolicy === "raise") {
+          if (isNew) {
+            this.entriesMap.delete(token);
+            if (!hadReverseMapping) {
+              this.reverse.delete(key);
+              if (previousCounter === undefined) this.counters.delete(label);
+              else this.counters.set(label, previousCounter);
+            }
+          } else if (appendedOccurrence) {
+            entry.occurrences.pop();
+          }
+          throw err;
+        }
       }
     }
     return token;
@@ -298,15 +406,23 @@ export class ReversibleVault {
           context: context ?? null,
           extra: { found: entry !== undefined },
         });
-      } catch {
-        // audit failure never blocks data flow
+      } catch (err) {
+        if (this.auditFailurePolicy === "raise") throw err;
       }
     }
     return entry !== undefined ? entry.original : null;
   }
 
-  /** Attach (or replace) an AuditLog after construction. */
-  attachAudit(auditLog: AuditLog): void {
+  /** Attach an audit log and optionally replace its failure policy. */
+  attachAudit(
+    auditLog: VaultAuditSink,
+    options: { failurePolicy?: AuditFailurePolicy | null } = {},
+  ): void {
+    const policy = options.failurePolicy;
+    if (policy !== undefined && policy !== null) {
+      validateAuditFailurePolicy(policy);
+      this.auditFailurePolicy = policy;
+    }
     this.auditLog = auditLog;
   }
 
@@ -353,62 +469,88 @@ export class ReversibleVault {
     return pyJsonDumps(this.toDict(), indent);
   }
 
+  /** 원자적 저장 — 실패해도 기존 파일을 잘라내지 않는다 (Python `write_text_atomic`). */
   save(path: string, indent: number | null = 2): void {
-    writeFileSync(path, this.dumps(indent), "utf8");
+    writeTextAtomic(path, this.dumps(indent));
   }
 
-  /** Unsupported schema_version 인 경우 Error 발생 (Python ValueError 대응). */
-  static fromDict(payload: Record<string, unknown>): ReversibleVault {
-    if (payload.schema_version !== SCHEMA_VERSION) {
-      throw new ValueError(`Unsupported vault schema_version: ${payload.schema_version}`);
+  /**
+   * 검증된 payload 에서 vault 를 재구성한다. 형식·타입·토큰/라벨 정합성 위반은
+   * 모두 ValueError (값을 메시지에 싣지 않는다). payload 는 변경하지 않는다.
+   */
+  static fromDict(payload: unknown): ReversibleVault {
+    if (!isPlainObject(payload)) throw new ValueError("Invalid vault: expected an object");
+    const schema = payload.schema_version;
+    if (!isPyInt(schema) || schema !== SCHEMA_VERSION) {
+      throw new ValueError("Unsupported vault schema_version");
     }
     const salt = payload.salt;
-    if (typeof salt !== "string") {
-      throw new Error(`vault payload missing salt: ${JSON.stringify(payload.salt)}`);
+    if (typeof salt !== "string") throw new ValueError("Invalid vault salt");
+    if (Object.hasOwn(payload, "created_at") && typeof payload.created_at !== "string") {
+      throw new ValueError("Invalid vault created_at");
     }
-    const v = new ReversibleVault({ salt });
-    // Python 은 값의 타입을 검사하지 않고 그대로 받는다(`payload.get(...)`) — 키 존재 여부만 본다.
-    if (Object.hasOwn(payload, "created_at")) v.createdAt = payload.created_at as string;
-    // 강화 전(legacy) vault 는 fingerprint_scheme 필드가 *없음* → SHA-256 v1 유지
-    // (불려온 vault 의 hashed/FPE 출력 일관성 보존). secret_key 는 env 에서.
-    // 필드가 있으면 null 이라도 그대로 — legacy 가 아니므로 KDF 경로를 탄다 (Python 동일).
-    v.fpScheme = Object.hasOwn(payload, "fingerprint_scheme")
-      ? (payload.fingerprint_scheme as string)
+    const scheme = Object.hasOwn(payload, "fingerprint_scheme")
+      ? payload.fingerprint_scheme
       : FP_SCHEME_LEGACY;
-    if (Object.hasOwn(payload, "fingerprint_iterations")) {
-      v.fpIterations = pyInt(payload.fingerprint_iterations); // Python int(...)
+    if (scheme !== FP_SCHEME_LEGACY && scheme !== FP_SCHEME_KDF) {
+      throw new ValueError("Unsupported vault fingerprint_scheme");
     }
+    const iterations = positiveIterations(
+      Object.hasOwn(payload, "fingerprint_iterations")
+        ? payload.fingerprint_iterations
+        : DEFAULT_FP_ITERATIONS,
+    );
     const entries = Object.hasOwn(payload, "entries") ? payload.entries : {};
-    if (!isPlainObject(entries)) {
-      // Python: `None.items()` → AttributeError
-      throw new TypeError("vault payload 'entries' must be an object");
-    }
+    if (!isPlainObject(entries)) throw new ValueError("Invalid vault entries: expected an object");
+    const v = new ReversibleVault({ salt, fingerprintIterations: iterations });
+    if (Object.hasOwn(payload, "created_at")) v.createdAt = payload.created_at as string;
+    // 강화 전(legacy) vault 는 fingerprint_scheme 필드가 없음 → SHA-256 v1 유지
+    // (불려온 vault 의 hashed/FPE 출력 일관성 보존). secret_key 는 env 에서.
+    v.fpScheme = scheme;
     for (const [token, data] of Object.entries(entries)) {
-      if (!isPlainObject(data)) throw new TypeError(`vault entry must be an object: ${token}`);
-      const d = data;
+      if (!isPlainObject(data)) throw new ValueError("Invalid vault entry");
+      const [label, original] = validateIdentity(data.label, data.original);
+      const prefix = `<${label}_`;
+      if (!token.startsWith(prefix) || !token.endsWith(">")) {
+        throw new ValueError("Vault token does not match its label");
+      }
+      const index = token.slice(prefix.length, -1);
+      if (!/^[1-9][0-9]*$/.test(index)) throw new ValueError("Invalid vault token index");
+      const num = Number(index);
+      if (v.reverse.has(pairKey(label, original))) {
+        throw new ValueError("Duplicate vault identity mapping");
+      }
+      const risk = validateEntryMetadata(
+        data.risk_level,
+        Object.hasOwn(data, "legal_basis") ? data.legal_basis : null,
+        Object.hasOwn(data, "first_seen_offset") ? data.first_seen_offset : -1,
+        Object.hasOwn(data, "extra") ? data.extra : {},
+      );
+      const occurrences = Object.hasOwn(data, "occurrences") ? data.occurrences : [];
+      if (!Array.isArray(occurrences) || occurrences.some((x) => !isPyInt(x) || x < 0)) {
+        throw new ValueError("Invalid vault occurrences");
+      }
       const entry = new VaultEntry(
         token,
-        requiredField(d, "label") as string,
-        requiredField(d, "original") as string,
-        requiredField(d, "risk_level") as number,
-        (d.legal_basis ?? null) as string | null,
-        (Object.hasOwn(d, "first_seen_offset") ? d.first_seen_offset : -1) as number,
-        pyList(d.occurrences, Object.hasOwn(d, "occurrences")) as number[],
-        pyDict(d.extra, Object.hasOwn(d, "extra")),
+        label,
+        original,
+        risk,
+        (data.legal_basis ?? null) as string | null,
+        (Object.hasOwn(data, "first_seen_offset") ? data.first_seen_offset : -1) as number | bigint,
+        [...(occurrences as (number | bigint)[])],
+        { ...((Object.hasOwn(data, "extra") ? data.extra : {}) as Record<string, unknown>) },
       );
       v.entriesMap.set(token, entry);
       v.reverse.set(pairKey(entry.label, entry.original), token);
       // Maintain counters so future stores don't collide.
-      const n = parseTokenCounter(token);
-      if (n === null) continue;
-      const cur = v.counters.get(entry.label) ?? 0;
-      if (n > cur) v.counters.set(entry.label, n);
+      v.counters.set(entry.label, Math.max(v.counters.get(entry.label) ?? 0, num));
     }
     return v;
   }
 
+  /** 중복 키·비유한 수(NaN/Infinity)를 거부하는 엄격 JSON 파싱 후 `fromDict`. */
   static loads(payload: string): ReversibleVault {
-    return ReversibleVault.fromDict(JSON.parse(payload) as Record<string, unknown>);
+    return ReversibleVault.fromDict(strictJsonLoads(payload));
   }
 
   static load(path: string): ReversibleVault {
@@ -442,7 +584,7 @@ export class ReversibleVault {
       // 비밀 키를 salt 에 결합 — 키가 vault JSON 에 없으므로, 키 없이는
       // salt 를 알아도 (label, original) 을 복원할 수 없다.
       const kdfSalt = Buffer.from(`${this.salt}:${this.secretKey}`, "utf8");
-      fp = pbkdf2Sync(material, kdfSalt, this.fpIterations, 32, "sha256").toString("hex");
+      fp = pbkdf2Sync(material, kdfSalt, Number(this.fpIterations), 32, "sha256").toString("hex");
     }
     this.fpCache.set(cacheKey, fp);
     return fp;
@@ -455,27 +597,29 @@ function pairKey(label: string, original: string): string {
   return JSON.stringify([label, original]);
 }
 
-/** Python `data[key]` 대응 — 키가 없으면 예외(KeyError), 있으면 타입 검사 없이 그대로. */
-function requiredField(d: Record<string, unknown>, key: string): unknown {
-  if (!Object.hasOwn(d, key)) throw new Error(`vault entry missing field: ${key}`);
-  return d[key];
-}
+const NON_FINITE_TOKEN = /"(?:[^"\\]|\\.)*"|(-?Infinity|NaN)/g;
 
-/** Python `list(x)` 대응 (키 없음 → []). */
-function pyList(x: unknown, present: boolean): unknown[] {
-  if (!present) return [];
-  if (Array.isArray(x)) return [...x];
-  if (typeof x === "string") return [...x];
-  if (isPlainObject(x)) return Object.keys(x);
-  throw new TypeError("object is not iterable");
-}
-
-/** Python `dict(x)` 대응 (키 없음 → {}). */
-function pyDict(x: unknown, present: boolean): Record<string, unknown> {
-  if (!present) return {};
-  if (isPlainObject(x)) return { ...x };
-  if (Array.isArray(x) && x.length === 0) return {};
-  throw new TypeError("cannot convert value to dict");
+/**
+ * Python `json.loads(payload, object_pairs_hook=_unique_json_object,
+ * parse_constant=_reject_json_constant)` 대응.
+ *
+ * - `NaN`/`Infinity`/`-Infinity` 리터럴 → "non-finite number" ValueError
+ * - 모든 깊이의 중복 객체 키 → "duplicate object key" ValueError (키 값은 메시지에 싣지 않음)
+ * - 그 밖의 구문 오류 → ValueError (Python JSONDecodeError 는 ValueError 하위형)
+ */
+export function strictJsonLoads(text: string): unknown {
+  try {
+    // 객체 키는 원본 순서 그대로 (Python dict) — 정수형 키도 앞으로 당겨지지 않는다.
+    return parseJsonOrdered(text, () => {
+      throw new ValueError("Invalid vault JSON: duplicate object key");
+    });
+  } catch (e) {
+    if (e instanceof ValueError) throw e;
+    for (const m of text.matchAll(NON_FINITE_TOKEN)) {
+      if (m[1] !== undefined) throw new ValueError("Invalid vault JSON: non-finite number");
+    }
+    throw new ValueError("Invalid vault JSON: malformed document");
+  }
 }
 
 /** Python `str.strip()`/`int()` 이 걷어내는 공백 집합. */
@@ -488,39 +632,8 @@ export function pyStrip(text: string): string {
   return text.replace(PY_WS_TRIM, "");
 }
 
-/** Python `int(str)` 리터럴 파싱 — 공백 제거, 부호, Nd 숫자(전각 등), 숫자 사이 단일 `_`. 실패 시 null. */
-function pyParseIntLiteral(text: string): number | null {
-  const t = pyStrip(text);
-  if (!/^[+-]?\p{Nd}+(?:_\p{Nd}+)*$/u.test(t)) return null;
-  return Number(foldNdDigits(t).replaceAll("_", ""));
-}
-
-/** Python `int(x)` 대응 — float 은 0 방향 절사, 문자열은 정수 리터럴, bool 은 0/1. */
-function pyInt(x: unknown): number {
-  if (typeof x === "number") {
-    if (!Number.isFinite(x)) throw new ValueError("cannot convert float NaN/infinity to integer");
-    return Math.trunc(x);
-  }
-  if (typeof x === "boolean") return x ? 1 : 0;
-  if (typeof x === "string") {
-    const n = pyParseIntLiteral(x);
-    if (n === null) throw new ValueError(`invalid literal for int() with base 10: '${x}'`);
-    return n;
-  }
-  throw new TypeError("int() argument must be a string or a real number");
-}
-
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-
-/** `<LABEL_N>` 토큰의 카운터 숫자 파싱 (Python `int(token.rsplit("_", 1)[-1].rstrip(">"))`).
- * 파싱 실패 시 null (Python ValueError → continue 대응). */
-function parseTokenCounter(token: string): number | null {
-  const cut = token.lastIndexOf("_");
-  const tail = (cut >= 0 ? token.slice(cut + 1) : token).replace(/>+$/, "");
-  // Python int() 는 앞뒤 공백·전각 숫자를 허용한다 ("<A_ 12 >" → 12, "<A_５>" → 5).
-  return pyParseIntLiteral(tail);
 }
 
 /** 16바이트 랜덤 salt hex (Python `_random_salt` 대응). */

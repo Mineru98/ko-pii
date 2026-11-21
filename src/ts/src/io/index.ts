@@ -7,6 +7,7 @@
  * 코어(ko-pii 루트 import)는 의존성 0을 유지한다.
  */
 
+export { writeBytesAtomic, writeTextAtomic } from "./atomic.js";
 export type { BoundedDocument } from "./bounded.js";
 export {
   BoundedReadError,
@@ -14,13 +15,27 @@ export {
   FileReadPolicy,
   readTextBounded,
 } from "./bounded.js";
+export type { ExtractionCoverage, PartCoverage } from "./coverage.js";
+export { DocumentExtractionError, TextExtraction } from "./coverage.js";
 export { readText as readCsvText } from "./csvReader.js";
 export { readRecords, readText, SUPPORTED_EXTENSIONS } from "./dispatcher.js";
-export { readText as readDocxText } from "./docx.js";
+export { inspectText as inspectDocxText, readText as readDocxText } from "./docx.js";
 export { readText as readHwpText } from "./hwp.js";
-export { readText as readHwpxText } from "./hwpx.js";
-export { readText as readPdfText, readTextWithMap as readPdfTextWithMap } from "./pdf.js";
-export { readText as readPlainText } from "./plain.js";
+export { inspectText as inspectHwpxText, readText as readHwpxText } from "./hwpx.js";
+export type { ReadTextIsolatedOptions } from "./isolated.js";
+export { defaultReadPolicy, readTextIsolated } from "./isolated.js";
+export type { PdfTextResult } from "./pdf.js";
+export {
+  inspectText as inspectPdfText,
+  PdfExtractionError,
+  readText as readPdfText,
+  readTextWithMap as readPdfTextWithMap,
+} from "./pdf.js";
+export { readText as readPlainText, TextDecodingError } from "./plain.js";
 export { recordEntries, recordKeys, setField } from "./recordOrder.js";
 export { normalizeForDetection, remapOffsets } from "./textNormalizer.js";
-export { readRecords as readXlsxRecords, readText as readXlsxText } from "./xlsx.js";
+export {
+  inspectText as inspectXlsxText,
+  readRecords as readXlsxRecords,
+  readText as readXlsxText,
+} from "./xlsx.js";

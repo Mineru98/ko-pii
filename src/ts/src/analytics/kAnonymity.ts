@@ -15,13 +15,14 @@
  * 원본 PII 가 아닌 *가명화 후* 레코드를 대상으로 평가하는 것이 표준 사용법.
  */
 
+import { ValueError } from "../core/errors.js";
 import { AttributeClass, classify_attribute } from "./combinedRisk.js";
 
 /** k-익명성 평가 보고서 (Python KAnonymityReport dataclass 대응).
  * 필드명은 JSON 직렬화 골드 대조를 위해 스네이크케이스 유지.
  */
 export interface KAnonymityReport {
-  /** 최소 그룹 크기 (= k). */
+  /** 최소 그룹 크기 (= k). 미평가(준식별자 없음)이면 0. */
   k: number;
   group_count: number;
   smallest_group_size: number;
@@ -67,7 +68,7 @@ function pyListRepr(items: readonly string[]): string {
 let nanCounter = 0;
 
 /** 그룹 키 — Python tuple 해시/동등성 대응.
- * - 누락 키(undefined)와 null 은 Python `rec.get(k)` 의 None 과 같이 동일 그룹.
+ * - null(undefined 포함)은 Python None 과 같이 동일 그룹.
  * - Python 은 ``1 == True == 1.0``, ``0 == False`` 이므로 boolean 은 숫자로 접는다.
  * - 문자열 ``"1"`` 과 숫자 ``1`` 은 다른 그룹.
  * - 배열·객체는 Python 의 list/dict 처럼 해시 불가 → TypeError.
@@ -103,15 +104,29 @@ function sortedStrings(values: ReadonlySet<string>): string[] {
  *   일치하는 PII 카테고리.
  * @param quasi_keys
  *   준식별자로 간주할 키 목록. `null`/`undefined` 이면 `classify_attribute` 로
- *   QUASI_IDENTIFIER 인 것만 자동 선택 (사전순 정렬).
+ *   QUASI_IDENTIFIER 인 것만 자동 선택 (사전순 정렬). 선택한 열은 모든 행에 있어야 한다.
+ *   키가 없으면 미평가(k=0, satisfies_threshold=false)를 반환한다.
  * @param threshold
- *   만족 기준 k 값 (기본 5, 가이드라인 권장).
+ *   만족 기준 k 값 (양의 정수, 기본 5). 용도별 기준은 호출자가 결정한다.
  */
 export function k_anonymity(
   records: Iterable<Record<string, unknown>>,
   quasi_keys?: string[] | null,
   threshold = 5,
 ): KAnonymityReport {
+  if (typeof threshold !== "number" || !Number.isInteger(threshold) || threshold < 1) {
+    throw new ValueError("threshold must be a positive integer");
+  }
+  if (quasi_keys !== null && quasi_keys !== undefined) {
+    if (
+      !Array.isArray(quasi_keys) ||
+      quasi_keys.some((key) => typeof key !== "string" || !key) ||
+      new Set(quasi_keys).size !== quasi_keys.length
+    ) {
+      throw new ValueError("quasi_keys must be a list of distinct non-empty column names");
+    }
+    quasi_keys = [...quasi_keys];
+  }
   const record_list: Record<string, unknown>[] = Array.from(records, (r) => ({
     ...r,
   }));
@@ -143,27 +158,35 @@ export function k_anonymity(
   }
 
   if (keys.length === 0) {
-    const n = record_list.length;
     return {
-      k: n,
-      group_count: 1,
-      smallest_group_size: n,
+      k: 0,
+      group_count: 0,
+      smallest_group_size: 0,
       smallest_group_values: [],
       quasi_identifier_keys: [],
-      record_count: n,
-      satisfies_threshold: true,
+      record_count: record_list.length,
+      satisfies_threshold: false,
       threshold,
-      rationale: ["준식별자가 없어 k-익명성은 무한대"],
+      rationale: ["준식별자가 없어 평가하지 않음; k=0은 미평가 표시"],
     };
   }
 
   const quasiKeys = keys;
   const groups = new Map<string, { values: unknown[]; count: number }>();
   for (const rec of record_list) {
-    // Python rec.get(k): 자기 키만 보고 누락은 None. `rec[k]` 는 프로토타입 체인("constructor",
-    // "toString" 등 → Function)까지 조회하므로 Object.hasOwn 으로 막고, 누락은 null(=None)로 둔다.
-    const values = quasiKeys.map((k) => (Object.hasOwn(rec, k) ? (rec[k] ?? null) : null));
-    const hash = groupKey(values);
+    // Python `k not in rec`: 자기 키만 본다. `rec[k]` 는 프로토타입 체인("constructor",
+    // "toString" 등 → Function)까지 조회하므로 Object.hasOwn 으로 막는다.
+    if (quasiKeys.some((k) => !Object.hasOwn(rec, k))) {
+      throw new ValueError("quasi-identifier columns must be present in every record");
+    }
+    const values = quasiKeys.map((k) => rec[k] ?? null);
+    let hash: string;
+    try {
+      hash = groupKey(values);
+    } catch (e) {
+      if (e instanceof TypeError) throw new ValueError("quasi-identifier values must be hashable");
+      throw e;
+    }
     const g = groups.get(hash);
     if (g !== undefined) {
       g.count += 1;

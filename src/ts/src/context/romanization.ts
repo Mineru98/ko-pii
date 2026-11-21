@@ -14,6 +14,7 @@
  * - `alternativeRomanizations(hangul)` — 변형 표기 후보 ["Hong Gildong",
  *   "Hong Gil-dong", "Hong Gil Dong", "HONG Gildong", ...]
  */
+import { pySplitWs } from "../core/strUtils.js";
 import { surnamePrefixLen } from "../dictionaries/index.js";
 
 // 초성 (19)
@@ -117,11 +118,7 @@ function capitalize(s: string): string {
 
 /** Python `"a b".split()` 동등 — 연속 공백을 하나로 묶고 앞뒤 공백을 버린다. */
 function pySplitWords(s: string): string[] {
-  const trimmed = s.trim();
-  if (!trimmed) {
-    return [];
-  }
-  return trimmed.split(/\s+/);
+  return pySplitWs(s);
 }
 
 /** 한글 이름을 로마자 표기로 변환 (성 한 글자 + 이름).

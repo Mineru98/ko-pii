@@ -9,7 +9,7 @@
  */
 import { ValueError } from "../core/errors.js";
 import type { DetectionResult } from "../core/types.js";
-import { applySubstitutions } from "./apply.js";
+import { applySubstitutions, prepareDetections } from "./apply.js";
 
 const LABEL_TO_HANGUL = new Map<string, string>([
   ["RRN", "주민등록번호"],
@@ -69,6 +69,7 @@ export function redact(
   if (style !== "label" && style !== "asterisk" && style !== "fixed") {
     throw new ValueError(`Unknown redact style: ${style}`);
   }
+  const list = prepareDetections(text, detections);
 
   const replace = (d: DetectionResult): string => {
     if (style === "label") return `[${labelToHangul(d.label)}]`;
@@ -80,5 +81,5 @@ export function redact(
     return "***";
   };
 
-  return applySubstitutions(text, detections, replace);
+  return applySubstitutions(text, list, replace);
 }

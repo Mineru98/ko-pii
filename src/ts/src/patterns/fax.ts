@@ -6,13 +6,17 @@
  * 키워드가 12자 이내 앞에 있을 때만 FAX 로 분류한다.
  */
 
+import { cpWindowBefore, PY_S_CHARS } from "../core/strUtils.js";
 import { type DetectionResult, makeDetection, RiskLevel } from "../core/types.js";
 
 const LABEL = "FAX";
 const LEGAL_BASIS = "개인정보보호법 제2조";
 const CATEGORY = "일반개인정보";
 
-const PATTERN = /(?<![0-9+])(0[0-9]{1,2})[-.\s]?([0-9]{3,4})[-.\s]?([0-9]{4})(?![0-9])/g;
+const PATTERN = new RegExp(
+  String.raw`(?<![0-9+])(0\p{Nd}{1,2})[-.${PY_S_CHARS}]?(\p{Nd}{3,4})[-.${PY_S_CHARS}]?(\p{Nd}{4})(?![0-9])`,
+  "gu",
+);
 
 // FP 위험으로 제거된 키워드:
 //   - "F."   : 알파벳 약자 "Grade F." 등과 충돌
@@ -21,7 +25,7 @@ const PATTERN = /(?<![0-9+])(0[0-9]{1,2})[-.\s]?([0-9]{3,4})[-.\s]?([0-9]{4})(?!
 const KEYWORDS: readonly string[] = ["팩스", "FAX", "fax", "Fax"];
 
 function hasKeywordBefore(text: string, start: number, window = 12): string | null {
-  const head = text.slice(Math.max(0, start - window), start);
+  const head = cpWindowBefore(text, start, window);
   for (const kw of KEYWORDS) {
     if (head.includes(kw)) return kw;
   }
@@ -49,7 +53,7 @@ export function detect(text: string): DetectionResult[] {
         legal_basis: LEGAL_BASIS,
         extra: {
           prefix,
-          digits_only: raw.replace(/\D/g, ""),
+          digits_only: raw.replace(/\P{Nd}/gu, ""),
           category: CATEGORY,
         },
       }),

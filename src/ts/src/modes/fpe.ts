@@ -4,11 +4,11 @@
  * 원본 PII 와 *같은 구조* (자릿수·구분자 위치·하이픈) 를 유지하면서 값만 바꾼다.
  * 데이터 분석·통계 호환성이 필요할 때 사용 (예: RRN 컬럼 길이·체크섬 형태 유지).
  *
- * - 결정적: 같은 입력 + 같은 vault salt → 같은 출력
- * - 가역적이지는 않음 (rainbow table 공격 회피). 복원이 필요하면 ``tokenize`` 사용.
+ * - 결정적: 같은 입력 + 같은 Vault 지문 설정(키·salt·scheme·반복 횟수) → 같은 출력
+ * - 원문은 Vault에 저장된다. 출력의 형식만으로 원문을 복원하는 암호 방식은 아니다.
  *
  * 알고리즘:
- * 1. ``(label, original)`` 의 salted SHA-256 fingerprint 를 얻는다.
+ * 1. ``(label, original)`` 의 Vault fingerprint 를 얻는다 (신규 기본값: PBKDF2).
  * 2. fingerprint 를 카테고리별 길이·형식에 맞춰 변환:
  *    - 숫자 자릿: hex → digit (mod 10)
  *    - 알파벳: A-Z 범위 매핑
@@ -18,6 +18,9 @@
  * 본 모듈은 *진정한 FPE* (FF1/FF3) 가 아니라 **형식 보존 결정적 매핑** — 길이와
  * 구조만 보존. 강한 암호학적 가역성이 필요하면 별도 FF1 구현 필요.
  *
+ * 비표준 숫자 표기는 정규화되므로 길이·구분자가 바뀔 수 있다. 지원하지 않는 형식이나
+ * 변환 후 값이 그대로인 경우에는 원문 길이의 별표로 전체 마스킹한다.
+ *
  * Legal basis: 「가명정보 처리 가이드라인」 (개인정보보호위원회) — 형식 보존
  * 가명화는 데이터 효용 보존을 위한 권장 기법.
  *
@@ -25,13 +28,26 @@
  * 은 ``BigInt("0x" + fp)`` 로, ``val //= k`` 는 BigInt 나눗셈(절사)으로 옮긴다.
  */
 
-import { computeCheckDigit, luhnComputeCheckDigit } from "../checksum/index.js";
-import { IndexError, ValueError } from "../core/errors.js";
-import { pyIsAlpha, pyIsAscii } from "../core/strUtils.js";
+import {
+  computeCheckDigit,
+  computeFrnCheckDigit,
+  luhnComputeCheckDigit,
+} from "../checksum/index.js";
+import { ValueError } from "../core/errors.js";
+import { pyIsAlpha, pyIsAscii, pyIsDigit } from "../core/strUtils.js";
 import type { DetectionResult } from "../core/types.js";
+import { normalizeUnicode } from "../core/unicodeNorm.js";
 import { ReversibleVault } from "../vault/reversible.js";
-import { applySubstitutions } from "./apply.js";
-import { codePoints, cpLength, keepDigits, ndToNumber, pyStrIsDigit } from "./unicodeDigits.js";
+import { applySubstitutions, prepareDetections } from "./apply.js";
+import { isModernPassportNumber, splitLiteralEmail } from "./literalShapes.js";
+import {
+  codePoints,
+  cpLength,
+  keepDigits,
+  ndToNumber,
+  PY_WS,
+  pyStrIsDigit,
+} from "./unicodeDigits.js";
 import type { ModesVault } from "./vault.js";
 
 /** Convert hex fingerprint into ``n`` decimal digits. */
@@ -99,8 +115,12 @@ function hangulFromHash(fp: string, n: number): string {
   return out.join("");
 }
 
-/** RRN: 13자리, 6-7 사이 하이픈, 7번째 자리(gender) 유지. */
-function fpeRrn(original: string, fp: string): string {
+/** Preserve the 13-digit shape and gender digit, not a valid birth date. */
+function fpeRegistration(
+  original: string,
+  fp: string,
+  checkDigit: (twelve: string) => number,
+): string {
   // Python 은 코드 포인트 단위 — 아스트랄 Nd(수학 숫자 등)도 한 자리로 센다.
   const digits = codePoints(keepDigits(original));
   if (digits.length !== 13) return digitsFromHash(fp, digits.length);
@@ -112,7 +132,7 @@ function fpeRrn(original: string, fp: string): string {
   const newFirst12 = `${frontNew}${gender}${backPartial}`;
   let check: number;
   try {
-    check = rrnCheckDigitNd(newFirst12);
+    check = checkDigit(newFirst12);
   } catch {
     check = 0;
   }
@@ -123,20 +143,24 @@ function fpeRrn(original: string, fp: string): string {
     : newFull.join("");
 }
 
+function fpeRrn(original: string, fp: string): string {
+  return fpeRegistration(original, fp, rrnCheckDigitNd);
+}
+
+function fpeFrn(original: string, fp: string): string {
+  return fpeRegistration(original, fp, computeFrnCheckDigit);
+}
+
 /**
  * 숫자만 새 값으로 바꾸고 원본의 구분자(비숫자 문자)는 제자리에 유지한다.
- * Python ``_fpe_phone``/``_fpe_card`` 말미의 재조합 루프 공통.
+ * Python ``_fpe_phone``/``_fpe_card`` 말미의 재조합 루프 공통 (``ch.isdecimal()`` = Nd).
  */
 function rebuildPreservingSeparators(original: string, newDigits: readonly string[]): string {
   const chars: string[] = [];
   let di = 0;
   for (const ch of original) {
-    // Python ``ch.isdigit()`` — ``\d``(Nd) 보다 넓다(``²``·``①``). 자릿수는 Nd 로만 셌으므로
-    // isdigit 문자가 더 많으면 Python 은 IndexError 를 낸다 — 동일하게 예외로 맞춘다.
-    if (pyStrIsDigit(ch)) {
-      const nd = newDigits[di];
-      if (nd === undefined) throw new IndexError("string index out of range");
-      chars.push(nd);
+    if (pyIsDigit(ch)) {
+      chars.push(newDigits[di] ?? "");
       di += 1;
     } else {
       chars.push(ch);
@@ -145,10 +169,16 @@ function rebuildPreservingSeparators(original: string, newDigits: readonly strin
   return chars.join("");
 }
 
+// A typed field may contain prose. Only numeric formatting may survive.
+// Python ``[0-9]`` 는 ASCII, ``\s`` 는 유니코드 공백.
+const PHONE_SHAPE = new RegExp(`^\\+?(?:[0-9().\\[\\]-]|${PY_WS})+$`, "u");
+const CARD_SHAPE = new RegExp(`^(?:[0-9. /-]|${PY_WS})+$`, "u");
+
 /** 전화: 자릿수·구분자·prefix 유지. 010/02/031 등은 보존. */
 function fpePhone(original: string, fp: string): string {
   const digits = keepDigits(original);
   const digitCps = codePoints(digits);
+  if (!PHONE_SHAPE.test(original) || digitCps.length < 7 || digitCps.length > 15) return original;
   if (digitCps.length < 9) return digitsFromHash(fp, digitCps.length);
   // 통신사·지역 prefix 보존 (식별과 무관한 *통계* 정보)
   let prefixLen: number;
@@ -188,7 +218,7 @@ function fpePhone(original: string, fp: string): string {
 /** 카드: BIN(첫 6자리) 보존 + 마지막 자리 Luhn 재계산. */
 function fpeCard(original: string, fp: string): string {
   const digits = codePoints(keepDigits(original));
-  if (digits.length < 13) return digitsFromHash(fp, digits.length);
+  if (!CARD_SHAPE.test(original) || digits.length < 13 || digits.length > 19) return original;
   const binPart = digits.slice(0, 6).join("");
   const body = digitsFromHash(fp, digits.length - 6 - 1);
   const partial = binPart + body;
@@ -204,23 +234,27 @@ function fpeCard(original: string, fp: string): string {
 
 /** 이메일: 도메인은 그대로, 로컬 부분만 무작위 영숫자. */
 function fpeEmail(original: string, fp: string): string {
-  if (!original.includes("@")) return original;
-  const at = original.indexOf("@");
-  const local = original.slice(0, at);
-  const domain = original.slice(at + 1);
+  const parts = splitLiteralEmail(original);
+  // The shared caller replaces unsupported values with a full mask.
+  if (parts === null) return original;
+  const [local, domain] = parts;
   const localLen = cpLength(local); // Python len() — 코드 포인트 수
   const newLocal = alphaFromHash(fp, Math.max(4, localLen)).toLowerCase().slice(0, localLen);
   return `${newLocal}@${domain}`;
 }
 
-/** 여권: prefix(M/S/PP 등) 유지, 8자리 숫자만 변경. */
+/** Preserve the prefix and supported numeric/alphanumeric serial shape. */
 function fpePassport(original: string, fp: string): string {
-  // Python ``\d`` 는 Nd(전각 포함), ``$`` 는 끝의 개행 직전에도 매칭한다.
-  const m = /^([A-Z]{1,2})(\p{Nd}+)\n?$/u.exec(original);
+  if (isModernPassportNumber(original)) {
+    const digits = digitsFromHash(fp, 7);
+    return `${original[0]}${digits.slice(0, 3)}${alphaFromHash(fp, 1)}${digits.slice(3)}`;
+  }
+  // Python ``re.fullmatch(r"([A-Z]{1,2})([0-9]+)")`` — ASCII 숫자, 끝 개행 불허.
+  const m = /^([A-Z]{1,2})([0-9]+)$/.exec(original);
   if (!m) return original;
   const prefix = m[1] ?? "";
   const digits = m[2] ?? "";
-  return prefix + digitsFromHash(fp, cpLength(digits));
+  return prefix + digitsFromHash(fp, digits.length);
 }
 
 /** ``_FPE_BY_LABEL`` 에 없는 라벨의 기본 변환 (Python ``_fpe_default`` 대응). */
@@ -245,6 +279,8 @@ export function fpeDefault(original: string, fp: string): string {
       const mapped = alphaPool.charAt(ai);
       chars.push(ch >= "A" && ch <= "Z" ? mapped : mapped.toLowerCase());
       ai += 1;
+    } else if (pyIsAlpha(ch)) {
+      chars.push("*");
     } else {
       chars.push(ch); // 구분자 등은 그대로
     }
@@ -255,13 +291,41 @@ export function fpeDefault(original: string, fp: string): string {
 /** 라벨별 FPE 변환 함수 테이블 (Python ``_FPE_BY_LABEL`` 대응). */
 export const FPE_BY_LABEL = new Map<string, (original: string, fp: string) => string>([
   ["RRN", fpeRrn],
-  ["FRN", fpeRrn],
+  ["FRN", fpeFrn],
   ["PHONE", fpePhone],
   ["FAX", fpePhone],
   ["CARD", fpeCard],
   ["EMAIL", fpeEmail],
   ["PASSPORT", fpePassport],
 ]);
+
+/** 정규화(NFKC 대신 normalizeUnicode)를 공유하는 숫자형 라벨. */
+const NORMALIZED_LABELS: ReadonlySet<string> = new Set([
+  "RRN",
+  "FRN",
+  "PHONE",
+  "FAX",
+  "CARD",
+  "ACCOUNT",
+]);
+
+/**
+ * Share normalization and fail-closed fallback across every FPE entry point
+ * (Python ``_pseudonymize_value``). 결과가 비었거나 원문/정규화 값과 같으면 원문
+ * 길이(코드 포인트)의 별표로 전체 마스킹한다.
+ */
+export function pseudonymizeValue(label: string, original: string, fp: string): string {
+  // Numeric homoglyph folding must not rewrite an email's domain letters.
+  const normalized = NORMALIZED_LABELS.has(label)
+    ? normalizeUnicode(original)[0]
+    : original.normalize("NFKC");
+  const fn = FPE_BY_LABEL.get(label) ?? fpeDefault;
+  const result = fn(normalized, fp);
+  if (!result || result === original || result === normalized) {
+    return "*".repeat(cpLength(original));
+  }
+  return result;
+}
 
 /**
  * Replace each detection with a format-preserving pseudo-value.
@@ -286,13 +350,13 @@ export function fpe(
   detections: Iterable<DetectionResult>,
   vault?: ModesVault | null,
 ): [string, ModesVault] {
+  // 원문 결속 검증을 지문·Vault 기록보다 먼저 — 실패 시 Vault 는 변경되지 않는다.
+  const list = prepareDetections(text, detections);
   const v: ModesVault = vault ?? new ReversibleVault();
-  const list = [...detections];
 
   const replace = (d: DetectionResult): string => {
     const fp = v.fingerprint(d.label, d.text);
-    const fn = FPE_BY_LABEL.get(d.label) ?? fpeDefault;
-    const newValue = fn(d.text, fp);
+    const newValue = pseudonymizeValue(d.label, d.text, fp);
     // Store the mapping for audit
     v.store(d.label, d.text, d.riskLevel, d.legal_basis, d.start, {
       ...d.extra,

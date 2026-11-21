@@ -3,9 +3,9 @@
  * 재현한 서브셋. 외부 의존성 없음 (라이브러리 코어 "의존성 0" 유지).
  *
  * 지원: positional (nargs="?" / "*"), long/short 옵션, `--flag=value` /
- * `--flag value` / `-fVALUE` 결합, choices, type=int, store_true,
- * nargs="?" const, action="version", -h/--help, 약어 매칭(--lab → --labels),
- * `--` 구분자, 음수 positional.
+ * `--flag value` / `-fVALUE` 결합, choices, type=int/float, store_true,
+ * nargs="?" const, action="append", action="version", required, metavar,
+ * -h/--help, 약어 매칭(--lab → --labels), `--` 구분자, 음수 positional.
  *
  * stdout/stderr/종료 코드 1:1 목표로 CPython 3.12.14 실측에 맞춰 포맷한다:
  * - 오류: stderr 에 `usage: ...\nko-pii: error: <msg>\n` 후 코드 2
@@ -36,6 +36,22 @@ export function pyRepr(s: string): string {
 export function pyInt(s: string): number | null {
   const t = s.trim();
   if (!/^[+-]?[0-9](_?[0-9])*$/.test(t)) return null;
+  return Number(t.replaceAll("_", ""));
+}
+
+/** Python float("...") — 주변 공백·언더스코어·inf/nan 허용. 실패 시 null. */
+export function pyFloat(s: string): number | null {
+  const t = s.trim();
+  const special = /^([+-]?)(inf|infinity|nan)$/i.exec(t);
+  if (special !== null) {
+    if (special[2]!.toLowerCase() === "nan") return Number.NaN;
+    return special[1] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
+  }
+  const digits = "[0-9](?:_?[0-9])*";
+  const re = new RegExp(
+    `^[+-]?(?:${digits}(?:\\.(?:${digits})?)?|\\.${digits})(?:[eE][+-]?${digits})?$`,
+  );
+  if (!re.test(t)) return null;
   return Number(t.replaceAll("_", ""));
 }
 
@@ -199,6 +215,14 @@ export interface ArgSpec {
   def?: unknown;
   choices?: readonly string[];
   isInt?: boolean;
+  /** type=float. */
+  isFloat?: boolean;
+  /** action="append" — 값마다 목록에 추가 (기본값 목록은 복사해 쓴다). */
+  append?: boolean;
+  /** required=True (옵션). positional 은 nargs 미지정이면 항상 필수. */
+  required?: boolean;
+  /** usage/help 에 dest 대신 쓰는 이름. */
+  metavar?: string;
   /** action="version" — 지정 시 해당 옵션이 출력할 문자열. */
   versionText?: string;
   help?: string;
@@ -239,16 +263,19 @@ export class ArgumentParser {
 
   /** 옵션 하나의 usage 토큰 (예: `[-m {A,B}]`, `[--labels]`). */
   private optionalPart(a: Action): string {
-    if (a.isFlag || a.versionText !== undefined) return `[${a.optionStrings![0]!}]`;
-    const argsString = this.metavarString(a, a.dest.toUpperCase());
-    return `[${a.optionStrings![0]!} ${argsString}]`;
+    const part =
+      a.isFlag || a.versionText !== undefined
+        ? a.optionStrings![0]!
+        : `${a.optionStrings![0]!} ${this.metavarString(a, a.metavar ?? a.dest.toUpperCase())}`;
+    return a.required ? part : `[${part}]`;
   }
 
   /** positional 하나의 usage 토큰 (예: `[input]`, `[extra_inputs ...]`). */
   private positionalPart(a: Action): string {
-    if (a.nargs === "opt") return `[${a.dest}]`;
-    if (a.nargs === "star") return `[${a.dest} ...]`;
-    return a.dest;
+    const name = a.metavar ?? a.dest;
+    if (a.nargs === "opt") return `[${name}]`;
+    if (a.nargs === "star") return `[${name} ...]`;
+    return name;
   }
 
   /** help/usage 메타변수 — choices 면 `{...}`, nargs="opt" 면 `[M]`, 아니면 M. */
@@ -299,9 +326,9 @@ export class ArgumentParser {
 
   /** help 항목 왼쪽 열 (예: `-m {A,B}, --mode {A,B}`). */
   private invocation(a: Action): string {
-    if (a.positional) return a.dest;
+    if (a.positional) return a.metavar ?? a.dest;
     if (a.isFlag || a.versionText !== undefined) return a.optionStrings!.join(", ");
-    const argsString = this.metavarString(a, a.dest.toUpperCase());
+    const argsString = this.metavarString(a, a.metavar ?? a.dest.toUpperCase());
     return a.optionStrings!.map((os) => `${os} ${argsString}`).join(", ");
   }
 
@@ -383,7 +410,7 @@ export class ArgumentParser {
   }
 
   private actionName(a: Action): string {
-    if (a.positional) return a.dest;
+    if (a.positional) return a.metavar ?? a.dest;
     return a.optionStrings!.join("/");
   }
 
@@ -447,6 +474,12 @@ export class ArgumentParser {
         this.error(`argument ${this.actionName(a)}: invalid int value: ${pyRepr(arg)}`);
       }
       value = n;
+    } else if (a.isFloat) {
+      const n = pyFloat(arg);
+      if (n === null) {
+        this.error(`argument ${this.actionName(a)}: invalid float value: ${pyRepr(arg)}`);
+      }
+      value = n;
     }
     if (a.choices !== undefined && !a.choices.includes(value as string)) {
       this.error(
@@ -475,7 +508,11 @@ export class ArgumentParser {
   parseArgs(argv?: string[]): Record<string, unknown> {
     const args = argv ?? process.argv.slice(2);
     const ns: Record<string, unknown> = {};
-    for (const a of this.actions) ns[a.dest] = a.def !== undefined ? a.def : null;
+    for (const a of this.actions) {
+      const def = a.def !== undefined ? a.def : null;
+      ns[a.dest] = a.append && Array.isArray(def) ? [...def] : def;
+    }
+    const seenActions = new Set<Action>();
 
     // 패턴 구성: 'O'=옵션, 'A'=인자, '-'='--' 구분자(이후 전부 'A')
     const optionIndices = new Map<
@@ -514,6 +551,15 @@ export class ArgumentParser {
     const takeAction = (a: Action, values: string[], optionString?: string): void => {
       if (a.dest === "help") throw new ParseExit(this.formatHelp(), 0, "stdout");
       if (a.versionText !== undefined) throw new ParseExit(`${a.versionText}\n`, 0, "stdout");
+      seenActions.add(a);
+      if (a.append) {
+        // Python _AppendAction: 기본 목록을 복사한 뒤 추가 (None 이면 새 목록)
+        const current = ns[a.dest];
+        const items = Array.isArray(current) ? [...current] : [];
+        items.push(this.getValues(a, values));
+        ns[a.dest] = items;
+        return;
+      }
       ns[a.dest] = a.isFlag ? true : this.getValues(a, values);
       void optionString;
     };
@@ -612,6 +658,13 @@ export class ArgumentParser {
     const stop = consumePositionals(start);
     for (let i = stop; i < args.length; i++) extras.push(args[i]!);
 
+    // Python 3.12: 필수 인자 누락 검사가 unrecognized 검사보다 먼저 (parse_known_args 내부).
+    const missing = this.actions
+      .filter((a) => (a.required || (a.positional && a.nargs === undefined)) && !seenActions.has(a))
+      .map((a) => this.actionName(a));
+    if (missing.length > 0) {
+      this.error(`the following arguments are required: ${missing.join(", ")}`);
+    }
     if (extras.length > 0) {
       this.error(`unrecognized arguments: ${extras.join(" ")}`);
     }

@@ -17,28 +17,37 @@ export {
   k_anonymity,
   score_combined_risk,
 } from "./analytics/index.js";
-export type { AnonymizationResult, DetectionRecord } from "./anonymizer.js";
+export type { AnonymizationResult, AnonymizerOptions, DetectionRecord } from "./anonymizer.js";
 export { Anonymizer, blockedItems, reviewItems } from "./anonymizer.js";
 export type { ModePolicy } from "./core/modes.js";
 export { Action, ProcessingMode, policyFor } from "./core/modes.js";
 export { resolveOverlaps } from "./core/overlap.js";
+export type { OverlapTraceReport } from "./core/trace.js";
+export { OverlapTrace, validateTraceLimit } from "./core/trace.js";
 export type { DetectionResult } from "./core/types.js";
 // 핵심 데이터 타입
 export { makeDetection, RiskLevel } from "./core/types.js";
 export { needsNormalization, normalizeUnicode, remapToSource } from "./core/unicodeNorm.js";
+export { validatedDetection } from "./core/validation.js";
 // 검출
 export type { DetectAllOptions, Detector } from "./detect.js";
-export { DETECTORS, detectAll } from "./detect.js";
+export { DETECTORS, detectAll, detectCandidates } from "./detect.js";
+// 명시적 타입 선택자 (Python __all__: EACH / FieldRule)
+export type { FieldPathSegment, FieldRuleReport } from "./fieldRules.js";
+export { EACH, FieldRule } from "./fieldRules.js";
 // integrations (Python __all__: SecondaryDetector / MockSecondaryDetector / MergeMode /
 // merge_detections — get_privacy_filter_adapter 는 torch 의존이라 Python 전용)
 export type { SecondaryDetector } from "./integrations/index.js";
 export {
+  CallableDetector,
   DEFAULT_ROLE_SPLIT_LABELS,
+  LiteralDetector,
   MergeMode,
   MockSecondaryDetector,
   mergeDetections,
+  RegexDetector,
 } from "./integrations/index.js";
-export { ALL_LABELS, GROUPS, LABEL_INFO } from "./labels.js";
+export { ALL_LABELS, GROUPS, LABEL_INFO, validateLabelFilter } from "./labels.js";
 // 가명화 (Python __init__.py: tokenize / redact / hashed / partial / mask_value / fpe)
 export {
   applySubstitutions,
@@ -49,6 +58,9 @@ export {
   redact,
   tokenize,
 } from "./modes/index.js";
+export { isPersonExcluded, normalizeExclusions } from "./patterns/person.js";
+// 이식 가능한 처리 설정 (Python __all__: PolicyProfile)
+export { PolicyProfile } from "./profile.js";
 // streaming (Python __all__: PreForwardAnonymizer / StreamBuffer*)
 export type { PreForwardAnonymizerOptions } from "./streaming.js";
 export {
@@ -57,7 +69,21 @@ export {
   StreamBufferLimitExceeded,
   StreamBufferStatus,
 } from "./streaming.js";
+// 구조화 JSON (Python __all__: anonymize_json / anonymize_jsonl / loads_json / StructuredLimits / StructuredResult)
+export type {
+  AnonymizeJsonOptions,
+  StructuredField,
+  StructuredLimitsOptions,
+} from "./structured.js";
+export {
+  anonymizeJson,
+  anonymizeJsonl,
+  loadsJson,
+  StructuredLimits,
+  StructuredResult,
+} from "./structured.js";
 export { isEncryptedFile, loadEncrypted, saveEncrypted } from "./vault/encrypted.js";
 // Vault
+export type { AuditFailurePolicy } from "./vault/index.js";
 export { AuditLog, ReversibleVault, replay, VaultEntry } from "./vault/index.js";
 export { VERSION } from "./version.js";

@@ -15,10 +15,12 @@
  * - ``names_to_add.txt`` — FN 으로 표시된 이름들
  * - ``summary.json`` — 통계
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { ValueError } from "../core/errors.js";
+import { writeTextAtomic } from "../io/atomic.js";
 import { compareCodePoints } from "../reporting/summary.js";
-import { pyJsonDumps } from "../vault/reversible.js";
+import { pyJsonDumps, pyStrip } from "../vault/reversible.js";
 import { ReviewQueue } from "./queue.js";
 
 /** Python `FeedbackSummary` dataclass 대응 — 필드명/순서 동일 유지. */
@@ -38,11 +40,25 @@ export interface FeedbackSummary {
  * @param minRepeat 같은 토큰이 ``minRepeat`` 회 이상 FP 마킹되어야 후보로 등록
  *   (오류 표시 한 번에 사전이 오염되는 것 방지).
  */
+/** Python ``str.splitlines()`` 의 줄 경계 (\n \r \r\n \v \f \x1c-\x1e \x85 U+2028 U+2029). */
+// 제어 문자를 정규식 리터럴에 쓰지 않으려고 문자열로 조립한다 (biome noControlCharactersInRegex).
+const PY_LINE_BREAK_CHARS = "\\n\\r\\v\\f\\x1c-\\x1e\\x85\\u2028\\u2029";
+const PY_LINE_BREAK = new RegExp(`\\r\\n|[${PY_LINE_BREAK_CHARS}]`);
+
+function pySplitlinesCount(s: string): number {
+  const parts = s.split(PY_LINE_BREAK);
+  if (parts[parts.length - 1] === "") parts.pop();
+  return parts.length;
+}
+
 export function applyFeedback(
   queuePath: string,
   outputDir: string,
   minRepeat = 2,
 ): FeedbackSummary {
+  if (typeof minRepeat !== "number" || !Number.isInteger(minRepeat) || minRepeat < 1) {
+    throw new ValueError("min_repeat must be a positive integer");
+  }
   const q = new ReviewQueue(queuePath);
   const items = q.all();
 
@@ -90,31 +106,32 @@ export function applyFeedback(
     .map(([k]) => k.slice(1 + "PERSON".length))
     .sort(compareCodePoints);
 
+  // 소유 출력은 항상 교체한다 — 철회 후 빈 결과도 포함. 여러 줄 값은 한 줄당 제외어 하나로
+  // 안전하게 표현할 수 없다.
+  for (const values of [personFps, summary.name_candidates]) {
+    if (
+      values.some(
+        (value) =>
+          pySplitlinesCount(value) !== 1 || !pyStrip(value) || pyStrip(value).startsWith("#"),
+      )
+    ) {
+      throw new ValueError("feedback candidates must be single non-comment lines");
+    }
+  }
   mkdirSync(outputDir, { recursive: true });
-
-  if (personFps.length > 0) {
-    writeFileSync(
-      join(outputDir, "common_words_additions.txt"),
-      "# ko-pii 검토 큐에서 자동 생성된 일반 단어 후보\n" +
-        "# 검토 후 src/ko_pii/dictionaries/common_words.py 에 반영하세요.\n" +
-        personFps.map((w) => `${w}\n`).join(""),
-      "utf8",
-    );
-  }
-
-  if (summary.name_candidates.length > 0) {
-    writeFileSync(
-      join(outputDir, "names_to_add.txt"),
-      "# 사용자가 FN 으로 표시한 이름들\n" +
-        "# 사용자 사전 (사이트별 names.txt) 에 추가 후 person 검출 부스트로 활용 가능\n" +
-        summary.name_candidates.map((n) => `${n}\n`).join(""),
-      "utf8",
-    );
-  }
-
-  writeFileSync(
+  writeTextAtomic(
+    join(outputDir, "common_words_additions.txt"),
+    "# ko-pii generated candidates; review before applying\n" +
+      personFps.map((w) => `${w}\n`).join(""),
+  );
+  writeTextAtomic(
+    join(outputDir, "names_to_add.txt"),
+    "# ko-pii generated name candidates; review before applying\n" +
+      summary.name_candidates.map((n) => `${n}\n`).join(""),
+  );
+  writeTextAtomic(
     join(outputDir, "summary.json"),
-    pyJsonDumps(
+    `${pyJsonDumps(
       {
         fp_count: summary.fp_count,
         ok_count: summary.ok_count,
@@ -125,8 +142,7 @@ export function applyFeedback(
         fp_by_label: summary.fp_by_label,
       },
       2,
-    ),
-    "utf8",
+    )}\n`,
   );
 
   return summary;
