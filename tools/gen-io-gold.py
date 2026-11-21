@@ -229,20 +229,24 @@ def main() -> int:
     def record(file: str, fmt: str, raw: str, records=None) -> None:
         entry = {"file": file, "format": fmt, "raw_text": raw, "read_text": read_text(str(FIX / file))}
         if records is not None:
-            entry["read_records"] = records
+            # 거부도 계약이다 — 예외 메시지를 벡터에 고정한다.
+            try:
+                entry["read_records"] = records()
+            except ValueError as e:
+                entry["read_records_error"] = str(e)
         entries.append(entry)
 
     record("sample.txt", "plain", plain.read_text(str(FIX / "sample.txt")))
     record("sample_bom.txt", "plain", plain.read_text(str(FIX / "sample_bom.txt")))
     record("sample_euckr.txt", "plain", plain.read_text(str(FIX / "sample_euckr.txt")))
     record("sample.csv", "csv", csv_reader.read_text(str(FIX / "sample.csv")),
-           csv_reader.read_records(str(FIX / "sample.csv")))
+           lambda: csv_reader.read_records(str(FIX / "sample.csv")))
     record("sample.tsv", "tsv", csv_reader.read_text(str(FIX / "sample.tsv")),
-           csv_reader.read_records(str(FIX / "sample.tsv")))
+           lambda: csv_reader.read_records(str(FIX / "sample.tsv")))
     record("sample.docx", "docx", docx.read_text(str(FIX / "sample.docx")))
     record("sample.hwpx", "hwpx", hwpx.read_text(str(FIX / "sample.hwpx")))
     record("sample.xlsx", "xlsx", xlsx.read_text(str(FIX / "sample.xlsx")),
-           xlsx.read_records(str(FIX / "sample.xlsx")))
+           lambda: xlsx.read_records(str(FIX / "sample.xlsx")))
     record("sample.pdf", "pdf", pdf.read_text(str(FIX / "sample.pdf")))
     record("sample.hwp", "hwp", hwp.read_text(str(FIX / "sample.hwp")))
 

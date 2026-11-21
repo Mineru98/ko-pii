@@ -1,7 +1,7 @@
 {
   "generator": "tools/gen-gold-master.py",
-  "ko_pii_version": "1.16.0",
-  "python": "3.12.14",
+  "ko_pii_version": "1.27.0",
+  "python": "3.12.13",
   "offset_unit": "codepoint",
   "fixed_salt": "00112233445566778899aabbccddeeff",
   "fixed_secret_key": "gold-master-key",

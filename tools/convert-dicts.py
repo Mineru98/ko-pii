@@ -14,6 +14,7 @@ frozenset/set/dict/tuple/str 상수만 변환하고 함수·클래스·비공개
 """
 from __future__ import annotations
 
+import ast
 import importlib
 import json
 import sys
@@ -32,6 +33,7 @@ from ko_pii.dictionaries import (  # noqa: E402
     field_labels,
     majors,
     surnames,
+    table_headers,
     titles,
     universities,
 )
@@ -49,6 +51,7 @@ MODULES = [
     legal_dongs,
     majors,
     surnames,
+    table_headers,
     titles,
     universities,
 ]
@@ -117,6 +120,13 @@ def ts_literal(value, indent: str = "  ") -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def _imported_from_other(module, name: str) -> bool:
+    """다른 모듈에서 import 해 재노출한 상수인가 (정의 모듈의 생성물에서만 export → index.ts 중복 방지)."""
+    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+    return any(isinstance(node, ast.ImportFrom) and any((a.asname or a.name) == name for a in node.names)
+               for node in tree.body)
+
+
 def convert_module(module) -> tuple[str, list[str]]:
     lines = [HEADER.format(module=module.__name__.rsplit(".", 1)[-1])]
     exported = []
@@ -132,6 +142,8 @@ def convert_module(module) -> tuple[str, list[str]]:
         if not isinstance(value, (frozenset, set, dict, list, tuple, str)):
             skipped.append(name)
             continue
+        if _imported_from_other(module, name):
+            continue  # 재노출된 상수는 정의 모듈의 생성물에서만 export (index.ts 중복 방지)
         ann = ts_type_annotation(value)
         lit = ts_literal(value)
         lines.append(f"export const {ident}: {ann} = {lit};\n")

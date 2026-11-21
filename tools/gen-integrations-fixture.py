@@ -96,7 +96,7 @@ for text in TEXTS:
             fixed.append({"label": label, "text": word, "start": i, "end": i + len(word), "risk": risk,
                           "conf": conf, "evidence": ["ml"], "legal_basis": None, "extra": {}})
     for mode in [m.value for m in MergeMode]:
-        for inc, exc in [(None, None), (["PERSON", "PHONE"], None), (None, ["PERSON"]), ([], [])]:
+        for inc, exc in [(None, None), (["PERSON", "PHONE"], None), (None, ["PERSON"]), (None, [])]:
             for strategy in ["tokenize", "redact", "partial"]:
                 v = ReversibleVault(salt="00" * 16, secret_key="k", fingerprint_iterations=1)
                 a = Anonymizer(mode=ProcessingMode.STRICT, strategy=strategy, vault=v, include=inc, exclude=exc,

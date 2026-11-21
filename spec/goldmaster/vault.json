@@ -12,7 +12,7 @@
     },
     {
       "id": "hanja_bracket",
-      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PERSON_1>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"홍길동\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": null,\n        \"origin\": \"korean\"\n      }\n    }\n  }\n}"
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PERSON_1>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"홍길동\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": null,\n        \"origin\": \"korean\"\n      }\n    },\n    \"<PERSON_2>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"洪吉童\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 8,\n      \"occurrences\": [\n        8\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": null,\n        \"origin\": \"unknown\"\n      }\n    }\n  }\n}"
     },
     {
       "id": "fullwidth_digits",
@@ -20,7 +20,7 @@
     },
     {
       "id": "nfd_jamo",
-      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<PERSON_1>\": {\n      \"label\": \"PERSON\",\n      \"original\": \"홍길동\",\n      \"risk_level\": 4,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"category\": \"일반개인정보\",\n        \"particle\": null,\n        \"origin\": \"korean\"\n      }\n    }\n  }\n}"
     },
     {
       "id": "zerowidth_split",
@@ -52,7 +52,7 @@
     },
     {
       "id": "address_road",
-      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<ADDRESS_1>\": {\n      \"label\": \"ADDRESS\",\n      \"original\": \"서울특별시 강남구 테헤란로 152\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"format\": \"road_name\",\n        \"city\": \"서울특별시\",\n        \"districts\": \"강남구\",\n        \"road\": \"테헤란로\",\n        \"building_number\": \"152\",\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<ADDRESS_1>\": {\n      \"label\": \"ADDRESS\",\n      \"original\": \"서울특별시 강남구 테헤란로 152, 3층\",\n      \"risk_level\": 3,\n      \"legal_basis\": \"개인정보보호법 제2조\",\n      \"first_seen_offset\": 4,\n      \"occurrences\": [\n        4\n      ],\n      \"extra\": {\n        \"format\": \"road_name\",\n        \"city\": \"서울특별시\",\n        \"districts\": \"강남구\",\n        \"road\": \"테헤란로\",\n        \"building_number\": \"152\",\n        \"category\": \"일반개인정보\"\n      }\n    }\n  }\n}"
     },
     {
       "id": "business_reg",
@@ -152,7 +152,7 @@
     },
     {
       "id": "astral_combining_split",
-      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {\n    \"<RRN_1>\": {\n      \"label\": \"RRN\",\n      \"original\": \"8𝅥80101-1234568\",\n      \"risk_level\": 5,\n      \"legal_basis\": \"개인정보보호법 제24조의2\",\n      \"first_seen_offset\": 2,\n      \"occurrences\": [\n        2\n      ],\n      \"extra\": {\n        \"front\": \"880101\",\n        \"back\": \"1234568\",\n        \"birth_date\": \"1988-01-01\",\n        \"gender_digit\": 1,\n        \"checksum_valid\": true,\n        \"category\": \"고유식별정보\"\n      }\n    }\n  }\n}"
+      "dumps": "{\n  \"schema_version\": 1,\n  \"created_at\": \"1970-01-01T00:00:00+00:00\",\n  \"salt\": \"00112233445566778899aabbccddeeff\",\n  \"fingerprint_scheme\": \"pbkdf2-sha256-v2\",\n  \"fingerprint_iterations\": 100000,\n  \"entries\": {}\n}"
     }
   ]
 }
