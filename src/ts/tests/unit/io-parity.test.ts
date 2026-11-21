@@ -10,8 +10,9 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ValueError } from "../../src/core/errors.js";
 import { BoundedReadError, FileReadPolicy, readTextBounded } from "../../src/io/bounded.js";
-import { CsvError, readRecordsFromText } from "../../src/io/csvReader.js";
+import { CsvError, EXCEL, parseCsvRows, readRecordsFromText } from "../../src/io/csvReader.js";
 import { readRecords as dispatchReadRecords, extensionOf } from "../../src/io/dispatcher.js";
 import { readText as readDocx } from "../../src/io/docx.js";
 import * as ioIndex from "../../src/io/index.js";
@@ -40,71 +41,87 @@ async function boundedOutcome(path: string, policy?: FileReadPolicy): Promise<Bo
 }
 
 describe("xmlEt — ElementTree(expat) 의미론", () => {
-  const cases: Array<[file: string, base64: string, pythonText: string]> = [
+  type Outcome = string | { err: string; msg: string };
+  const cases: Array<[file: string, base64: string, python: Outcome]> = [
     [
       "d_space.docx",
       "UEsDBBQAAAAIAEaqMl0O43IHzgAAADYBAAARAAAAd29yZC9kb2N1bWVudC54bWyFj01OAzEMha8SZT91pkCpRjPprieAA4TEtCNNfmSHTnsIxLo36ZlA3IGkEkJISGyeZfn583O/OfpJHJB4jGGQ7UJJgcFGN4bdIB8fts1aCs4mODPFgIM8IcuN7ufORfviMWRRAIG7eZD7nFMHwHaP3vAiJgxl9hzJm1xa2sEcySWKFpkL30+wVGoF3oxBVuRTdKdaUxWqcqV3nIwtpxMhIx1Q6s/z6/vl8vF27qF4dFX6b0f86dWqVU27vLlt7lb3618WuAaB71jw87L+AlBLAQIUAxQAAAAIAEaqMl0O43IHzgAAADYBAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAAD9AAAAAAA=",
-      "\n홍길동 010-1234-5678\n",
+      "\n홍길동 010-1234-5678",
     ],
     [
       "d_cdata.docx",
       "UEsDBBQAAAAIAEaqMl3hmB/gugAAAAcBAAARAAAAd29yZC9kb2N1bWVudC54bWxVj8sKwjAQRX8lZuFOp7oQqWlFFL9AV+IiJrEWmpmQRGv9elPxgZs7DPdwhhHLu23YzfhQExZ8Ms44M6hI11gVfL/bjuachShRy4bQFLwzgS9L0eaa1NUajCwJMORtwS8xuhwgqIuxMozJGUzdmbyVMa2+gpa8dp6UCSH5bQPTLJuBlTXyXnki3fXT9eH7iKUYHNab1W51kOLEhtK6BVPHYyngVcKbe8P3L806lqjHHwYvM3zuwO+H8glQSwECFAMUAAAACABGqjJd4Zgf4LoAAAAHAQAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAA6QAAAAAA",
-      "\na<b &amp; cx y z\n",
+      "\na<b &amp; cx y z",
     ],
     [
       "d_utf16.docx",
       "UEsDBBQAAAAIAEaqMl2Lz0GtywAAAIABAAARAAAAd29yZC9kb2N1bWVudC54bWxtUEsOgjAUnIUHIeyl6MIFQdh5Aj2ACoqJQFPq74DGrTHxHp5AnRZsWJguOu/NzHvTft4xUpxRYg8PR+RQaLBDjQpT+BghQMjbI1NhzX5GtsLWsgvMMcOQqgmrFAlinBBRU1N74FTj0nS3GyrOjqgw3oJ9Dcla8DTUF1SXWBIH9EvrbX0b1spyumMVEwhOMiijVtmNOdmmy2d8AmOmD5lOWLdhfJdyZV9zcbV0SDmkibzb63G/Dp7mlbHd2vZ/WPWw7OH+fPH3XxJ8AVBLAQIUAxQAAAAIAEaqMl2Lz0GtywAAAIABAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAAD6AAAAAAA=",
-      "\n유티에프16\n",
+      "\n유티에프16",
     ],
     [
       "d_nons.docx",
       "UEsDBBQAAAAIAEaqMl1BBz1TpQAAAPYAAAARAAAAd29yZC9kb2N1bWVudC54bWxljk0OwiAQha9C2NupLoxpKO48gR4AYdQmZYYwaO3tRU3jwuX7yfee2T/jqB6YZWDq9bpptULyHAa69vp0PKx2WklxFNzIhL2eUfTemqkL7O8RqagKIOmmXt9KSR2A+BtGJw0npJpdOEdXqsxXmDiHlNmjSOXHETZtu4XoBtJv5JnDbM3/o7q3rFmTrCmWWJGLKMl5NFBd+Nhl4q/61WHBwu+yfQFQSwECFAMUAAAACABGqjJdQQc9U6UAAAD2AAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAA1AAAAAAA",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
     ],
     [
       "d_wsonly.docx",
       "UEsDBBQAAAAIAEaqMl2sNiBPqgAAACgBAAARAAAAd29yZC9kb2N1bWVudC54bWx1j90KwjAMhe99itJ7l+mFyNgPKvgE+gC1rdtgTUpbnXt7W0FUmDfnkC/hJCmbhxnYXTvfE1Z8leWcaZSkemwrfj4dl1vOfBCoxECoKz5pz5u6HAtF8mY0BhYD0BdjxbsQbAHgZaeN8BlZjbF3JWdEiKVrYSSnrCOpvY/5ZoB1nm/AiB55iryQmpLbJC5JqHclJEvqvjCbx/t5vGB/5g8/GF6r4X0IfJ6sn1BLAQIUAxQAAAAIAEaqMl2sNiBPqgAAACgBAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAADZAAAAAAA=",
-      "\nA B\n  C\n",
+      "\nA B\n  C",
     ],
     [
       "d_comment.docx",
       "UEsDBBQAAAAIAEaqMl3Ch5eJrAAAAPwAAAARAAAAd29yZC9kb2N1bWVudC54bWxVjkkOwjAMRa8Ssk9dWCBUddhxAjhAmriD1NhVEii9PU0lBGy+5e+nJ5fNy03iiT6MTJU8ZrkUSIbtSH0l77erukgRoiarJyas5IpBNnW5FJbNwyFFsQkoFEslhxjnAiCYAZ0OGc9I261j73TcVt/Dwt7Ong2GsPndBKc8P4PTI8mkbNmuac4pfIpY69aUB6WEEUrVFrsSUpvS/1A7wjStifpDYNfBRw7fx+s3UEsBAhQDFAAAAAgARqoyXcKHl4msAAAA/AAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAANsAAAAAAA==",
-      "\nabcdef\n",
+      "\nabcdef",
     ],
     [
       "c_xmlspace_root.docx",
       "UEsDBBQAAAAIAHeqMl0hfYhSewAAAKMAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzsEOwiAMBuBXMTyAXTx4IIyn2MErArJFSknBoG/vOg9evvZPm6Zm6ED+hbH00xtzaXrMau29aoDm14iunanGss8exOj6HjnBIA6VycfWtpIww2WaroBuK0rO6OxKmtWTlDVD3yl8pFaBhW6X22JAGpEP6+FvGf5v2S9QSwECFAMUAAAACAB3qjJdIX2IUnsAAACjAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAqgAAAAAA",
-      "\nTXT\n",
+      "\nTXT",
     ],
     [
       "c_attr_lt.docx",
       "UEsDBBQAAAAIAHeqMl30DTDReQAAAJ0AAAARAAAAd29yZC9kb2N1bWVudC54bWxFzj0OwyAMBeCrRBygjjp0QIRTZOhKgfxIMUbGFcntG9Ihy/ds+Q02VQfyX4xJuh23VHQd1CKSNUDxS0RXHpRjOm8TMTo5V56hEofM5GMpa5pxg2ffvwDdmlTnBrWbQ1lT9YfC0TI3uCF2fI8G2tDky3z5L8P9kP0BUEsBAhQDFAAAAAgAd6oyXfQNMNF5AAAAnQAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAKgAAAAAAA==",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
     ],
     [
       "c_ctrl_char.docx",
       "UEsDBBQAAAAIAHeqMl3Ouf/lcwAAAJUAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzjEOwjAMBVBxE9QD4IqBIQqR4CYhCW2lOrZso8DtacrA8r4t/8G+uUzphaXa8Y1rVdeuw2zGDkDTXDDqibjU7fYkwWjbKhM0ksxCqagudcIVzuN4AYxLHYJv7kH505M70rFwO9w99KEru7z7K8P/kfAFUEsBAhQDFAAAAAgAd6oyXc65/+VzAAAAlQAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAKIAAAAAAA==",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
     ],
     [
       "c_doctype_plain.docx",
       "UEsDBBQAAAAIAHeqMl2DaK2OjgAAALYAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzrESwiAMBuBXQR6gqQ4OHKWDOuvQQUcs2HJXCBfQ6ttb6uDyJbn8l4ts335iL0vJYWj4tqp5q+TmeD50t8uJGSVnYbB/ehsyW6IhibnhY85RAKR+tF6nCqMNy+6B5HVeRhpgRjKRsLcpuTD4CXZ1vQevXeDl5B3Np9RYoEJW3bWTUJoircbVXxj+j6gvUEsBAhQDFAAAAAgAd6oyXYNorY6OAAAAtgAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAL0AAAAAAA==",
-      "\nTXT\n",
+      "\nTXT",
     ],
     [
       "c_crlf.docx",
       "UEsDBBQAAAAIAHeqMl1b9EUEeAAAAJsAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzkEKwyAQBdB9IXcoOUAnTaELsd7Fqk0CjjOMBtvbJyaLbt7nMwx8XZUnt2JI5frFmLKqr34uhRVAdnNAm2/EIe23DwnasleZoJJ4FnIh5yVNGGEchiegXVJvdFVv8r+W3JBGMfHeXeLYxYeGVptyyIfnC/znmA1QSwECFAMUAAAACAB3qjJdW/RFBHgAAACbAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAApwAAAAAA",
-      "\nl1\nl2\nl3\n",
+      "\nl1\nl2\nl3",
     ],
     [
       "c_lead_ws.docx",
       "UEsDBBQAAAAIAHeqMl2Ap8a7eAAAAJkAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzjEOwyAMBdA9p0A5QBx16IBSTpGhKwWaRIoxMo5obx9Ihy7P/rJluVNqKtqTOzBEUR/cY9bl0a8iSQNktwa0eaAUYp29idFKjbxAIfaJyYWct7jgDrdxvAPaLfamnnyR/7aaGtwQMz/nCVrT5Mt0+VuG/yOmOwFQSwECFAMUAAAACAB3qjJdgKfGu3gAAACZAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAApwAAAAAA",
-      "\nTXT\n",
+      "\nTXT",
     ],
   ];
-  for (const [file, base64, pythonText] of cases) {
+  for (const [file, base64, python] of cases) {
     it(`docx.readText === Python: ${file}`, async () => {
-      expect(await readDocx(fixture(file, base64))).toBe(pythonText);
+      let actual: Outcome;
+      try {
+        actual = await readDocx(fixture(file, base64));
+      } catch (e) {
+        actual = { err: (e as Error).name, msg: (e as Error).message };
+      }
+      expect(actual).toEqual(python);
     });
   }
 
@@ -113,8 +130,11 @@ describe("xmlEt — ElementTree(expat) 의미론", () => {
       "x_int.xlsx",
       "UEsDBBQAAAAIAFyxMl1bepU8SwAAAE0AAAAPAAAAeGwvd29ya2Jvb2sueG1sDclRDkAwDADQq8gOoIsPH4K7FGWydV3aJhyfz5c3P6J5E8ndy6XaEpJ7mwBsT8RovTSq/5yijP5TL7CmhIclIucCQ4wjMN41wPoBUEsDBBQAAAAIAFyxMl3Ys9mIiQAAAEABAAAUAAAAeGwvc2hhcmVkU3RyaW5ncy54bWxl0E0OgkAMBeCrkDmAHVBRydC7TLAKCfOTaUOMp3dwY2KX7+trF3XM0rzCGnk0s0geAHiaKXg+pEyxTh6pBC81lidwLuTvPBNJWKGztofgl2jQ8YJO8E0lORB0sOev7ccHzn6i0dRtprKRwRSp+Ssid0qOSk5Kzkp6JRclVyU3Ja3V1P4I6uvwA1BLAwQUAAAACABcsTJdfMdbEakAAACDAQAAGAAAAHhsL3dvcmtzaGVldHMvc2hlZXQxLnhtbLMpzy/KLs5ITS1RqMjNySu2VcooKSmw0tcvTs5IzU0s1ssvSM0DyqTlF+UmlgC5Ren6xQVFqYkpYE25OfpGBgZm+rmJmXlKdjZgMZfEkkQ7m6L8cjubZIUSW6XikiKgVJldho1+mZ2NfjIQgyWRVIDl3++ZCFeBJGwYb4BNWEHbUAGbuK4hVkP0sBoSj1XxzcW4XQr1y/vd+wmqObQATYk+UvDow8PdDgBQSwECFAMUAAAACABcsTJdW3qVPEsAAABNAAAADwAAAAAAAAAAAAAAgAEAAAAAeGwvd29ya2Jvb2sueG1sUEsBAhQDFAAAAAgAXLEyXdiz2YiJAAAAQAEAABQAAAAAAAAAAAAAAIABeAAAAHhsL3NoYXJlZFN0cmluZ3MueG1sUEsBAhQDFAAAAAgAXLEyXXzHWxGpAAAAgwEAABgAAAAAAAAAAAAAAIABMwEAAHhsL3dvcmtzaGVldHMvc2hlZXQxLnhtbFBLBQYAAAAAAwADAMUAAAASAgAAAAA=",
     );
-    expect(await readXlsx(path)).toBe("h\none \ts10\tone \ts11\t\t\ts3\n﻿\n \n\n");
-    expect(await readXlsxRecords(path)).toEqual([{ h: "one " }, { h: "﻿" }]);
+    // 1.27: workbook.xml 이 있으면 rels 가 필수 — 구조 오류는 빈 시트가 아니라 거부 (Python 실측)
+    await expect(readXlsx(path)).rejects.toThrow(
+      "document text extraction incomplete; review failed parts",
+    );
+    await expect(readXlsxRecords(path)).rejects.toThrow("invalid workbook relationships");
   });
 });
 
@@ -128,27 +148,27 @@ describe("bounded — Python zipfile 과 같은 판정", () => {
     [
       "z_count_zero.docx",
       "UEsDBBQAAAAIAEaqMl0TPcbemwAAANAAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjk0OwiAQha9C2FuqC2Oa/uw8gR6AlrElgRnCYGtvL9SFm+/lZTJfXjt8vBMrRLaEnTxXtRSAExmLcyefj/vpJgUnjUY7QujkDiyHvt0aQ9PbAyaRBcjN1sklpdAoxdMCXnNFATDfXhS9TrnGWW0UTYg0AXP2e6cudX1VXluURTmS2UuGgliQ+tWyHR20qpTCeDAc/D2o/5j+C1BLAwQUAAAACABGqjJd4rv8TGIAAAB5AAAAEAAAAHdvcmQvaGVhZGVyMS54bWwdzUEOgCAMBMCvGB9g0YMHgpz9BlEUEwpNS4LPF7zMZrOHNVWHk4cXYxJdtzGUQhpAjuDRyZTJp7ZdmdGVVvmGmvkkzocXedKNERalVkD3pNGaqqnDnWL32UDPLv/Sb3u0H1BLAQIUAxQAAAAIAEaqMl0TPcbemwAAANAAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLAQIUAxQAAAAIAEaqMl3iu/xMYgAAAHkAAAAQAAAAAAAAAAAAAACAAcoAAAB3b3JkL2hlYWRlcjEueG1sUEsFBgAAAAAAAAAAfQAAAFoBAAAAAA==",
-      { text: "\nvisible\n\nH1\n", members: 2, decl: 329 },
+      { text: "\nvisible\n\nH1", members: 2, decl: 329 },
     ],
     [
       "z_count_more.docx",
       "UEsDBBQAAAAIAEaqMl0TPcbemwAAANAAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjk0OwiAQha9C2FuqC2Oa/uw8gR6AlrElgRnCYGtvL9SFm+/lZTJfXjt8vBMrRLaEnTxXtRSAExmLcyefj/vpJgUnjUY7QujkDiyHvt0aQ9PbAyaRBcjN1sklpdAoxdMCXnNFATDfXhS9TrnGWW0UTYg0AXP2e6cudX1VXluURTmS2UuGgliQ+tWyHR20qpTCeDAc/D2o/5j+C1BLAwQUAAAACABGqjJd4rv8TGIAAAB5AAAAEAAAAHdvcmQvaGVhZGVyMS54bWwdzUEOgCAMBMCvGB9g0YMHgpz9BlEUEwpNS4LPF7zMZrOHNVWHk4cXYxJdtzGUQhpAjuDRyZTJp7ZdmdGVVvmGmvkkzocXedKNERalVkD3pNGaqqnDnWL32UDPLv/Sb3u0H1BLAQIUAxQAAAAIAEaqMl0TPcbemwAAANAAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLAQIUAxQAAAAIAEaqMl3iu/xMYgAAAHkAAAAQAAAAAAAAAAAAAACAAcoAAAB3b3JkL2hlYWRlcjEueG1sUEsFBgAAAAAFAAUAfQAAAFoBAAAAAA==",
-      { text: "\nvisible\n\nH1\n", members: 2, decl: 329 },
+      { text: "\nvisible\n\nH1", members: 2, decl: 329 },
     ],
     [
       "z_trailing.docx",
       "UEsDBBQAAAAIAEaqMl17ZwcGmwAAANEAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjsEOgjAMhl9l6V2GHowhgDefQB9gbBVIWLusU+Tt3fDg5Wv+/OnXttePX9Qbo8xMHRyrGhSSZTfT2MHjfjtcQEky5MzChB1sKHDt27VxbF8eKaksIGnWDqaUQqO12Am9kYoDUu6eHL1JOcZRrxxdiGxRJPv9ok91fdbezARFObDbygwFsSD1gxFU+VarSyqMO8PO34b+f9N/AVBLAQIUAxQAAAAIAEaqMl17ZwcGmwAAANEAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAADKAAAAAAAAAAAAAAAAAAAA",
-      { text: "\nbase doc\n", members: 1, decl: 209 },
+      { text: "\nbase doc", members: 1, decl: 209 },
     ],
     [
       "z_trailing_txt.docx",
       "UEsDBBQAAAAIAEaqMl17ZwcGmwAAANEAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjsEOgjAMhl9l6V2GHowhgDefQB9gbBVIWLusU+Tt3fDg5Wv+/OnXttePX9Qbo8xMHRyrGhSSZTfT2MHjfjtcQEky5MzChB1sKHDt27VxbF8eKaksIGnWDqaUQqO12Am9kYoDUu6eHL1JOcZRrxxdiGxRJPv9ok91fdbezARFObDbygwFsSD1gxFU+VarSyqMO8PO34b+f9N/AVBLAQIUAxQAAAAIAEaqMl17ZwcGmwAAANEAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAADKAAAAAABHQVJCQUdFLUFGVEVSLUVPQ0Q=",
-      { text: "\nbase doc\n", members: 1, decl: 209 },
+      { text: "\nbase doc", members: 1, decl: 209 },
     ],
     [
       "z_comment.docx",
       "UEsDBBQAAAAIAEaqMl3efNrGnQAAANUAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjsEOwiAMhl+FcHdMD8YsY7v5BPoACHUjGS2h6NzbC/Pg5Wv6N/3afvyERbwhsSfU8ti0UgBach4nLe+36+EiBWeDziyEoOUGLMehXztH9hUAsygC5G7Vcs45dkqxnSEYbigCltmTUjC5tGlSKyUXE1lgLv6wqFPbnlUwHmVVPshttcaKVJGH1edZWAr1VK9qUpl2xp2/LfX/aPgCUEsBAhQDFAAAAAgARqoyXd582sadAAAA1QAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAMwAAAANAGhlbGxvIGNvbW1lbnQ=",
-      { text: "\nwith comment\n", members: 1, decl: 213 },
+      { text: "\nwith comment", members: 1, decl: 213 },
     ],
     [
       "z_comment_sig.docx",
@@ -158,7 +178,7 @@ describe("bounded — Python zipfile 과 같은 판정", () => {
     [
       "z_prepended.docx",
       "IyEvYmluL3NoCmVjaG8gc2Z4ClBLAwQUAAAACABGqjJde2cHBpsAAADRAAAAEQAAAHdvcmQvZG9jdW1lbnQueG1sRY7BDoIwDIZfZeldhh6MIYA3n0AfYGwVSFi7rFPk7d3w4OVr/vzp17bXj1/UG6PMTB0cqxoUkmU309jB4347XEBJMuTMwoQdbChw7du1cWxfHimpLCBp1g6mlEKjtdgJvZGKA1Lunhy9STnGUa8cXYhsUST7/aJPdX3W3swERTmw28oMBbEg9YMRVPlWq0sqjDvDzt+G/n/TfwFQSwECFAMUAAAACABGqjJde2cHBpsAAADRAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAygAAAAAA",
-      { text: "\nbase doc\n", members: 1, decl: 209 },
+      { text: "\nbase doc", members: 1, decl: 209 },
     ],
     [
       "z_size_lie.docx",
@@ -178,12 +198,12 @@ describe("bounded — Python zipfile 과 같은 판정", () => {
     [
       "d_space.docx",
       "UEsDBBQAAAAIAEaqMl0O43IHzgAAADYBAAARAAAAd29yZC9kb2N1bWVudC54bWyFj01OAzEMha8SZT91pkCpRjPprieAA4TEtCNNfmSHTnsIxLo36ZlA3IGkEkJISGyeZfn583O/OfpJHJB4jGGQ7UJJgcFGN4bdIB8fts1aCs4mODPFgIM8IcuN7ufORfviMWRRAIG7eZD7nFMHwHaP3vAiJgxl9hzJm1xa2sEcySWKFpkL30+wVGoF3oxBVuRTdKdaUxWqcqV3nIwtpxMhIx1Q6s/z6/vl8vF27qF4dFX6b0f86dWqVU27vLlt7lb3618WuAaB71jw87L+AlBLAQIUAxQAAAAIAEaqMl0O43IHzgAAADYBAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAAD9AAAAAAA=",
-      { text: "\n홍길동 010-1234-5678\n", members: 1, decl: 310 },
+      { text: "\n홍길동 010-1234-5678", members: 1, decl: 310 },
     ],
     [
       "e_zip64.docx",
       "UEsDBC0AAAAIAAAAIQAcPVTy//////////8RABQAd29yZC9kb2N1bWVudC54bWwBABAAswAAAAAAAACFAAAAAAAAAEXOXQ7CIAwH8KssHGBFY/ZAGDvLPupGslJSUNTTO+aDL7+m/adN7fCivXmiJM+hV5dWq8HZYhaeH4QhN0cckim92nKOBiDNG9KYWo4YjuzOQmM+WlmhsCxReMaUfFhph6vWHdDog6onJ17etcaKVLL7+NjdGkKaUCzUSVVO4+lvC/4fuS9QSwECLQMtAAAACAAAACEAHD1U8oUAAACzAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAyAAAAAAA",
-      { text: "\nzip64 member\n", members: 1, decl: 179 },
+      { text: "\nzip64 member", members: 1, decl: 179 },
     ],
     [
       "e_ver64.docx",
@@ -198,7 +218,7 @@ describe("bounded — Python zipfile 과 같은 판정", () => {
     [
       "e_nulname.docx",
       "UEsDBBQAAAAIACCsMl3GbuXagQAAAK8AAAARAAAAd29yZC9kb2N1bWVudC54bWxFzsEOgyAMBuBXMTyAdTvsYBCfhSFTEtqSgrK9/cQddvmaP3/aVM9vjN3hJQemSd36Qc1G13Fht6On0p015bFOaisljQDZbR5t7jl5OrsXC9pyRlmhsixJ2PmcA60Y4T4MD0AbSLWTT14+baaGNIqhPXZk0WtoqSmX6fK3Af9vzBdQSwMEFAAAAAgAIKwyXdQc0QEGAAAABAAAAAwAAAB3b3JkL2EAYi54bWyzSdS3AwBQSwECFAMUAAAACAAgrDJdxm7l2oEAAACvAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwECFAMUAAAACAAgrDJd1BzRAQYAAAAEAAAADAAAAAAAAAAAAAAAgAGwAAAAd29yZC9hAGIueG1sUEsFBgAAAAACAAIAeQAAAOAAAAAAAA==",
-      { text: "\nnul name\n", members: 2, decl: 179 },
+      { text: "\nnul name", members: 2, decl: 179 },
     ],
     [
       "e_flag5.docx",
@@ -285,205 +305,244 @@ describe("추출 결과·예외 — Python 과 같은 텍스트, 같은 예외 �
     [
       "enc_latin1.docx",
       "UEsDBBQAAAAIAJqtMl0iZLjZmQAAAMMAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjksOwjAMRK8SZd+6rQQqVT9rViw4QUjSj9TEkRMoHJklNyApCzZvPBp75HZ4mpU9NPkFbcfLvOBMW4lqsVPHz9dLVteHU1byoW+3RqG8G20Di0fWN1vH5xBcA+DlrI3wOTptYzYiGRGipQk2JOUIpfY+dpoVqqI4ghGL5anyhuqV1CVQQuilGN/s00KaE2mn2/nbh/8v/RdQSwECFAMUAAAACACarTJdImS42ZkAAADDAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAyAAAAAAA",
-      "\ncafé ñ\n",
-      "\ncafé ñ\n",
+      "\ncafé ñ",
+      "\ncafé ñ",
     ],
     [
       "enc_latin1_lower.docx",
       "UEsDBBQAAAAIAJqtMl3I4+fhkQAAAMEAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjksOgzAMRK+CsgdDpVYU8TlLmgSIROLIDqU9cm/RhC66eePR2CP308ttxdMQW/SDaKpaFMYr1NYvg7CMZdte72UjprE/Oo1qd8bHIh157o5BrDGGDoDVapzkCoPxKZuRnIzJ0gIHkg6EyjCnTrfBpa5v4KT1Ilc+UL+zhgzKiKOS86eHPGXSyXDytw3/T8YvUEsBAhQDFAAAAAgAmq0yXcjj5+GRAAAAwQAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAMAAAAAAAA==",
-      "\ncafé\n",
-      "\ncafé\n",
+      "\ncafé",
+      "\ncafé",
     ],
     [
       "enc_latin1_alias.docx",
       "UEsDBBQAAAAIAJqtMl0m5rbBjAAAAL0AAAARAAAAd29yZC9kb2N1bWVudC54bWxFjkESgyAMRa/icACjXXThiJ6FAiozkDCBSnvk3qJgF928nz8/+ZN5fQXfnZaTI5Ri7AfRWdRkHO5SeJUdjmJd5jIZ0s9gMXf1ANNUpDhyjhNA0ocNKvUULdZsIw4qV8s7FGITmbRNqfYFD7dhuENQDkWrfJB5N40N3JAXrbbPDG1q5Ivx4m8b/p8sX1BLAQIUAxQAAAAIAJqtMl0m5rbBjAAAAL0AAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAAC7AAAAAAA=",
-      "\ncafé\n",
-      "\ncafé\n",
+      "\ncafé",
+      "\ncafé",
     ],
     [
       "enc_ascii.docx",
       "UEsDBBQAAAAIAJqtMl0BnU4YlgAAAMYAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjr0OwjAMhF8lyk5dGBiq/ggxda54gJCENlJjR06g8PYkZWD5rPPpTtcOb7+Kl+XoCDt5rGopLGoyDudO3qbDZbqOoxz6dmsM6ae3mESOYGy2Ti4phQYg6sV6FSsKFrP3IPYqZckzbMQmMGkbY270K5zq+gxeOZSl8k7mU24o4ILUhzW7QkXtXAvlUcg7w85fCP6D+i9QSwECFAMUAAAACACarTJdAZ1OGJYAAADGAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAxQAAAAAA",
-      "\nplain ascii\n",
-      "\nplain ascii\n",
+      "\nplain ascii",
+      "\nplain ascii",
     ],
     [
       "enc_ascii_hi.docx",
       "UEsDBBQAAAAIAJqtMl1nnmajlQAAAL8AAAARAAAAd29yZC9kb2N1bWVudC54bWxFjksOwjAMRK9SZU9dWLCo+hFi1XXFAUKSfqTGjpxA4MjcgqQs2LzxaOyRm/5lt+Jp2K+ErTiWlSgMKtIrzq24jYfLeB0G0XdNrDWphzUYinSCvo6tWEJwNYBXi7HSl+QMpmwitjIkyzNEYu2YlPE+NdoNTlV1BitXFLnyTvqd1WVwRuiUnD4N5CmTd7qdv234f9J9AVBLAQIUAxQAAAAIAJqtMl1nnmajlQAAAL8AAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAADEAAAAAAA=",
-      "\n",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:document_extraction_incomplete",
     ],
     [
       "enc_utf8_decl.docx",
       "UEsDBBQAAAAIAJqtMl3qSsD8nQAAAMEAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjssNwjAQRFuJfCcbOCAU5XOjAigg2CaJFO9aa0OgCMQ5naQmED1ghwOXNxrN7GiL+maG5KrZ9YSlWKeZSDRKUj22pTge9qudqKtizBXJi9Hok9BHl4+l6Ly3OYCTnTaNS8lqDNmZ2DQ+WG5hJFaWSWrnwpwZYJNlWzBNjyJOnkjdo9oIjvDVZ3q85vn9nAqINpIX2oW/E/i/U30BUEsBAhQDFAAAAAgAmq0yXepKwPydAAAAwQAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAMwAAAAAAA==",
-      "\n홍길동\n",
-      "\n홍길동\n",
+      "\n홍길동",
+      "\n홍길동",
     ],
     [
       "enc_utf8_lower.docx",
       "UEsDBBQAAAAIAJqtMl0VplNJmQAAAMEAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjksOwjAMRK9SZU9dWCBU9XOWkqQfqbEjJ23hEIh1b9IzgbgDSVmweaPRjEcu6psZk1mzGwhLcUwzkWiUpAbsSjH59nARdVUsuSI5GY0+CX10+VKK3nubAzjZa9O4lKzGkLXEpvHBcgcLsbJMUjsX5swIpyw7g2kGFHHySuoe1UZwhK8+6+O1be/nWkC0kbzT7vydwP+d6gtQSwECFAMUAAAACACarTJdFaZTSZkAAADBAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAyAAAAAAA",
-      "\n홍길동\n",
-      "\n홍길동\n",
+      "\n홍길동",
+      "\n홍길동",
     ],
     [
       "enc_utf8_bad.docx",
       "UEsDBBQAAAAIAJqtMl1tV1OijAAAALkAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjkEOwiAURK/SsLe/ujCmKXTnCfQAFbAlKf+TD4qeXqEu3LzJZCaTGcaXX5un5egIpdi3nWgsajIOZymul/PuJEY15N6QfniLqSl9jH2WYkkp9ABRL9ZPsaVgsWR3Yj+lYnmGTGwCk7Yxljm/wqHrjuAnh6JO3si8q4YKrkjqM0CVSt4YNv6q8L+hvlBLAQIUAxQAAAAIAJqtMl1tV1OijAAAALkAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAAC7AAAAAAA=",
-      "\n",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:document_extraction_incomplete",
     ],
     [
       "enc_utf16_decl_utf8bytes.docx",
       "UEsDBBQAAAAIAJqtMl34m8EAnQAAAMIAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjk0OgjAUhK9CupeHLlgQfnaeQA+AbQUS+l7zWkUPYVxzE86k8Q62uHDzTSaTmUzZ3MyYXDW7gbAS2zQTiUZJasCuEsfDfrPNRVOXU6FIXoxGn4QCumKqRO+9LQCc7LVpXUpWY8jOxKb1wXIHE7GyTFI7F/bMCLssy8G0A4o4eSJ1j2ojOMLXn/nxWpb3cy4h2kheaVf+KvC/U38BUEsBAhQDFAAAAAgAmq0yXfibwQCdAAAAwgAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAMwAAAAAAA==",
-      "\n",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:document_extraction_incomplete",
     ],
     [
       "enc_utf16_nobom_le.docx",
       "UEsDBBQAAAAIAJqtMl1P4Mw8wwAAAHgBAAARAAAAd29yZC9kb2N1bWVudC54bWxtUEsOgjAUnKMQ9lJ0YQxB2LFzpwdQQTGR0pT6u5Qb72LibZwWbFiYLjrvzcx706bIcUeDMwJcUUGjwwktJJYIMUWEmHdARmLPfklW4ujYDdYoMKFqzipHhhQ3JNS01F441boM3f0GydkJFdZbs2+gWAuejvqa6gZb4oh+5by978BaO84MrGYCwUkWldRqt7Ei2w35rE9gxvQx0wnntkzoU+7cax6+Vh5pjwzR6r14fl6p29d3fliPsBrh8WTx90cyfAFQSwECFAMUAAAACACarTJdT+DMPMMAAAB4AQAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAA8gAAAAAA",
-      "\n홍길동\n",
-      "\n홍길동\n",
+      "\n홍길동",
+      "\n홍길동",
     ],
     [
       "enc_utf16_nobom_be.docx",
       "UEsDBBQAAAAIAJqtMl2DyUb+wQAAAHgBAAARAAAAd29yZC9kb2N1bWVudC54bWxtUEsOgjAUnKMQ9lJ0YQxB2LFzpwdQQTGR0pT6u5Qb72LibZwWbFgYFp15M/M6BSly3NHgjABXVNDocEILiSVCTBEh5hlQkdhzXlKVODp1gzUKTOiak+XIkOKGhJ6W3gu32pRhur9BcndCh83WnBsocsGvo7+mu8GWOGJeuWyfO5Brp5lB1WwguMmikl7tbqyodkM/mxOYsX3MdsKlrRL6ljv3mofnyiPtkUH2Xj0Xrw+5+E081iOsRni8Wfz9I9kXUEsBAhQDFAAAAAgAmq0yXYPJRv7BAAAAeAEAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAPAAAAAAAA==",
-      "\n홍길동\n",
-      "\n홍길동\n",
+      "\n홍길동",
+      "\n홍길동",
     ],
     [
       "enc_utf16_bom.docx",
       "UEsDBBQAAAAIAJqtMl1nHjHOxQAAAHoBAAARAAAAd29yZC9kb2N1bWVudC54bWxtUEsOgjAUnKMQ9lJ1YQxB2LlzpwdQQTGR0pT6u5Qb72LiZdRpwYaF6aLz3sy8N+3nnSDDFRWOCHBGAY0GB9SQmCHECBGGvAMyElv2c7ISe8eusMQcA6omrDKkSHBBTE1N7YlTrcvQ3W6QnB1TYb0l+waKteBpqC+prrAmjuhXztv6dqy140zHaiYQnGRRTq12GwuyTZfP+gTGTD9kOuHclgl9yo17zc3XyiPtkSFaPKf31yNx+9rOD+seVj3cnyz+/kiKL1BLAQIUAxQAAAAIAJqtMl1nHjHOxQAAAHoBAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAAD0AAAAAAA=",
-      "\n홍길동\n",
-      "\n홍길동\n",
+      "\n홍길동",
+      "\n홍길동",
     ],
     [
       "enc_utf16_bom_nodecl.docx",
       "UEsDBBQAAAAIAJqtMl1ccnElmwAAACwBAAARAAAAd29yZC9kb2N1bWVudC54bWxtkEEKwjAQRd9RpAew4kJEam/gIdTWVrAa0kj1Um68i+Bl1N9EQxeSzZv58zIh71dGx4KCE1vONJQccYy4iA/iVmnHkoRafYdRneq0mq813bAWj+Ub7wZvp9r6zH1TSyWr81Ro1vqNpdKWvbzKeylTJjozUW/3SUJOeOVGTsE11iaSjeREq8f89rxnfl/o/NgO2Ax4eHP690dyPlBLAQIUAxQAAAAIAJqtMl1ccnElmwAAACwBAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAADKAAAAAAA=",
-      "\n홍길동\n",
-      "\n홍길동\n",
+      "\n홍길동",
+      "\n홍길동",
     ],
     [
       "enc_utf16le_name.docx",
       "UEsDBBQAAAAIAJqtMl3BzoZXxgAAAHwBAAARAAAAd29yZC9kb2N1bWVudC54bWxtUEsOgjAUnKMQ9lJ1YQxBWOlKd3oAFRQTKU2pv0u58S4m3sZpwYaF6aLz3nzeaxNkuKPCGQGuKKDR4IQaEjOEGCHCkHdARmLPfk5W4ujYDdZYYEDVBEvM2cmQIsENMXU19RcmW6dhQjtFMj+mwvpL9g0Ua8HTUF9SXWFLHNGvnLf1HVhrx5mO1dxCMMminFrtJhZkm25H6xMY8wVDbiic2zKh33LnXvTwtfJIe2SIVu/p8/NK3Ly288O6h1UP95PF3x9J8QVQSwECFAMUAAAACACarTJdwc6GV8YAAAB8AQAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAA9QAAAAAA",
-      "\n홍길동\n",
-      "\n홍길동\n",
+      "\n홍길동",
+      "\n홍길동",
     ],
     [
       "enc_utf8_decl_utf16bytes.docx",
       "UEsDBBQAAAAIAJqtMl3kGNJ9xAAAAHgBAAARAAAAd29yZC9kb2N1bWVudC54bWxtkD0OgkAQhd9RCL0sWhhCEDo7Oz2ACoqJLGRZ/y5l411MvIz6dsENhaHgm3nvzQx83gkyXFHhCA9nFFBocUANiRl8jBEg5NujIrFlP6cqsbfqCkvMMUJEzpAiwQUxHTWdJ840Gc1sN19yckyHSZbsazSsBZ+W/pLuCmtywHxjs11ux1pZTfeq4n7BSYZyepXdWFBt++tMTmDC20NMSSZtFN9dubHfcnN140g50qTFM7q/Hond13V+rAbcDHg4Wfz9Iym+UEsBAhQDFAAAAAgAmq0yXeQY0n3EAAAAeAEAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAPMAAAAAAA==",
-      "\n",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:document_extraction_incomplete",
     ],
     [
       "enc_euckr.docx",
       "UEsDBBQAAAAIAJqtMl0MemTUlgAAAL8AAAARAAAAd29yZC9kb2N1bWVudC54bWxFjjsSwjAMRK+ScU8UKCgy+ZwlsUWSIZY8skPgTFQU1LSchHNgh4LmrXZW2lHVXu2cXVD8xFSrfV6oDEmzmWioFS56dxbVNtVaGtaLRQpZPCBfrrUaQ3AlgNcj2s7n7JBidmKxXYhWBlhZjBPW6H3sszMciuIItptIpcqezS2pS5CE0Lzvj8/zVUGaE2Wj2/jbh/8vzRdQSwECFAMUAAAACACarTJdDHpk1JYAAAC/AAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAxQAAAAAA",
-      { err: "ValueError", msg: "multi-byte encodings are not supported" },
-      "REJECT:extract_failed",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:document_extraction_incomplete",
     ],
     [
       "enc_cp949.docx",
       "UEsDBBQAAAAIAJqtMl3OvhZ6lwAAAL4AAAARAAAAd29yZC9kb2N1bWVudC54bWxFjksOwjAMRK8S5QB1QQipVT9nKUloKzV25KQEzsSKBWu2nIRzkJQFmzcezWjkpr/aRVwM+5mwlbuilMKgIj3j2ErlqkMl+66JtSa1WoNBpD76OrZyCsHVAF5Nxg6+IGcwZWdiO4RkeYRIrB2TMt6nObvAviyPYIcZZZ48kb5ldRmcEbr3/fF5vhrIdyZvdBt/ffj/0n0BUEsBAhQDFAAAAAgAmq0yXc6+FnqXAAAAvgAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAMYAAAAAAA==",
-      { err: "ValueError", msg: "multi-byte encodings are not supported" },
-      "REJECT:extract_failed",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:document_extraction_incomplete",
     ],
     [
       "enc_cp1252.docx",
       "UEsDBBQAAAAIAJqtMl3xkQ+alAAAAMUAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjksOwjAMRK8SZU9dKsGi6ucsIUnbSI0dOYHAjutyC5KyYPPGo7FHHuan38XDcnSEozw3rRQWNRmH6yizQ0M5ns7dpZPzNOTekL57i0mUM4x9HuWWUugBot6sV7GhYLFkC7FXqVheIRObwKRtjKXV79C17RW8cihr5Y3Mq2qo4Io0abV8xHuAOlfywXDwtw//X6YvUEsBAhQDFAAAAAgAmq0yXfGRD5qUAAAAxQAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAMMAAAAAAA==",
-      "\ncafé €\n",
-      "\ncafé €\n",
+      "\ncafé €",
+      "\ncafé €",
     ],
     [
       "enc_cp1252_ok.docx",
       "UEsDBBQAAAAIAJqtMl0Y/AWmjwAAAMMAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjksOwjAMRK9SZU9dKsGi6ucsIXHbSI0dxYHA7UnKgs0bj8YeeVze/mheGMUxTeradqpBMmwdbZPKjixnuVz7W6+WecyDZfP0SKkpZyRDntSeUhgAxOzotbQckEq2cvQ6FRs3yBxtiGxQpLT6A/quu4PXjlStfLD9VA0VsSLNRq84Qp0q48lw8rcN/0/mL1BLAQIUAxQAAAAIAJqtMl0Y/AWmjwAAAMMAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAAC+AAAAAAA=",
-      "\ncafe\n",
-      "\ncafe\n",
+      "\ncafe",
+      "\ncafe",
     ],
     [
       "enc_koi8.docx",
       "UEsDBBQAAAAIAJqtMl1M9XRRigAAALwAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjsESwiAMRH+F4W5TPThOp6XfQgFbxpIwAUX/XqgHL2+zs8lOxvkddvFynDzhJM9dL4VDQ9bjOskH+duJ5azGMlgyz+Awi3qAaSiT3HKOA0Aymws6dRQd1uxOHHSullcoxDYyGZdS7Qs7XPr+CkF7lK1yIftpGhu4ISu9mBHa0MgH48HfMvwfUV9QSwECFAMUAAAACACarTJdTPV0UYoAAAC8AAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAuQAAAAAA",
-      "\nabc\n",
-      "\nabc\n",
+      "\nabc",
+      "\nabc",
     ],
     [
       "enc_sjis.docx",
       "UEsDBBQAAAAIAJqtMl3un9xgjQAAAL8AAAARAAAAd29yZC9kb2N1bWVudC54bWxFjksOwjAMRK9S5QB1YcGi6ucoKE3SNqixIzsQuD1JWbB549HYIw/zOxzNy7F4wlFd2k41Dg1Zj9uoZPdruj+8qHkacm/JPIPD1JQblD6Pak8p9gBidhe0tBQdlmwlDjoVyxtkYhuZjBMpleGAa9fdIGiPqlYuZD9VYwVXpEkvZoA6VPLJePK3DP9Hpi9QSwECFAMUAAAACACarTJd7p/cYI0AAAC/AAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAvAAAAAAA",
-      { err: "ValueError", msg: "multi-byte encodings are not supported" },
-      "REJECT:extract_failed",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:document_extraction_incomplete",
     ],
     [
       "enc_bogus.docx",
       "UEsDBBQAAAAIAJqtMl0qylLLjAAAAMEAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjksOgzAMRK+CsgfTLrpAfM4SkpREInZkh9LevglddPPGvxl5XN5xb16OJRBO6tb1qnFoyAbcJoXUymF8WyZqmcdzsGSO6DA3xYUynJPyOacBQIx3UUtHyWHZPYmjzqXlDU5im5iMEymhcYd73z8g6oCqRq5kP1VTBVfkWa9mhFpU8sV08XcM/0fmL1BLAQIUAxQAAAAIAJqtMl0qylLLjAAAAMEAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAAC7AAAAAAA=",
-      { err: "LookupError", msg: "unknown encoding: no-such-enc" },
-      "REJECT:extract_failed",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:document_extraction_incomplete",
     ],
     [
       "enc_utf7.docx",
       "UEsDBBQAAAAIAJqtMl2LZP9cigAAALsAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjs0OgyAQhF/FcK9re2gT4s+zIKCSyC5ZUNq3L9hDL9/sZCaT7ae335vTcnSEg7i3nWgsajIO10Ecabm9xDT2WRrSh7eYmtLHKPMgtpSCBIh6s17FloLFki3EXqVieYVMbAKTtjGWOb/Do+ue4JVDUSdnMp+qoYIr0qhm3UM9KvliuPgrw/+R8QtQSwECFAMUAAAACACarTJdi2T/XIoAAAC7AAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAuQAAAAAA",
-      { err: "ValueError", msg: "multi-byte encodings are not supported" },
-      "REJECT:extract_failed",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:document_extraction_incomplete",
     ],
     [
       "enc_squote.docx",
       "UEsDBBQAAAAIAJqtMl3vOA5PmAAAAMEAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjk0OgjAQha9C2HQFAyYaJBTWrlx4gtqWn4TONG0VPbK3sMWFm+/Ny5t5mW54mTV7aucXQs7qsmKZRklqwYmzy+1aNM3xXNRs6LutVSQfRmPI4hH6duP5HIJtAbyctRG+JKsxZiM5I0K0boKNnLKOpPY+dpoVDlV1AiMWzFPlndQ7qU1wCaGXYvx0kKZEt9Pu/G3D/5P+C1BLAQIUAxQAAAAIAJqtMl3vOA5PmAAAAMEAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAADHAAAAAAA=",
-      "\ncafé\n",
-      "\ncafé\n",
+      "\ncafé",
+      "\ncafé",
     ],
     [
       "ent_internal.docx",
       "UEsDBBQAAAAIAJqtMl0sF5psmQAAALwAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzj0PgjAQBuC/Ujo4esTBAWsTIx1ckKGDxDggLR8J/UhbA/x7KQ4uz92bu1yOJPn9yquSIYGeJGEFv/EKSYTZo7wUOcsxfVEyZcI0HyV1QLMatc+mM+5DsBmAb3qpar83Vup11hqn6rBG18FknLDONNL7QXdqhEOaHkHVg8bx5NuIJVYbcZFA5508LQRiG3WbdvO3Dv9X6BdQSwECFAMUAAAACACarTJdLBeabJkAAAC8AAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAyAAAAAAA",
-      "\nxEXPANDEDy\n",
+      "\nxEXPANDEDy",
       "REJECT:xml_dtd_rejected",
     ],
     [
       "ent_nested.docx",
       "UEsDBBQAAAAIAJqtMl3Mx8FfpgAAANMAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjj8LwjAQxb9KGiGjKYIdmhgQ7eCiDl1KcUib2BaaPySRKvjhbSrocL977+44Hk2Ol0NZXQsgQE2T4lyeygpwAPdolW0JGgOB7DdvAKwRJ++5bpDdGJ1yYdqHkjqApxq1z6cd7EOwOca+7aXifm2s1PPubpziYbauw5NxwjrTSu8H3akRb9I0w4oPGsaXjRGv2G2EiwgMNYTiKCLdQrvwe4z/QdgHUEsBAhQDFAAAAAgAmq0yXczHwV+mAAAA0wAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAANUAAAAAAA==",
-      "\n[AA<|AA<]\n",
+      "\n[AA<|AA<]",
       "REJECT:xml_dtd_rejected",
     ],
     [
       "ent_attr.docx",
       "UEsDBBQAAAAIAJqtMl23NtZvlQAAALkAAAARAAAAd29yZC9kb2N1bWVudC54bWw1zj0PwiAQBuC/QhkcpXFwQMqiHVzUgZg0xgHL9SMpHwEM+u8tJC7P3ZvLXY5Vp+tRdLcWKfRgVXsRZ9EhQPiO+ZOzRJXt3xpMRB+9mEBTg6cYHSUk9BNoGbbWgVlng/VaxjX6kSTrlfO2hxBmM+qF7Op6T7ScDc4nX1Z9kWzwBg4lu4zPRB4ZySXri66YV0rzf4f/AFBLAQIUAxQAAAAIAJqtMl23NtZvlQAAALkAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAADEAAAAAAA=",
-      "\nt\n",
+      "\nt",
       "REJECT:xml_dtd_rejected",
     ],
     [
       "ent_external.docx",
       "UEsDBBQAAAAIAJqtMl2uzDRdowAAAM0AAAARAAAAd29yZC9kb2N1bWVudC54bWxFzrkOwjAMBuBXSTMw4oqBoYQs0IGBQ2qWCjGEJj2k5lASlPbtacrA8tmWf1km2fl+YvWjRAI9SVbe2IXVSKKqrlh5RbgdRlkAgAwNWO59FJi+KImFMM1HSR3QpEbti3jEfQh2ifqml4r7rbFSL7vWOMXDMroOonHCOtNI7wfdqRF2eb4HxQeN08m3EXOqNuESgU4beZgJpDbpVu3qLw7/V+gXUEsBAhQDFAAAAAgAmq0yXa7MNF2jAAAAzQAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAANIAAAAAAA==",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
       "REJECT:xml_dtd_rejected",
     ],
     [
       "ent_param.docx",
       "UEsDBBQAAAAIAJqtMl0q8cj1lgAAAMIAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzj0LwjAQBuC/cg24esXBIcQsmsFFHbIUcahNbAvNh0mk9d/bVNDlebkPjmPF4byX1UWAgisrxEkeZQUr8ECehP8aGogg/MbZSJVrXkbbBJMZbKTjjnQpeYoYm06bOq6d13aePVwwdZrL0OLogvLBNTrG3rZmwE1ZbtHUvSX55N2pd06fCZnEJ4Y5smHRL35X8f8G/wBQSwECFAMUAAAACACarTJdKvHI9ZYAAADCAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAxQAAAAAA",
-      "\nx\n",
+      "\nx",
       "REJECT:xml_dtd_rejected",
     ],
     [
       "ent_undefined_with_dtd.docx",
       "UEsDBBQAAAAIAJqtMl1w6JOPlAAAALYAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzj0PwiAQBuC/QhkcvcbBoSKLMrioA0tjHGrBtknhCGD68estdXB57t7c5XIsO99OsrwLosiDZeIqL7IkmlBB+ZOzoVBYf4y2kYymt6EYjrSN0RUAoW61qcIWnbbL7I3eVHGJvoEBvXIeax1CZxvTwy7P92CqztJ08oVqStUlfCLycTPPh4lB6pN+1a3+9uH/C/8CUEsBAhQDFAAAAAgAmq0yXXDok4+UAAAAtgAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAMMAAAAAAA==",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
       "REJECT:xml_dtd_rejected",
     ],
     [
       "ent_external_dtd.docx",
       "UEsDBBQAAAAIAJqtMl2nF4r1jwAAALMAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzj0PgjAQBuC/UhkcOeLgUJFFGI0msDBiW4GEfuRa08Kvl9bB5bl7c5fLlYf6cev6Z0M4afu2a+4kCzl3PKtKT7lmHymUI0EuylJ/zSbnDAWwbBJysLk2Qu2zt0Y5uD3iCF4jN6iZsHZWo1zgVBRnkMOs0smX5musJoIRV4Xjtl3WEmIfxaRJ/vbh/0v1BVBLAQIUAxQAAAAIAJqtMl2nF4r1jwAAALMAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAAC+AAAAAAA=",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
       "REJECT:xml_dtd_rejected",
     ],
     [
       "ent_markup.docx",
       "UEsDBBQAAAAIAJqtMl1yHUWxlwAAAMIAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjj8PgjAQxb9K6eDoGQcHrF2UwUUdWIhxQHoCCb021xr020thcPm9+5f3TmWn67GsboUw4q6y4lKey0qgkGrMo+6JkBWkUuqHnmbGNW+LFMXHDhTy8SC7GH0OEJoObR3WziNNu5djW8ep5RZGx8azazCEnlo7wHaz2YGte5LJ8unMN6lPYD0Hr3C/xCbyTD9zOYb/I/oHUEsBAhQDFAAAAAgAmq0yXXIdRbGXAAAAwgAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAMYAAAAAAA==",
-      "\ninner\n",
+      "\ninner",
       "REJECT:xml_dtd_rejected",
     ],
     [
       "ent_recursive.docx",
       "UEsDBBQAAAAIAJqtMl3QTNImkQAAALUAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzr0OwiAQAOBXoQyOXuPggMiiHVzUgaUxDgjYNik/AQz69kIdXL67y13ujjbHy4H31w4pdKNNd+Yn3iOB8ErsMLszmoly8mW0TehtZhtJ3uMxJU8Aohy1EXHtvLal93TBiFTKMEB2QfngpI5xsoOZYdO2WzBisriufDj1qdFXQiWxcpBCTaph0S/+huH/CPsCUEsBAhQDFAAAAAgAmq0yXdBM0iaRAAAAtQAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsFBgAAAAABAAEAPwAAAMAAAAAAAA==",
-      "\n",
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
       "REJECT:xml_dtd_rejected",
     ],
     [
       "ent_billion.docx",
       "UEsDBBQAAAAIAJqtMl1C/Kx6pAAAABQBAAARAAAAd29yZC9kb2N1bWVudC54bWx9jj0PgjAQhv9K6cDoEQcHqF2UwUUdWIhxKG0FEvqRtgb991JM0InLm+e+3lyOJMfLoaqvJRLoRpLyXJ2qGjGE2RKYLvMG4ZQVK/rz8snbFCvC9E7JmAvDn0rqgF5q0D4f97gLweYAnndSMb8xVupp9zBOsTC1roXROGGd4dL7XrdqgG2W7UCxXuN4sjHiHbONcBGBprwgEItIN9PO/Jrh9wj9AFBLAQIUAxQAAAAIAJqtMl1C/Kx6pAAAABQBAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAADTAAAAAAA=",
-      "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "REJECT:xml_dtd_rejected",
     ],
     [
@@ -498,19 +557,19 @@ describe("추출 결과·예외 — Python 과 같은 텍스트, 같은 예외 �
     [
       "g_cp437name.docx",
       "UEsDBBQAAAAIADSuMl1YuGw4aQAAAIUAAAARAAAAd29yZC9kb2N1bWVudC54bWw1zUsOwjAMBNCroB4AVyxYRCF3CUloK9Uf2UaB29NUYvM0o1lM7KFyeWMjv3xwJwv9Ma3uEgCsrA2zXVkaHduLFbMfVRforFWUSzPbaMEdbvN8B8wbTSn2IAMdeHpy/UYYaaincvo/Tj9QSwMEFAAAAAgANK4yXSK4AJlgAAAAeAAAAA4AAAB3b3JkL2hkcoDhLnhtbB3NQQqAIBAF0KtEB2iiRQsx7yJqGjQ6zAh2/NTN+3z+4uumkuflwzeLateaaiUFIC4FtLIVCrlvd2G0tVeO0Ap74uKCyJMjvnDs+wlon7wa3RQNeFBN0jBiyFOa9kPzA1BLAQIUAxQAAAAIADSuMl1YuGw4aQAAAIUAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLAQIUAxQAAAAIADSuMl0iuACZYAAAAHgAAAAOAAAAAAAAAAAAAACAAZgAAAB3b3JkL2hkcoDhLnhtbFBLBQYAAAAAAgACAHsAAAAkAQAAAAA=",
-      "\nbody\n",
-      "\nbody\n",
+      "\nbody",
+      "\nbody",
     ],
     [
       "g_dupheader.docx",
       "UEsDBBQAAAAIADSuMl1YuGw4aQAAAIUAAAARAAAAd29yZC9kb2N1bWVudC54bWw1zUsOwjAMBNCroB4AVyxYRCF3CUloK9Uf2UaB29NUYvM0o1lM7KFyeWMjv3xwJwv9Ma3uEgCsrA2zXVkaHduLFbMfVRforFWUSzPbaMEdbvN8B8wbTSn2IAMdeHpy/UYYaaincvo/Tj9QSwMEFAAAAAgANK4yXeIHijBmAAAAfgAAABAAAAB3b3JkL2hlYWRlcjEueG1sHc2xDoUgDIXhVzHuWnMHB4LMvgZRFBILTduE+/iCy5f8OcOx1cSThz8+WUzdxqhKBkCOGNDLXCjktl2F0WtLvqEWPonLEURSvvGB37KsgD7l0dlqqMMddft0JRa10KPLn/TZbt0LUEsDBBQAAAAIADSuMl3SglDlZwAAAH8AAAAQAAAAd29yZC9oZWFkZXIxLnhtbB3NywrDIBCF4Vcp2bcTuuhCjOu8hqiNgcyFGcE+fjWbD37O4vjuatbHDy8y17eltiYOwFItGO3FUmhsX1aMbaQe0FmzKKdidtKBF7zX9QMYT1qC704mOmlhf1pJTNnDrKneyu34DX9QSwECFAMUAAAACAA0rjJdWLhsOGkAAACFAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwECFAMUAAAACAA0rjJd4geKMGYAAAB+AAAAEAAAAAAAAAAAAAAAgAGYAAAAd29yZC9oZWFkZXIxLnhtbFBLAQIUAxQAAAAIADSuMl3SglDlZwAAAH8AAAAQAAAAAAAAAAAAAACAASwBAAB3b3JkL2hlYWRlcjEueG1sUEsFBgAAAAADAAMAuwAAAMEBAAAAAA==",
-      "\nbody\n\nH-second\n\nH-second\n",
+      "\nbody\n\nH-second\n\nH-second",
       "REJECT:duplicate_archive_member",
     ],
     [
       "g_sharedheader.docx",
       "UEsDBBQAAAAIADSuMl1YuGw4aQAAAIUAAAARAAAAd29yZC9kb2N1bWVudC54bWw1zUsOwjAMBNCroB4AVyxYRCF3CUloK9Uf2UaB29NUYvM0o1lM7KFyeWMjv3xwJwv9Ma3uEgCsrA2zXVkaHduLFbMfVRforFWUSzPbaMEdbvN8B8wbTSn2IAMdeHpy/UYYaaincvo/Tj9QSwMEFAAAAAgANK4yXd9wro9jAAAAeQAAABAAAAB3b3JkL2hlYWRlcjEueG1sHc0xDoAgEATArxgf4BELC4LU9r6AKIoJB5c7Eny+YDObzRZrqg4nDy/GJLquYyiFNIAcwaOTKZNPbbsyoyut8g0180mcDy/ypBsjzEotgO5JozVVU4c7xW67gZ5d/qXf9mg/UEsBAhQDFAAAAAgANK4yXVi4bDhpAAAAhQAAABEAAAAAAAAAAAAAAIABAAAAAHdvcmQvZG9jdW1lbnQueG1sUEsBAhQDFAAAAAgANK4yXd9wro9jAAAAeQAAABAAAAAAAAAAAAAAAIABmAAAAHdvcmQvaGVhZGVyMS54bWxQSwECFAMUAAAACAA0rjJd33Cuj2MAAAB5AAAAEAAAAAAAAAAAAAAAgAGYAAAAd29yZC9oZWFkZXIxLnhtbFBLBQYAAAAAAwADALsAAAApAQAAAAA=",
-      "\nbody\n\nHS\n\nHS\n",
+      "\nbody\n\nHS\n\nHS",
       "REJECT:duplicate_archive_member",
     ],
     [
@@ -543,7 +602,10 @@ describe("추출 결과·예외 — Python 과 같은 텍스트, 같은 예외 �
     [
       "g_badlocalmagic.docx",
       "WFhYWBQAAAAIADSuMl3PEP4GZgAAAIIAAAARAAAAd29yZC9kb2N1bWVudC54bWw1zUsKhDAQBNCriAewZRazCJncJcSMCvaH7pZ4/DHCbF5R1KJiCwuXEyv5cOFBFtpn3NwlAFjZKmabWCrd25cVs99VV2isiyiXarbTige85vkNmHcaU2xBOtrxhBF6dPVRHv+v6QdQSwECFAMUAAAACAA0rjJdzxD+BmYAAACCAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAAlQAAAAAA",
-      { err: "BadZipFile", msg: "Bad magic number for file header" },
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
       "REJECT:invalid_archive",
     ],
     [
@@ -561,84 +623,93 @@ describe("추출 결과·예외 — Python 과 같은 텍스트, 같은 예외 �
     [
       "g_quotename_ok.docx",
       "UEsDBBQAAAAIADSuMl1YUDmJZwAAAIIAAAARAAAAd29yZC9kb2N1bWVudC54bWw1zUsOgzAMBNCrVBygRl10EYXcJQopIOEPtqv0+BCkbt5oNIuJLcxcvljJHz/cyUKbhtVdAoCVtWK2J0ula/uwYvar6gKNdRblUs02WnCH1zi+AfNGQ4otSEc7no4IPbp6K7f/13QCUEsDBBQAAAAIADSuMl3UHNEBBgAAAAQAAAANAAAAd29yZC9pdCdzLnhtbLNJ1LcDAFBLAQIUAxQAAAAIADSuMl1YUDmJZwAAAIIAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLAQIUAxQAAAAIADSuMl3UHNEBBgAAAAQAAAANAAAAAAAAAAAAAACAAZYAAAB3b3JkL2l0J3MueG1sUEsFBgAAAAACAAIAegAAAMcAAAAAAA==",
-      "\nq\n",
-      "\nq\n",
+      "\nq",
+      "\nq",
     ],
     [
       "err_z_localname.docx",
       "UEsDBBQAAAAIAEaqMl1E/9uyoQAAANwAAAARAAAAV09SRC9kb2N1bWVudC54bWxFjkEOwiAQRa9C2FuqC2Oa0u48gR4AYWybwAxh0NrbC3Xh5v1Mfv7L9OMnePGGxAuhlsemlQLQkltw0vJ+ux4uUnA26IwnBC03YDkO/do5sq8AmEURIHerlnPOsVOK7QzBcEMRsHRPSsHkcqZJrZRcTGSBufiDV6e2PatgFpRV+SC31YwVqSIPnqzxAk0AERYuJjv3qhaVaWfc+Rur/2PDF1BLAQIUAxQAAAAIAEaqMl1E/9uyoQAAANwAAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAADQAAAAAAA=",
       {
-        err: "BadZipFile",
-        msg: "File name in directory 'word/document.xml' and header b'WORD/document.xml' differ.",
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
       },
-      null,
+      "REJECT:invalid_archive",
     ],
     [
       "err_z_trunc_deflate.docx",
       "UEsDBBQAAAAIAEaqMl2W64wIogAAACEDAAARAAAAd29yZC9kb2N1bWVudC54bWztkjsOwjAQRK9iuScOFAhF+XScAA5g7CWJFO9a9oaQ22OHggtQpnk7o5WmenX3dpN4QYgjYSOPRSkFoCE7Yt/I++16uEgRWaPVEyE0coUou7ZeKktmdoAs0gDGamnkwOwrpaIZwOlYkAdMvycFpznV0KuFgvWBDMSY9t2kTmV5Vk6PKPPkg+yar88IGdxymNFoBuFA7HnP/8q1ynZlho1+49dA9bO7/QBQSwECFAMUAAAACABGqjJdluuMCKIAAAAhAwAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAA1wAAAAAA",
-      { err: "BadZipFile", msg: "Bad CRC-32 for file 'word/document.xml'" },
-      null,
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:invalid_archive",
     ],
     ["err_z_zero.docx", "", { err: "BadZipFile", msg: "File is not a zip file" }, null],
     [
       "err_e_badextra.docx",
       "UEsDBBQAAAAIAAAAIQAcOePYgQAAALAAAAARAAYAd29yZC9kb2N1bWVudC54bWyZmTIAYWJFzjEOwyAMBdCrIA4Q0w4dECFnIUATpICRoSW9fSEdujzr68uW1XLGg709lYBp5rdJ8EWrJh3aV/Spsl6nItvM91qzBCh299GUCbNPvXsiRVN7pA0aksuE1pcS0hYPuAvxgGhC4uPkiu4zZh7QoOrVOObPSkbBiEO6zJe/Ffi/o79QSwECFAMUAAAACAAAACEAHDnj2IEAAACwAAAAEQAGAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWyZmTIAYWJQSwUGAAAAAAEAAQBFAAAAtgAAAAAA",
       { err: "BadZipFile", msg: "Corrupt extra field 9999 (size=50)" },
-      null,
+      "REJECT:invalid_archive",
     ],
     [
       "err_e_cdsize_big.docx",
       "UEsDBBQAAAAIACCsMl0fx8FngAAAAK0AAAARAAAAd29yZC9kb2N1bWVudC54bWxFzsEOwiAMBuBXWXiAdXrwQBh7FgTcSAYlLQ716YV58PK1zd80Vcsr7sPhiQOmWVzGSSxaVenQPqNPZWhxYllnsZWSJQDbzUfDI2afWvZAiqa0kVaoSC4TWs8c0hp3uE7TDaIJSfSTd3TvXnOHOkVbx+HjFfS+S6f59LcP/1/0F1BLAwQUAAAACAAgrDJduJyrhhIAAAAQAAAAEAAAAHdvcmQvaGVhZGVyMS54bWyzUXTxdw6JDHBVqLCzSdS3AwBQSwECFAMUAAAACAAgrDJdH8fBZ4AAAACtAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwECFAMUAAAACAAgrDJduJyrhhIAAAAQAAAAEAAAAAAAAAAAAAAAgAGvAAAAd29yZC9oZWFkZXIxLnhtbFBLBQYAAAAAAgACAIcAAADvAAAAAAA=",
       { err: "BadZipFile", msg: "Bad magic number for central directory" },
-      null,
+      "REJECT:invalid_archive",
     ],
     [
       "err_e_cdsize_small.docx",
       "UEsDBBQAAAAIACCsMl0fx8FngAAAAK0AAAARAAAAd29yZC9kb2N1bWVudC54bWxFzsEOwiAMBuBXWXiAdXrwQBh7FgTcSAYlLQ716YV58PK1zd80Vcsr7sPhiQOmWVzGSSxaVenQPqNPZWhxYllnsZWSJQDbzUfDI2afWvZAiqa0kVaoSC4TWs8c0hp3uE7TDaIJSfSTd3TvXnOHOkVbx+HjFfS+S6f59LcP/1/0F1BLAwQUAAAACAAgrDJduJyrhhIAAAAQAAAAEAAAAHdvcmQvaGVhZGVyMS54bWyzUXTxdw6JDHBVqLCzSdS3AwBQSwECFAMUAAAACAAgrDJdH8fBZ4AAAACtAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwECFAMUAAAACAAgrDJduJyrhhIAAAAQAAAAEAAAAAAAAAAAAAAAgAGvAAAAd29yZC9oZWFkZXIxLnhtbFBLBQYAAAAAAgACAHMAAADvAAAAAAA=",
       { err: "BadZipFile", msg: "Bad magic number for central directory" },
-      null,
+      "REJECT:invalid_archive",
     ],
     [
       "err_e_flag5.docx",
       "UEsDBBQAAAAIACCsMl1MVSF3fgAAAKsAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzjEOwyAMBdCrRBwgph06oISchQIhSICRoaG9fSEdujzb+pblZXvHMJ2Wise0stvM2SaXJgzqV7SpTj1ORbSVHbVmAVD0YaMqM2aberYjRVX7SA4aksmE2pbik4sB7pw/ICqf2Dj5RPMZNQ9oUOUelFtgdEO6zJe/bfh/Ir9QSwECFAMUACAACAAgrDJdTFUhd34AAACrAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAArQAAAAAA",
       { err: "NotImplementedError", msg: "compressed patched data (flag bit 5)" },
-      null,
+      "REJECT:invalid_archive",
     ],
     [
       "err_e_flag6.docx",
       "UEsDBBQAAAAIACCsMl1MVSF3fgAAAKsAAAARAAAAd29yZC9kb2N1bWVudC54bWxFzjEOwyAMBdCrRBwgph06oISchQIhSICRoaG9fSEdujzb+pblZXvHMJ2Wise0stvM2SaXJgzqV7SpTj1ORbSVHbVmAVD0YaMqM2aberYjRVX7SA4aksmE2pbik4sB7pw/ICqf2Dj5RPMZNQ9oUOUelFtgdEO6zJe/bfh/Ir9QSwECFAMUAEAACAAgrDJdTFUhd34AAACrAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAArQAAAAAA",
       { err: "NotImplementedError", msg: "strong encryption (flag bit 6)" },
-      null,
+      "REJECT:invalid_archive",
     ],
     [
       "err_e_overlap.docx",
       "UEsDBBQAAAAIACCsMl2+QBmeiAAAAOcBAAARAAAAd29yZC9kb2N1bWVudC54bWztkUEOAiEMRa9COMAUXbggDHMWBJwhAUoKOnp7YVy4d+3mvTQ/aZNftTxTZA9PNWCe+WkSfNFqlw7tPfncWI9zlfvMt9aKBKh288nUCYvPPbshJdP6SCvsSK4QWl9ryGuKcBbiAsmEzMfKK7rXcBmggaaxX46msL9/s4LR4iAdLAc/TcP3i/oNUEsDBBQAAAAIACCsMl2cGG/jfgAAAKgAAAAQAAAAd29yZC9oZWFkZXIxLnhtbEXOMQ7DIAwF0KtEHCCmHTogQtZeIwWaIAWMbFLa2xfSocv7sr5lWc/vuA8vTxwwTeIySjEbXZVDe0SfytDqxKpOYislKwC2m48Lj5h9at0TKS6ljbRCRXKZ0HrmkNa4w1XKG8QlJNFPPtB9euYOdYq5a+jRpdN8+luF/xvmC1BLAQIUAxQAAAAIACCsMl2+QBmesAAAAOcBAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLAQIUAxQAAAAIACCsMl2cGG/jfgAAAKgAAAAQAAAAAAAAAAAAAACAAbcAAAB3b3JkL2hlYWRlcjEueG1sUEsFBgAAAAACAAIAfQAAAGMBAAAAAA==",
-      { err: "BadZipFile", msg: "Overlapped entries: 'word/document.xml' (possible zip bomb)" },
-      null,
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:invalid_archive",
     ],
     [
       "err_e_stored_small.docx",
       "UEsDBBQAAAAAACCsMl1hSAd3sQAAALEAAAARAAAAd29yZC9kb2N1bWVudC54bWw8P3htbCB2ZXJzaW9uPSIxLjAiPz48dzpkb2N1bWVudCB4bWxuczp3PSJodHRwOi8vc2NoZW1hcy5vcGVueG1sZm9ybWF0cy5vcmcvd29yZHByb2Nlc3NpbmdtbC8yMDA2L21haW4iPjx3OmJvZHk+PHc6cD48dzpyPjx3OnQ+c3RvcmVkIGxpZTwvdzp0PjwvdzpyPjwvdzpwPjwvdzpib2R5Pjwvdzpkb2N1bWVudD5QSwECFAMUAAAAAAAgrDJdYUgHd7EAAACsAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAA4AAAAAAA",
-      { err: "BadZipFile", msg: "Bad CRC-32 for file 'word/document.xml'" },
-      null,
+      {
+        err: "DocumentExtractionError",
+        msg: "document text extraction incomplete; review failed parts",
+      },
+      "REJECT:invalid_archive",
     ],
     [
       "err_e_ver64.docx",
       "UEsDBBQAAAAIACCsMl0LcxFzfgAAAKoAAAARAAAAd29yZC9kb2N1bWVudC54bWxFjkEOwyAMBL8S8YCY9tADIuQtFGiCFGNkaGl/X0gPvYx3tZa9en3jMb0Cl0hpEZdZitXopjy5J4ZUpx6notoi9lqzAihuD2jLTDmknj2I0dZueYNG7DOTC6XEtOEBVylvgDYmMU7eyX/GzAM8UE1/rGGIQT6ZT/6W4V/EfAFQSwECFANAAAAACAAgrDJdC3MRc34AAACqAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAArQAAAAAA",
       { err: "NotImplementedError", msg: "zip file version 6.4" },
-      null,
+      "REJECT:invalid_archive",
     ],
     [
       "e_stored_big.docx",
       "UEsDBBQAAAAAACCsMl1hSAd3sQAAALEAAAARAAAAd29yZC9kb2N1bWVudC54bWw8P3htbCB2ZXJzaW9uPSIxLjAiPz48dzpkb2N1bWVudCB4bWxuczp3PSJodHRwOi8vc2NoZW1hcy5vcGVueG1sZm9ybWF0cy5vcmcvd29yZHByb2Nlc3NpbmdtbC8yMDA2L21haW4iPjx3OmJvZHk+PHc6cD48dzpyPjx3OnQ+c3RvcmVkIGxpZTwvdzp0PjwvdzpyPjwvdzpwPjwvdzpib2R5Pjwvdzpkb2N1bWVudD5QSwECFAMUAAAAAAAgrDJdYUgHd7EAAADjAAAAEQAAAAAAAAAAAAAAgAEAAAAAd29yZC9kb2N1bWVudC54bWxQSwUGAAAAAAEAAQA/AAAA4AAAAAAA",
-      "\nstored lie\n",
-      "\nstored lie\n",
+      "\nstored lie",
+      "\nstored lie",
     ],
     [
       "e_deflate_short.docx",
       "UEsDBBQAAAAIACCsMl29VbXJjAAAAPEBAAARAAAAd29yZC9kb2N1bWVudC54bWztkUEOwjAMBL8S5QF14cChStu3hCQ0lZo4sg2F35OUAw/gymW81kp72DXzM23qEYhXzKM+db2eJ7MPHt09hSyq2pmHfdRRpAwA7GJIljssIVfvhpSs1JcW2JF8IXSBec1L2uDc9xdIds26RV7Rv9otDdQgE0ckUd6KVX/5kzTQ+mykg+Xgp3P47jm9AVBLAQIUAxQAAAAIACCsMl29VbXJjAAAAFUCAAARAAAAAAAAAAAAAACAAQAAAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAQABAD8AAAC7AAAAAAA=",
-      "\nshort data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data \n",
-      "\nshort data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data \n",
+      "\nshort data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data ",
+      "\nshort data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data short data ",
     ],
   ];
   for (const [file, base64, raw, bounded] of cases) {
@@ -759,12 +830,13 @@ describe("xmlEt — expat 증폭 한도·깊은 체인·선언 위치 (Python 3.
 
 describe("xlsx — Python int() 의 Nd 자릿값 전수 (Unicode 15.0 의 Nd 680자)", () => {
   it("모든 Nd 문자를 sharedStrings 인덱스로 썼을 때 Python 과 같은 셀 값", async () => {
+    // workbook.xml 없는 레거시 패키지 (1.27: workbook 만 있고 rels 가 없으면 구조 오류로 거부된다)
     const path = fixture(
       "nd.xlsx",
-      "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",
+      "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",
     );
     const expected =
-      "v0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv19\tv10\tv39\n\n";
+      "v0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv0\nv1\nv2\nv3\nv4\nv5\nv6\nv7\nv8\nv9\nv19\tv10\tv39\n";
     expect(await readXlsx(path)).toBe(expected);
   });
 });
@@ -963,30 +1035,34 @@ describe("csvReader — csv.Sniffer / _csv 파서", () => {
     });
   }
 
-  it("필드 한도 131072 — 정확히 한도는 통과, 1자 초과는 csv.Error", () => {
+  it("필드 한도 131072 — 정확히 한도는 통과, 1자 초과는 csv.Error → ValueError", () => {
     const ok = readRecordsFromText(`a,b\n"${"x".repeat(131072)}",2\n`);
     expect(String(ok[0]?.a).length).toBe(131072);
-    expect(() => readRecordsFromText(`a,b\n"${"x".repeat(131073)}",2\n`)).toThrow(CsvError);
+    // 1.27: csv.Error 는 내용 없는 ValueError("invalid CSV record syntax") 로 바뀐다 (Python 실측)
+    expect(() => readRecordsFromText(`a,b\n"${"x".repeat(131073)}",2\n`)).toThrow(ValueError);
     expect(() => readRecordsFromText(`a,b\n"${"x".repeat(131073)}",2\n`)).toThrow(
-      "field larger than field limit (131072)",
+      "invalid CSV record syntax",
     );
+    expect(() => parseCsvRows(`"${"x".repeat(131073)}"\n`, EXCEL)).toThrow(CsvError);
   });
 });
 
-describe("textNormalizer — Python \\d / \\s 의미론 (offset map 포함)", () => {
+describe("textNormalizer — Python \\d 의미론 + 1.27 단일 숫자 칸 규칙 (offset map 포함)", () => {
+  // 1.27: 확장 패턴은 단일 숫자(앞뒤가 ASCII 숫자가 아닌 [0-9]) 4개 이상일 때만 축소하고,
+  // 기본 모드는 줄 경계를 합치지 않는다. 기대값은 Python 실측.
   const cases: Array<[text: string, python: [string, number[]]]> = [
     [
       "계좌 １２３ ４５６ - ７８ - ９０１２３\n",
       [
-        "계좌 １２３４５６-７８-９０１２３\n",
-        [0, 1, 2, 3, 4, 5, 7, 8, 9, 11, 13, 14, 16, 18, 19, 20, 21, 22, 23],
+        "계좌 １２３ ４５６ - ７８ - ９０１２３\n",
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
       ],
     ],
-    ["٣٤٥ - ٦٧ - ٨٩٠١٢", ["٣٤٥-٦٧-٨٩٠١٢", [0, 1, 2, 4, 6, 7, 9, 11, 12, 13, 14, 15]]],
-    ["123\u001c- 45 - 678", ["123\u001c-45-678", [0, 1, 2, 3, 4, 6, 7, 9, 11, 12, 13]]],
-    ["123﻿- 45 - 678", ["123﻿- 45-678", [0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 12, 13]]],
-    ["123- 45 - 678", ["123-45-678", [0, 1, 2, 3, 4, 6, 7, 9, 11, 12, 13]]],
-    ["123　-　45 - 678", ["123　-　45-678", [0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 12, 13]]],
+    [
+      "٣٤٥ - ٦٧ - ٨٩٠١٢",
+      ["٣٤٥ - ٦٧ - ٨٩٠١٢", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]],
+    ],
+    ["123- 45 - 678", ["123- 45 - 678", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]]],
     ["49 9 - 8 7- 0 3 8", ["499-87-038", [0, 1, 3, 5, 7, 9, 10, 12, 14, 16]]],
     [
       "9 5 1 2 3 0 - 1 8 5 0 4 3 1",
@@ -995,8 +1071,39 @@ describe("textNormalizer — Python \\d / \\s 의미론 (offset map 포함)", ()
     [
       "880101-\n1234568 홍길\n동",
       [
-        "880101- 1234568 홍길동",
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19],
+        "880101-\n1234568 홍길\n동",
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+      ],
+    ],
+    ["１2 3 4 - 5 6 - 7 8 9", ["１234-56-789", [0, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19]]],
+    [
+      "8 8 0 1 0 1 - 1 2 3 4 5 6 8",
+      ["880101-1234568", [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26]],
+    ],
+    [
+      "88 0 1 0 1 - 1 2 3 4 5 6 8",
+      ["880101-1234568", [0, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25]],
+    ],
+    [
+      "880101 - 1234568",
+      ["880101 - 1234568", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]],
+    ],
+    [
+      "Account: 110-123-456789 100000",
+      [
+        "Account: 110-123-456789 100000",
+        [
+          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+          25, 26, 27, 28, 29,
+        ],
+      ],
+    ],
+    ["1 2 3　- 4 5 - 6 7 8", ["1 2 3　- 45-678", [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18]]],
+    [
+      "1 2 3 4 5 6 - 7 8 9 0 1 2 3 4 5 - 6 7 8",
+      [
+        "123456-789012345-678",
+        [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38],
       ],
     ],
   ];

@@ -92,4 +92,14 @@ describe("PreForwardAnonymizer", () => {
     expect(before.remainingChars).toBe(7);
     expect(Object.isFrozen(before)).toBe(true);
   });
+
+  it("empty chunk is a no-op but still requires an open session (Python 1.27)", () => {
+    const stream = new PreForwardAnonymizer(null, { maxChars: 3 });
+    stream.feed("abc");
+    const status = stream.feed("");
+    expect(status.bufferedChars).toBe(3);
+    expect(status.closed).toBe(false);
+    stream.abort();
+    expect(() => stream.feed("")).toThrow(StreamBufferClosed);
+  });
 });

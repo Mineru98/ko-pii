@@ -10,7 +10,10 @@
           "end": 6,
           "risk": 4,
           "conf": 0.95,
-          "evidence": ["b", "a"],
+          "evidence": [
+            "b",
+            "a"
+          ],
           "legal_basis": null,
           "extra": {
             "k": 1
@@ -36,7 +39,9 @@
           "end": 38,
           "risk": 5,
           "conf": 0.95,
-          "evidence": ["a"],
+          "evidence": [
+            "a"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -47,7 +52,10 @@
           "end": 39,
           "risk": 5,
           "conf": 0.7,
-          "evidence": ["b", "pos:x"],
+          "evidence": [
+            "b",
+            "pos:x"
+          ],
           "legal_basis": "법 제2조",
           "extra": {
             "cross_val": "old"
@@ -60,7 +68,10 @@
           "end": 22,
           "risk": 2,
           "conf": 0.96,
-          "evidence": ["b", "a"],
+          "evidence": [
+            "b",
+            "a"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -97,7 +108,9 @@
           "end": 29,
           "risk": 5,
           "conf": 1.0,
-          "evidence": ["sec"],
+          "evidence": [
+            "sec"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -125,7 +138,10 @@
             "end": 22,
             "risk": 2,
             "conf": 0.96,
-            "evidence": ["b", "a"],
+            "evidence": [
+              "b",
+              "a"
+            ],
             "legal_basis": null,
             "extra": {}
           },
@@ -136,7 +152,9 @@
             "end": 29,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["sec"],
+            "evidence": [
+              "sec"
+            ],
             "legal_basis": null,
             "extra": {}
           },
@@ -147,7 +165,9 @@
             "end": 38,
             "risk": 5,
             "conf": 0.95,
-            "evidence": ["a"],
+            "evidence": [
+              "a"
+            ],
             "legal_basis": null,
             "extra": {}
           }
@@ -160,7 +180,11 @@
             "end": 6,
             "risk": 4,
             "conf": 1.0,
-            "evidence": ["b", "a", "corroborated_by:secondary(EMAIL)"],
+            "evidence": [
+              "b",
+              "a",
+              "corroborated_by:secondary(EMAIL)"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1,
@@ -175,10 +199,14 @@
             "end": 29,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["corroborated_by:secondary(RRN)"],
+            "evidence": [
+              "corroborated_by:secondary(RRN)"
+            ],
             "legal_basis": null,
             "extra": {
-              "secondary_confirmed_by": ["sec"],
+              "secondary_confirmed_by": [
+                "sec"
+              ],
               "secondary_label": "RRN"
             }
           }
@@ -191,7 +219,11 @@
             "end": 6,
             "risk": 4,
             "conf": 1.0,
-            "evidence": ["b", "a", "corroborated_by:secondary(EMAIL)"],
+            "evidence": [
+              "b",
+              "a",
+              "corroborated_by:secondary(EMAIL)"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1,
@@ -206,7 +238,11 @@
             "end": 22,
             "risk": 2,
             "conf": 0.6719999999999999,
-            "evidence": ["b", "a", "uncorroborated:primary_missed"],
+            "evidence": [
+              "b",
+              "a",
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "secondary_only"
@@ -219,10 +255,14 @@
             "end": 29,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["corroborated_by:secondary(RRN)"],
+            "evidence": [
+              "corroborated_by:secondary(RRN)"
+            ],
             "legal_basis": null,
             "extra": {
-              "secondary_confirmed_by": ["sec"],
+              "secondary_confirmed_by": [
+                "sec"
+              ],
               "secondary_label": "RRN"
             }
           },
@@ -233,7 +273,10 @@
             "end": 38,
             "risk": 5,
             "conf": 0.6649999999999999,
-            "evidence": ["a", "uncorroborated:primary_missed"],
+            "evidence": [
+              "a",
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "secondary_only"
@@ -248,7 +291,11 @@
             "end": 6,
             "risk": 4,
             "conf": 1.0,
-            "evidence": ["b", "a", "corroborated_by:secondary(EMAIL)"],
+            "evidence": [
+              "b",
+              "a",
+              "corroborated_by:secondary(EMAIL)"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1,
@@ -263,7 +310,10 @@
             "end": 22,
             "risk": 2,
             "conf": 0.96,
-            "evidence": ["b", "a"],
+            "evidence": [
+              "b",
+              "a"
+            ],
             "legal_basis": null,
             "extra": {}
           },
@@ -274,10 +324,14 @@
             "end": 29,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["corroborated_by:secondary(RRN)"],
+            "evidence": [
+              "corroborated_by:secondary(RRN)"
+            ],
             "legal_basis": null,
             "extra": {
-              "secondary_confirmed_by": ["sec"],
+              "secondary_confirmed_by": [
+                "sec"
+              ],
               "secondary_label": "RRN"
             }
           },
@@ -288,7 +342,9 @@
             "end": 38,
             "risk": 5,
             "conf": 0.95,
-            "evidence": ["a"],
+            "evidence": [
+              "a"
+            ],
             "legal_basis": null,
             "extra": {}
           }
@@ -301,7 +357,10 @@
             "end": 6,
             "risk": 4,
             "conf": 0.95,
-            "evidence": ["b", "a"],
+            "evidence": [
+              "b",
+              "a"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1
@@ -327,7 +386,10 @@
             "end": 6,
             "risk": 4,
             "conf": 0.95,
-            "evidence": ["b", "a"],
+            "evidence": [
+              "b",
+              "a"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1
@@ -356,7 +418,10 @@
           "end": 5,
           "risk": 2,
           "conf": 0.9,
-          "evidence": ["a", "pos:x"],
+          "evidence": [
+            "a",
+            "pos:x"
+          ],
           "legal_basis": "법 제2조",
           "extra": {}
         }
@@ -382,7 +447,10 @@
           "end": 4,
           "risk": 5,
           "conf": 0.96,
-          "evidence": ["a", "b"],
+          "evidence": [
+            "a",
+            "b"
+          ],
           "legal_basis": null,
           "extra": {
             "k": 1
@@ -395,7 +463,9 @@
           "end": 18,
           "risk": 1,
           "conf": 0.85,
-          "evidence": ["pos:x"],
+          "evidence": [
+            "pos:x"
+          ],
           "legal_basis": null,
           "extra": {
             "k": 1
@@ -412,7 +482,10 @@
             "end": 4,
             "risk": 5,
             "conf": 0.96,
-            "evidence": ["a", "b"],
+            "evidence": [
+              "a",
+              "b"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1
@@ -425,7 +498,9 @@
             "end": 18,
             "risk": 1,
             "conf": 0.85,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1
@@ -441,7 +516,11 @@
             "end": 4,
             "risk": 5,
             "conf": 0.6719999999999999,
-            "evidence": ["a", "b", "uncorroborated:primary_missed"],
+            "evidence": [
+              "a",
+              "b",
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1,
@@ -455,7 +534,10 @@
             "end": 18,
             "risk": 1,
             "conf": 0.595,
-            "evidence": ["pos:x", "uncorroborated:primary_missed"],
+            "evidence": [
+              "pos:x",
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1,
@@ -484,7 +566,10 @@
             "end": 5,
             "risk": 2,
             "conf": 0.9,
-            "evidence": ["a", "pos:x"],
+            "evidence": [
+              "a",
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           },
@@ -495,7 +580,9 @@
             "end": 18,
             "risk": 1,
             "conf": 0.85,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1
@@ -510,7 +597,10 @@
             "end": 5,
             "risk": 2,
             "conf": 0.9,
-            "evidence": ["a", "pos:x"],
+            "evidence": [
+              "a",
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           }
@@ -523,7 +613,10 @@
             "end": 5,
             "risk": 2,
             "conf": 0.9,
-            "evidence": ["a", "pos:x"],
+            "evidence": [
+              "a",
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           }
@@ -539,7 +632,9 @@
           "end": 17,
           "risk": 3,
           "conf": 0.85,
-          "evidence": ["a"],
+          "evidence": [
+            "a"
+          ],
           "legal_basis": "법 제2조",
           "extra": {}
         },
@@ -550,7 +645,10 @@
           "end": 19,
           "risk": 5,
           "conf": 0.85,
-          "evidence": ["a", "b"],
+          "evidence": [
+            "a",
+            "b"
+          ],
           "legal_basis": null,
           "extra": {
             "k": 1
@@ -587,7 +685,10 @@
           "end": 15,
           "risk": 2,
           "conf": 0.9,
-          "evidence": ["a", "pos:x"],
+          "evidence": [
+            "a",
+            "pos:x"
+          ],
           "legal_basis": null,
           "extra": {
             "cross_val": "old"
@@ -615,7 +716,10 @@
           "end": 6,
           "risk": 5,
           "conf": 0.55,
-          "evidence": ["b", "pos:x"],
+          "evidence": [
+            "b",
+            "pos:x"
+          ],
           "legal_basis": "법 제2조",
           "extra": {
             "cross_val": "old"
@@ -639,14 +743,19 @@
           "end": 9,
           "risk": 4,
           "conf": 0.9,
-          "evidence": ["a", "b"],
+          "evidence": [
+            "a",
+            "b"
+          ],
           "legal_basis": "법 제2조",
           "extra": {
             "cross_val": "old"
           }
         }
       ],
-      "rsl": ["PERSON"],
+      "rsl": [
+        "PERSON"
+      ],
       "result": {
         "union": [
           {
@@ -680,7 +789,10 @@
             "end": 19,
             "risk": 5,
             "conf": 0.85,
-            "evidence": ["a", "b"],
+            "evidence": [
+              "a",
+              "b"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1
@@ -695,7 +807,11 @@
             "end": 19,
             "risk": 5,
             "conf": 0.9,
-            "evidence": ["a", "b", "corroborated_by:secondary(EMAIL)"],
+            "evidence": [
+              "a",
+              "b",
+              "corroborated_by:secondary(EMAIL)"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1,
@@ -712,7 +828,9 @@
             "end": 2,
             "risk": 3,
             "conf": 0.21,
-            "evidence": ["uncorroborated:primary_missed"],
+            "evidence": [
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "cross_val": "secondary_only"
@@ -738,7 +856,11 @@
             "end": 19,
             "risk": 5,
             "conf": 0.9,
-            "evidence": ["a", "b", "corroborated_by:secondary(EMAIL)"],
+            "evidence": [
+              "a",
+              "b",
+              "corroborated_by:secondary(EMAIL)"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1,
@@ -779,7 +901,11 @@
             "end": 19,
             "risk": 5,
             "conf": 0.9,
-            "evidence": ["a", "b", "corroborated_by:secondary(EMAIL)"],
+            "evidence": [
+              "a",
+              "b",
+              "corroborated_by:secondary(EMAIL)"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1,
@@ -809,7 +935,10 @@
             "end": 19,
             "risk": 5,
             "conf": 0.85,
-            "evidence": ["a", "b"],
+            "evidence": [
+              "a",
+              "b"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1
@@ -837,7 +966,10 @@
             "end": 19,
             "risk": 5,
             "conf": 0.85,
-            "evidence": ["a", "b"],
+            "evidence": [
+              "a",
+              "b"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1
@@ -868,7 +1000,9 @@
           "end": 15,
           "risk": 2,
           "conf": 0.9,
-          "evidence": ["b"],
+          "evidence": [
+            "b"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -879,7 +1013,9 @@
           "end": 17,
           "risk": 2,
           "conf": 0.95,
-          "evidence": ["a"],
+          "evidence": [
+            "a"
+          ],
           "legal_basis": "법 제2조",
           "extra": {}
         },
@@ -890,7 +1026,9 @@
           "end": 24,
           "risk": 2,
           "conf": 0.95,
-          "evidence": ["pos:x"],
+          "evidence": [
+            "pos:x"
+          ],
           "legal_basis": "법 제2조",
           "extra": {}
         },
@@ -901,7 +1039,10 @@
           "end": 24,
           "risk": 4,
           "conf": 0.7,
-          "evidence": ["b", "a"],
+          "evidence": [
+            "b",
+            "a"
+          ],
           "legal_basis": "법 제2조",
           "extra": {}
         }
@@ -914,7 +1055,9 @@
           "end": 24,
           "risk": 1,
           "conf": 0.3,
-          "evidence": ["b"],
+          "evidence": [
+            "b"
+          ],
           "legal_basis": "법 제2조",
           "extra": {
             "cross_val": "old"
@@ -927,7 +1070,10 @@
           "end": 24,
           "risk": 2,
           "conf": 0.5,
-          "evidence": ["pos:x", "b"],
+          "evidence": [
+            "pos:x",
+            "b"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -938,14 +1084,19 @@
           "end": 21,
           "risk": 3,
           "conf": 0.5,
-          "evidence": ["a", "pos:x"],
+          "evidence": [
+            "a",
+            "pos:x"
+          ],
           "legal_basis": null,
           "extra": {
             "k": 1
           }
         }
       ],
-      "rsl": ["PERSON"],
+      "rsl": [
+        "PERSON"
+      ],
       "result": {
         "union": [
           {
@@ -955,7 +1106,9 @@
             "end": 17,
             "risk": 2,
             "conf": 0.95,
-            "evidence": ["a"],
+            "evidence": [
+              "a"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           },
@@ -981,10 +1134,16 @@
             "end": 15,
             "risk": 2,
             "conf": 0.9500000000000001,
-            "evidence": ["b", "corroborated_by:secondary(PHONE)"],
+            "evidence": [
+              "b",
+              "corroborated_by:secondary(PHONE)"
+            ],
             "legal_basis": null,
             "extra": {
-              "secondary_confirmed_by": ["a", "pos:x"],
+              "secondary_confirmed_by": [
+                "a",
+                "pos:x"
+              ],
               "secondary_label": "PHONE"
             }
           },
@@ -995,10 +1154,17 @@
             "end": 24,
             "risk": 4,
             "conf": 0.75,
-            "evidence": ["b", "a", "corroborated_by:secondary(PHONE)"],
+            "evidence": [
+              "b",
+              "a",
+              "corroborated_by:secondary(PHONE)"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
-              "secondary_confirmed_by": ["pos:x", "b"],
+              "secondary_confirmed_by": [
+                "pos:x",
+                "b"
+              ],
               "secondary_label": "PHONE"
             }
           }
@@ -1011,10 +1177,16 @@
             "end": 15,
             "risk": 2,
             "conf": 0.9500000000000001,
-            "evidence": ["b", "corroborated_by:secondary(PHONE)"],
+            "evidence": [
+              "b",
+              "corroborated_by:secondary(PHONE)"
+            ],
             "legal_basis": null,
             "extra": {
-              "secondary_confirmed_by": ["a", "pos:x"],
+              "secondary_confirmed_by": [
+                "a",
+                "pos:x"
+              ],
               "secondary_label": "PHONE"
             }
           },
@@ -1040,10 +1212,16 @@
             "end": 15,
             "risk": 2,
             "conf": 0.9500000000000001,
-            "evidence": ["b", "corroborated_by:secondary(PHONE)"],
+            "evidence": [
+              "b",
+              "corroborated_by:secondary(PHONE)"
+            ],
             "legal_basis": null,
             "extra": {
-              "secondary_confirmed_by": ["a", "pos:x"],
+              "secondary_confirmed_by": [
+                "a",
+                "pos:x"
+              ],
               "secondary_label": "PHONE"
             }
           },
@@ -1069,7 +1247,9 @@
             "end": 17,
             "risk": 2,
             "conf": 0.95,
-            "evidence": ["a"],
+            "evidence": [
+              "a"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           },
@@ -1095,7 +1275,9 @@
             "end": 17,
             "risk": 2,
             "conf": 0.95,
-            "evidence": ["a"],
+            "evidence": [
+              "a"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           },
@@ -1124,7 +1306,9 @@
           "end": 16,
           "risk": 5,
           "conf": 1.0,
-          "evidence": ["b"],
+          "evidence": [
+            "b"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -1135,7 +1319,9 @@
           "end": 6,
           "risk": 1,
           "conf": 0.85,
-          "evidence": ["a"],
+          "evidence": [
+            "a"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -1146,7 +1332,9 @@
           "end": 9,
           "risk": 5,
           "conf": 0.85,
-          "evidence": ["pos:x"],
+          "evidence": [
+            "pos:x"
+          ],
           "legal_basis": "법 제2조",
           "extra": {
             "cross_val": "old"
@@ -1183,7 +1371,10 @@
           "end": 3,
           "risk": 1,
           "conf": 0.9,
-          "evidence": ["pos:x", "b"],
+          "evidence": [
+            "pos:x",
+            "b"
+          ],
           "legal_basis": null,
           "extra": {
             "k": 1
@@ -1209,7 +1400,10 @@
           "end": 6,
           "risk": 2,
           "conf": 0.5,
-          "evidence": ["b", "a"],
+          "evidence": [
+            "b",
+            "a"
+          ],
           "legal_basis": null,
           "extra": {
             "cross_val": "old"
@@ -1222,7 +1416,10 @@
           "end": 8,
           "risk": 5,
           "conf": 0.5,
-          "evidence": ["pos:x", "a"],
+          "evidence": [
+            "pos:x",
+            "a"
+          ],
           "legal_basis": null,
           "extra": {
             "cross_val": "old"
@@ -1235,7 +1432,9 @@
           "end": 18,
           "risk": 2,
           "conf": 1.0,
-          "evidence": ["b"],
+          "evidence": [
+            "b"
+          ],
           "legal_basis": null,
           "extra": {
             "cross_val": "old"
@@ -1248,14 +1447,20 @@
           "end": 9,
           "risk": 5,
           "conf": 0.95,
-          "evidence": ["sec"],
+          "evidence": [
+            "sec"
+          ],
           "legal_basis": "법 제2조",
           "extra": {
             "cross_val": "old"
           }
         }
       ],
-      "rsl": ["PHONE", "RRN", "CARD"],
+      "rsl": [
+        "PHONE",
+        "RRN",
+        "CARD"
+      ],
       "result": {
         "union": [
           {
@@ -1265,7 +1470,9 @@
             "end": 9,
             "risk": 5,
             "conf": 0.95,
-            "evidence": ["sec"],
+            "evidence": [
+              "sec"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "cross_val": "old"
@@ -1278,7 +1485,9 @@
             "end": 16,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["b"],
+            "evidence": [
+              "b"
+            ],
             "legal_basis": null,
             "extra": {}
           }
@@ -1291,10 +1500,14 @@
             "end": 9,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["corroborated_by:secondary(PERSON)"],
+            "evidence": [
+              "corroborated_by:secondary(PERSON)"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
-              "secondary_confirmed_by": ["sec"],
+              "secondary_confirmed_by": [
+                "sec"
+              ],
               "secondary_label": "PERSON"
             }
           }
@@ -1317,10 +1530,17 @@
             "start": 4,
             "end": 9,
             "risk": 5,
-            "conf": 0.95,
-            "evidence": [],
+            "conf": 1.0,
+            "evidence": [
+              "corroborated_by:secondary(PERSON)"
+            ],
             "legal_basis": "법 제2조",
-            "extra": {}
+            "extra": {
+              "secondary_confirmed_by": [
+                "sec"
+              ],
+              "secondary_label": "PERSON"
+            }
           },
           {
             "label": "CARD",
@@ -1329,7 +1549,9 @@
             "end": 16,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["b"],
+            "evidence": [
+              "b"
+            ],
             "legal_basis": null,
             "extra": {}
           }
@@ -1352,10 +1574,17 @@
             "start": 4,
             "end": 9,
             "risk": 5,
-            "conf": 0.95,
-            "evidence": [],
+            "conf": 1.0,
+            "evidence": [
+              "corroborated_by:secondary(PERSON)"
+            ],
             "legal_basis": "법 제2조",
-            "extra": {}
+            "extra": {
+              "secondary_confirmed_by": [
+                "sec"
+              ],
+              "secondary_label": "PERSON"
+            }
           },
           {
             "label": "CARD",
@@ -1364,7 +1593,9 @@
             "end": 16,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["b"],
+            "evidence": [
+              "b"
+            ],
             "legal_basis": null,
             "extra": {}
           }
@@ -1399,7 +1630,9 @@
             "end": 16,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["b"],
+            "evidence": [
+              "b"
+            ],
             "legal_basis": null,
             "extra": {}
           }
@@ -1478,7 +1711,9 @@
           "end": 14,
           "risk": 5,
           "conf": 0.95,
-          "evidence": ["pos:x"],
+          "evidence": [
+            "pos:x"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -1489,7 +1724,10 @@
           "end": 11,
           "risk": 1,
           "conf": 0.9,
-          "evidence": ["a", "pos:x"],
+          "evidence": [
+            "a",
+            "pos:x"
+          ],
           "legal_basis": "법 제2조",
           "extra": {
             "k": 1
@@ -1519,7 +1757,10 @@
             "end": 11,
             "risk": 1,
             "conf": 0.9,
-            "evidence": ["a", "pos:x"],
+            "evidence": [
+              "a",
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "k": 1
@@ -1532,7 +1773,9 @@
             "end": 14,
             "risk": 5,
             "conf": 0.95,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": null,
             "extra": {}
           }
@@ -1546,7 +1789,9 @@
             "end": 6,
             "risk": 4,
             "conf": 0.21,
-            "evidence": ["uncorroborated:primary_missed"],
+            "evidence": [
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "k": 1,
@@ -1560,7 +1805,11 @@
             "end": 11,
             "risk": 1,
             "conf": 0.63,
-            "evidence": ["a", "pos:x", "uncorroborated:primary_missed"],
+            "evidence": [
+              "a",
+              "pos:x",
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "k": 1,
@@ -1574,7 +1823,10 @@
             "end": 14,
             "risk": 5,
             "conf": 0.6649999999999999,
-            "evidence": ["pos:x", "uncorroborated:primary_missed"],
+            "evidence": [
+              "pos:x",
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "secondary_only"
@@ -1613,7 +1865,9 @@
             "end": 14,
             "risk": 5,
             "conf": 0.95,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": null,
             "extra": {}
           }
@@ -1655,7 +1909,9 @@
           "end": 9,
           "risk": 2,
           "conf": 0.85,
-          "evidence": ["pos:x"],
+          "evidence": [
+            "pos:x"
+          ],
           "legal_basis": "법 제2조",
           "extra": {
             "cross_val": "old"
@@ -1696,7 +1952,10 @@
           "end": 23,
           "risk": 4,
           "conf": 0.7,
-          "evidence": ["a", "b"],
+          "evidence": [
+            "a",
+            "b"
+          ],
           "legal_basis": "법 제2조",
           "extra": {}
         }
@@ -1724,7 +1983,10 @@
             "end": 23,
             "risk": 4,
             "conf": 0.7,
-            "evidence": ["a", "b"],
+            "evidence": [
+              "a",
+              "b"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           }
@@ -1751,7 +2013,11 @@
             "end": 23,
             "risk": 4,
             "conf": 0.48999999999999994,
-            "evidence": ["a", "b", "uncorroborated:primary_missed"],
+            "evidence": [
+              "a",
+              "b",
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "cross_val": "secondary_only"
@@ -1779,7 +2045,10 @@
             "end": 23,
             "risk": 4,
             "conf": 0.7,
-            "evidence": ["a", "b"],
+            "evidence": [
+              "a",
+              "b"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           }
@@ -1825,7 +2094,10 @@
           "end": 21,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["a", "b"],
+          "evidence": [
+            "a",
+            "b"
+          ],
           "legal_basis": null,
           "extra": {
             "cross_val": "old"
@@ -1864,7 +2136,10 @@
           "end": 17,
           "risk": 5,
           "conf": 0.95,
-          "evidence": ["pos:x", "b"],
+          "evidence": [
+            "pos:x",
+            "b"
+          ],
           "legal_basis": null,
           "extra": {
             "cross_val": "old"
@@ -1881,7 +2156,10 @@
             "end": 17,
             "risk": 5,
             "conf": 0.95,
-            "evidence": ["pos:x", "b"],
+            "evidence": [
+              "pos:x",
+              "b"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "old"
@@ -1897,7 +2175,11 @@
             "end": 17,
             "risk": 5,
             "conf": 0.6649999999999999,
-            "evidence": ["pos:x", "b", "uncorroborated:primary_missed"],
+            "evidence": [
+              "pos:x",
+              "b",
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "secondary_only"
@@ -1923,7 +2205,10 @@
             "end": 21,
             "risk": 3,
             "conf": 0.9,
-            "evidence": ["a", "b"],
+            "evidence": [
+              "a",
+              "b"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "old"
@@ -1938,7 +2223,10 @@
             "end": 21,
             "risk": 3,
             "conf": 0.9,
-            "evidence": ["a", "b"],
+            "evidence": [
+              "a",
+              "b"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "old"
@@ -1982,7 +2270,9 @@
           "end": 32,
           "risk": 2,
           "conf": 0.3,
-          "evidence": ["pos:x"],
+          "evidence": [
+            "pos:x"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -1993,7 +2283,9 @@
           "end": 27,
           "risk": 3,
           "conf": 0.85,
-          "evidence": ["pos:x"],
+          "evidence": [
+            "pos:x"
+          ],
           "legal_basis": "법 제2조",
           "extra": {}
         }
@@ -2006,7 +2298,9 @@
           "end": 34,
           "risk": 1,
           "conf": 0.7,
-          "evidence": ["a"],
+          "evidence": [
+            "a"
+          ],
           "legal_basis": "법 제2조",
           "extra": {}
         },
@@ -2030,7 +2324,9 @@
           "end": 22,
           "risk": 1,
           "conf": 0.55,
-          "evidence": ["a"],
+          "evidence": [
+            "a"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2056,7 +2352,9 @@
             "end": 27,
             "risk": 3,
             "conf": 0.85,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           },
@@ -2067,7 +2365,9 @@
             "end": 32,
             "risk": 2,
             "conf": 0.3,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": null,
             "extra": {}
           },
@@ -2094,7 +2394,9 @@
             "end": 27,
             "risk": 3,
             "conf": 0.85,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           },
@@ -2105,7 +2407,9 @@
             "end": 32,
             "risk": 2,
             "conf": 0.3,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": null,
             "extra": {}
           },
@@ -2131,7 +2435,9 @@
             "end": 27,
             "risk": 3,
             "conf": 0.85,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           },
@@ -2142,7 +2448,9 @@
             "end": 32,
             "risk": 2,
             "conf": 0.3,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": null,
             "extra": {}
           },
@@ -2168,7 +2476,9 @@
             "end": 27,
             "risk": 3,
             "conf": 0.85,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {}
           },
@@ -2179,7 +2489,9 @@
             "end": 32,
             "risk": 2,
             "conf": 0.3,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": null,
             "extra": {}
           },
@@ -2205,7 +2517,9 @@
             "end": 22,
             "risk": 1,
             "conf": 0.55,
-            "evidence": ["a"],
+            "evidence": [
+              "a"
+            ],
             "legal_basis": null,
             "extra": {}
           },
@@ -2216,7 +2530,9 @@
             "end": 32,
             "risk": 2,
             "conf": 0.3,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": null,
             "extra": {}
           },
@@ -2243,7 +2559,9 @@
           "end": 26,
           "risk": 1,
           "conf": 0.7,
-          "evidence": ["a"],
+          "evidence": [
+            "a"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2265,7 +2583,10 @@
           "end": 26,
           "risk": 4,
           "conf": 0.96,
-          "evidence": ["pos:x", "a"],
+          "evidence": [
+            "pos:x",
+            "a"
+          ],
           "legal_basis": null,
           "extra": {
             "cross_val": "old"
@@ -2291,7 +2612,10 @@
           "end": 11,
           "risk": 5,
           "conf": 1.0,
-          "evidence": ["pos:x", "a"],
+          "evidence": [
+            "pos:x",
+            "a"
+          ],
           "legal_basis": "법 제2조",
           "extra": {
             "k": 1
@@ -2304,7 +2628,9 @@
           "end": 6,
           "risk": 3,
           "conf": 0.85,
-          "evidence": ["a"],
+          "evidence": [
+            "a"
+          ],
           "legal_basis": "법 제2조",
           "extra": {}
         },
@@ -2315,7 +2641,9 @@
           "end": 21,
           "risk": 1,
           "conf": 0.9,
-          "evidence": ["pos:x"],
+          "evidence": [
+            "pos:x"
+          ],
           "legal_basis": "법 제2조",
           "extra": {
             "cross_val": "old"
@@ -2367,7 +2695,10 @@
             "end": 11,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["pos:x", "a"],
+            "evidence": [
+              "pos:x",
+              "a"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "k": 1
@@ -2393,7 +2724,9 @@
             "end": 21,
             "risk": 1,
             "conf": 0.9,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "cross_val": "old"
@@ -2406,7 +2739,10 @@
             "end": 26,
             "risk": 4,
             "conf": 0.96,
-            "evidence": ["pos:x", "a"],
+            "evidence": [
+              "pos:x",
+              "a"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "old"
@@ -2433,7 +2769,9 @@
             "end": 6,
             "risk": 5,
             "conf": 0.6719999999999999,
-            "evidence": ["uncorroborated:primary_missed"],
+            "evidence": [
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "cross_val": "secondary_only"
@@ -2446,7 +2784,11 @@
             "end": 11,
             "risk": 5,
             "conf": 0.7,
-            "evidence": ["pos:x", "a", "uncorroborated:primary_missed"],
+            "evidence": [
+              "pos:x",
+              "a",
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "k": 1,
@@ -2460,7 +2802,9 @@
             "end": 17,
             "risk": 5,
             "conf": 0.385,
-            "evidence": ["uncorroborated:primary_missed"],
+            "evidence": [
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": null,
             "extra": {
               "k": 1,
@@ -2474,7 +2818,10 @@
             "end": 21,
             "risk": 1,
             "conf": 0.63,
-            "evidence": ["pos:x", "uncorroborated:primary_missed"],
+            "evidence": [
+              "pos:x",
+              "uncorroborated:primary_missed"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "cross_val": "secondary_only"
@@ -2487,7 +2834,10 @@
             "end": 26,
             "risk": 4,
             "conf": 0.96,
-            "evidence": ["pos:x", "a"],
+            "evidence": [
+              "pos:x",
+              "a"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "old"
@@ -2524,7 +2874,10 @@
             "end": 11,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["pos:x", "a"],
+            "evidence": [
+              "pos:x",
+              "a"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "k": 1
@@ -2550,7 +2903,9 @@
             "end": 21,
             "risk": 1,
             "conf": 0.9,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "cross_val": "old"
@@ -2563,7 +2918,10 @@
             "end": 26,
             "risk": 4,
             "conf": 0.96,
-            "evidence": ["pos:x", "a"],
+            "evidence": [
+              "pos:x",
+              "a"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "old"
@@ -2589,7 +2947,10 @@
             "end": 26,
             "risk": 4,
             "conf": 0.96,
-            "evidence": ["pos:x", "a"],
+            "evidence": [
+              "pos:x",
+              "a"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "old"
@@ -2626,7 +2987,10 @@
             "end": 11,
             "risk": 5,
             "conf": 1.0,
-            "evidence": ["pos:x", "a"],
+            "evidence": [
+              "pos:x",
+              "a"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "k": 1
@@ -2652,7 +3016,9 @@
             "end": 21,
             "risk": 1,
             "conf": 0.9,
-            "evidence": ["pos:x"],
+            "evidence": [
+              "pos:x"
+            ],
             "legal_basis": "법 제2조",
             "extra": {
               "cross_val": "old"
@@ -2665,7 +3031,10 @@
             "end": 26,
             "risk": 4,
             "conf": 0.96,
-            "evidence": ["pos:x", "a"],
+            "evidence": [
+              "pos:x",
+              "a"
+            ],
             "legal_basis": null,
             "extra": {
               "cross_val": "old"
@@ -2686,7 +3055,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.99,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2697,7 +3068,9 @@
           "end": 10,
           "risk": 2,
           "conf": 0.8,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2708,7 +3081,9 @@
           "end": 43,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2719,7 +3094,9 @@
           "end": 24,
           "risk": 4,
           "conf": 0.5,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -2728,7 +3105,7 @@
       "inc": null,
       "exc": null,
       "strategy": "tokenize",
-      "out": "담당자 <PERSON_1> 과장 <PHONE_1> 서울특별시 강남구 <ADDRESS_1>",
+      "out": "담당자 <PERSON_1> 과장 <PHONE_1> <ADDRESS_1><ADDRESS_2>",
       "records": [
         [
           "PERSON",
@@ -2739,6 +3116,7 @@
           1.0,
           [
             "pos:surname(홍)",
+            "pos:field_label(담당자)",
             "pos:title(과장:gov)",
             "pos:deterministic_pii_nearby",
             "pos:agency_in_sentence",
@@ -2747,39 +3125,101 @@
             "origin:korean"
           ]
         ],
-        ["POSITION", "REVIEW", null, 8, 10, 0.8, ["ml"]],
-        ["PHONE", "BLOCK", "<PHONE_1>", 11, 24, 1.0, ["pattern:phone", "type:mobile"]],
-        ["ADDRESS", "BLOCK", "<ADDRESS_1>", 35, 43, 0.9, ["ml"]]
+        [
+          "POSITION",
+          "REVIEW",
+          null,
+          8,
+          10,
+          0.8,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          11,
+          24,
+          1.0,
+          [
+            "pattern:phone",
+            "type:mobile"
+          ]
+        ],
+        [
+          "ADDRESS",
+          "BLOCK",
+          "<ADDRESS_1>",
+          25,
+          35,
+          0.8,
+          [
+            "pattern:address_road",
+            "anchor:prefix",
+            "protection:overlap_remainder"
+          ]
+        ],
+        [
+          "ADDRESS",
+          "BLOCK",
+          "<ADDRESS_2>",
+          35,
+          43,
+          0.9,
+          [
+            "ml"
+          ]
+        ]
       ],
       "summary": {
         "combined_risk": "HIGH",
         "combined_rationale": [
-          "준식별자 4종 결합 → 재식별 가능성 매우 높음 (ADDRESS, PERSON, PHONE, POSITION)"
+          "준식별자 4종 관측 → 규칙상 HIGH (ADDRESS, PERSON, PHONE, POSITION)"
         ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE", "POSITION"],
+        "distinct_quasi_identifiers": [
+          "ADDRESS",
+          "PERSON",
+          "PHONE",
+          "POSITION"
+        ],
         "sensitive_attributes": [],
-        "total": 4,
+        "total": 5,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
-          "BLOCK": 3,
+          "BLOCK": 4,
           "REVIEW": 1
         },
         "by_risk": {
           "HIGH": 2,
           "LOW": 1,
-          "MEDIUM": 1
+          "MEDIUM": 2
         },
         "by_label": {
           "PERSON": 1,
           "POSITION": 1,
           "PHONE": 1,
-          "ADDRESS": 1
+          "ADDRESS": 2
         },
         "by_legal_basis": {
-          "개인정보보호법 제2조": 2,
+          "개인정보보호법 제2조": 3,
           "—": 2
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start;complete_replacement_remainders",
+        "overlap_protection": {
+          "fragments": 1
         }
       }
     },
@@ -2793,7 +3233,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.99,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2804,7 +3246,9 @@
           "end": 10,
           "risk": 2,
           "conf": 0.8,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2815,7 +3259,9 @@
           "end": 43,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2826,7 +3272,9 @@
           "end": 24,
           "risk": 4,
           "conf": 0.5,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -2846,6 +3294,7 @@
           1.0,
           [
             "pos:surname(홍)",
+            "pos:field_label(담당자)",
             "pos:title(과장:gov)",
             "pos:deterministic_pii_nearby",
             "pos:agency_in_sentence",
@@ -2862,7 +3311,11 @@
           11,
           24,
           1.0,
-          ["pattern:phone", "type:mobile", "corroborated_by:secondary(PHONE)"]
+          [
+            "pattern:phone",
+            "type:mobile",
+            "corroborated_by:secondary(PHONE)"
+          ]
         ],
         [
           "ADDRESS",
@@ -2871,18 +3324,30 @@
           25,
           43,
           0.8500000000000001,
-          ["pattern:address_road", "anchor:prefix", "corroborated_by:secondary(ADDRESS)"]
+          [
+            "pattern:address_road",
+            "anchor:prefix",
+            "corroborated_by:secondary(ADDRESS)"
+          ]
         ]
       ],
       "summary": {
         "combined_risk": "MEDIUM",
-        "combined_rationale": ["준식별자 3종 결합 → 재식별 가능성 있음"],
+        "combined_rationale": [
+          "준식별자 3종 결합 → 재식별 가능성 있음"
+        ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE"],
+        "distinct_quasi_identifiers": [
+          "ADDRESS",
+          "PERSON",
+          "PHONE"
+        ],
         "sensitive_attributes": [],
         "total": 3,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 3
         },
@@ -2897,7 +3362,15 @@
         },
         "by_legal_basis": {
           "개인정보보호법 제2조": 3
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -2910,7 +3383,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.99,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2921,7 +3396,9 @@
           "end": 10,
           "risk": 2,
           "conf": 0.8,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2932,7 +3409,9 @@
           "end": 43,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -2943,7 +3422,9 @@
           "end": 24,
           "risk": 4,
           "conf": 0.5,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -2963,6 +3444,7 @@
           1.0,
           [
             "pos:surname(홍)",
+            "pos:field_label(담당자)",
             "pos:title(과장:gov)",
             "pos:deterministic_pii_nearby",
             "pos:agency_in_sentence",
@@ -2979,7 +3461,10 @@
           8,
           10,
           0.5599999999999999,
-          ["ml", "uncorroborated:primary_missed"]
+          [
+            "ml",
+            "uncorroborated:primary_missed"
+          ]
         ],
         [
           "PHONE",
@@ -2988,7 +3473,11 @@
           11,
           24,
           1.0,
-          ["pattern:phone", "type:mobile", "corroborated_by:secondary(PHONE)"]
+          [
+            "pattern:phone",
+            "type:mobile",
+            "corroborated_by:secondary(PHONE)"
+          ]
         ],
         [
           "ADDRESS",
@@ -2997,20 +3486,31 @@
           25,
           43,
           0.8500000000000001,
-          ["pattern:address_road", "anchor:prefix", "corroborated_by:secondary(ADDRESS)"]
+          [
+            "pattern:address_road",
+            "anchor:prefix",
+            "corroborated_by:secondary(ADDRESS)"
+          ]
         ]
       ],
       "summary": {
         "combined_risk": "HIGH",
         "combined_rationale": [
-          "준식별자 4종 결합 → 재식별 가능성 매우 높음 (ADDRESS, PERSON, PHONE, POSITION)"
+          "준식별자 4종 관측 → 규칙상 HIGH (ADDRESS, PERSON, PHONE, POSITION)"
         ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE", "POSITION"],
+        "distinct_quasi_identifiers": [
+          "ADDRESS",
+          "PERSON",
+          "PHONE",
+          "POSITION"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 3,
           "REVIEW": 1
@@ -3029,7 +3529,15 @@
         "by_legal_basis": {
           "개인정보보호법 제2조": 3,
           "—": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3042,7 +3550,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.99,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3053,7 +3563,9 @@
           "end": 10,
           "risk": 2,
           "conf": 0.8,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3064,7 +3576,9 @@
           "end": 43,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3075,7 +3589,9 @@
           "end": 24,
           "risk": 4,
           "conf": 0.5,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3095,6 +3611,7 @@
           1.0,
           [
             "pos:surname(홍)",
+            "pos:field_label(담당자)",
             "pos:title(과장:gov)",
             "pos:deterministic_pii_nearby",
             "pos:agency_in_sentence",
@@ -3104,7 +3621,17 @@
             "corroborated_by:secondary(PERSON)"
           ]
         ],
-        ["POSITION", "REVIEW", null, 8, 10, 0.8, ["ml"]],
+        [
+          "POSITION",
+          "REVIEW",
+          null,
+          8,
+          10,
+          0.8,
+          [
+            "ml"
+          ]
+        ],
         [
           "PHONE",
           "BLOCK",
@@ -3112,7 +3639,11 @@
           11,
           24,
           1.0,
-          ["pattern:phone", "type:mobile", "corroborated_by:secondary(PHONE)"]
+          [
+            "pattern:phone",
+            "type:mobile",
+            "corroborated_by:secondary(PHONE)"
+          ]
         ],
         [
           "ADDRESS",
@@ -3121,20 +3652,31 @@
           25,
           43,
           0.8500000000000001,
-          ["pattern:address_road", "anchor:prefix", "corroborated_by:secondary(ADDRESS)"]
+          [
+            "pattern:address_road",
+            "anchor:prefix",
+            "corroborated_by:secondary(ADDRESS)"
+          ]
         ]
       ],
       "summary": {
         "combined_risk": "HIGH",
         "combined_rationale": [
-          "준식별자 4종 결합 → 재식별 가능성 매우 높음 (ADDRESS, PERSON, PHONE, POSITION)"
+          "준식별자 4종 관측 → 규칙상 HIGH (ADDRESS, PERSON, PHONE, POSITION)"
         ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE", "POSITION"],
+        "distinct_quasi_identifiers": [
+          "ADDRESS",
+          "PERSON",
+          "PHONE",
+          "POSITION"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 3,
           "REVIEW": 1
@@ -3153,7 +3695,15 @@
         "by_legal_basis": {
           "개인정보보호법 제2조": 3,
           "—": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3166,7 +3716,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.99,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3177,7 +3729,9 @@
           "end": 10,
           "risk": 2,
           "conf": 0.8,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3188,7 +3742,9 @@
           "end": 43,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3199,7 +3755,9 @@
           "end": 24,
           "risk": 4,
           "conf": 0.5,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3219,6 +3777,7 @@
           1.0,
           [
             "pos:surname(홍)",
+            "pos:field_label(담당자)",
             "pos:title(과장:gov)",
             "pos:deterministic_pii_nearby",
             "pos:agency_in_sentence",
@@ -3227,18 +3786,48 @@
             "origin:korean"
           ]
         ],
-        ["PHONE", "BLOCK", "<PHONE_1>", 11, 24, 1.0, ["pattern:phone", "type:mobile"]],
-        ["ADDRESS", "BLOCK", "<ADDRESS_1>", 25, 43, 0.8, ["pattern:address_road", "anchor:prefix"]]
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          11,
+          24,
+          1.0,
+          [
+            "pattern:phone",
+            "type:mobile"
+          ]
+        ],
+        [
+          "ADDRESS",
+          "BLOCK",
+          "<ADDRESS_1>",
+          25,
+          43,
+          0.8,
+          [
+            "pattern:address_road",
+            "anchor:prefix"
+          ]
+        ]
       ],
       "summary": {
         "combined_risk": "MEDIUM",
-        "combined_rationale": ["준식별자 3종 결합 → 재식별 가능성 있음"],
+        "combined_rationale": [
+          "준식별자 3종 결합 → 재식별 가능성 있음"
+        ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE"],
+        "distinct_quasi_identifiers": [
+          "ADDRESS",
+          "PERSON",
+          "PHONE"
+        ],
         "sensitive_attributes": [],
         "total": 3,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 3
         },
@@ -3253,7 +3842,15 @@
         },
         "by_legal_basis": {
           "개인정보보호법 제2조": 3
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3266,7 +3863,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.99,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3277,7 +3876,9 @@
           "end": 10,
           "risk": 2,
           "conf": 0.8,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3288,7 +3889,9 @@
           "end": 43,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3299,7 +3902,9 @@
           "end": 24,
           "risk": 4,
           "conf": 0.5,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3310,22 +3915,70 @@
       "strategy": "tokenize",
       "out": "담당자 <PERSON_1> 과장 <PHONE_1> 서울특별시 강남구 <ADDRESS_1>",
       "records": [
-        ["PERSON", "BLOCK", "<PERSON_1>", 4, 7, 0.99, ["ml"]],
-        ["POSITION", "REVIEW", null, 8, 10, 0.8, ["ml"]],
-        ["PHONE", "BLOCK", "<PHONE_1>", 11, 24, 1.0, ["pattern:phone", "type:mobile"]],
-        ["ADDRESS", "BLOCK", "<ADDRESS_1>", 35, 43, 0.9, ["ml"]]
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          4,
+          7,
+          0.99,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "POSITION",
+          "REVIEW",
+          null,
+          8,
+          10,
+          0.8,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          11,
+          24,
+          1.0,
+          [
+            "pattern:phone",
+            "type:mobile"
+          ]
+        ],
+        [
+          "ADDRESS",
+          "BLOCK",
+          "<ADDRESS_1>",
+          35,
+          43,
+          0.9,
+          [
+            "ml"
+          ]
+        ]
       ],
       "summary": {
         "combined_risk": "HIGH",
         "combined_rationale": [
-          "준식별자 4종 결합 → 재식별 가능성 매우 높음 (ADDRESS, PERSON, PHONE, POSITION)"
+          "준식별자 4종 관측 → 규칙상 HIGH (ADDRESS, PERSON, PHONE, POSITION)"
         ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["ADDRESS", "PERSON", "PHONE", "POSITION"],
+        "distinct_quasi_identifiers": [
+          "ADDRESS",
+          "PERSON",
+          "PHONE",
+          "POSITION"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 3,
           "REVIEW": 1
@@ -3344,7 +3997,15 @@
         "by_legal_basis": {
           "—": 3,
           "개인정보보호법 제2조": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3357,7 +4018,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.6,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3374,13 +4037,10 @@
           "<PERSON_1>",
           4,
           7,
-          1.0,
+          0.9,
           [
-            "pos:surname(김)",
+            "pattern:person_name_field",
             "pos:field_label(신청인)",
-            "pos:deterministic_pii_nearby",
-            "pos:name_final_syllable",
-            "pos:name_likelihood(0.20)",
             "origin:korean"
           ]
         ],
@@ -3391,9 +4051,23 @@
           9,
           23,
           1.0,
-          ["pattern:rrn", "date_valid:1988-01-01", "checksum:valid"]
+          [
+            "pattern:rrn",
+            "date_valid:1988-01-01",
+            "checksum:valid"
+          ]
         ],
-        ["EMAIL", "BLOCK", "<EMAIL_1>", 25, 41, 1.0, ["pattern:email"]],
+        [
+          "EMAIL",
+          "BLOCK",
+          "<EMAIL_1>",
+          25,
+          41,
+          1.0,
+          [
+            "pattern:email"
+          ]
+        ],
         [
           "PERSON",
           "BLOCK",
@@ -3413,13 +4087,22 @@
       ],
       "summary": {
         "combined_risk": "CRITICAL",
-        "combined_rationale": ["식별자 1종 등장: RRN → 즉시 식별 가능"],
-        "distinct_identifiers": ["RRN"],
-        "distinct_quasi_identifiers": ["EMAIL", "PERSON"],
+        "combined_rationale": [
+          "선택된 탐지에서 식별자 1종 관측: RRN → 규칙상 CRITICAL"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [
+          "EMAIL",
+          "PERSON"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 4
         },
@@ -3436,7 +4119,15 @@
         "by_legal_basis": {
           "개인정보보호법 제2조": 3,
           "개인정보보호법 제24조의2": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3449,7 +4140,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.6,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3466,13 +4159,10 @@
           "<PERSON_1>",
           4,
           7,
-          1.0,
+          0.9500000000000001,
           [
-            "pos:surname(김)",
+            "pattern:person_name_field",
             "pos:field_label(신청인)",
-            "pos:deterministic_pii_nearby",
-            "pos:name_final_syllable",
-            "pos:name_likelihood(0.20)",
             "origin:korean",
             "corroborated_by:secondary(PERSON)"
           ]
@@ -3480,13 +4170,19 @@
       ],
       "summary": {
         "combined_risk": "LOW",
-        "combined_rationale": ["준식별자 1종 → 단독 식별 어려움"],
+        "combined_rationale": [
+          "준식별자 1종 관측 → 규칙상 LOW; 단독 식별 불가를 뜻하지 않음"
+        ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["PERSON"],
+        "distinct_quasi_identifiers": [
+          "PERSON"
+        ],
         "sensitive_attributes": [],
         "total": 1,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 1
         },
@@ -3498,7 +4194,15 @@
         },
         "by_legal_basis": {
           "개인정보보호법 제2조": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3511,7 +4215,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.6,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3528,13 +4234,10 @@
           "<PERSON_1>",
           4,
           7,
-          1.0,
+          0.9500000000000001,
           [
-            "pos:surname(김)",
+            "pattern:person_name_field",
             "pos:field_label(신청인)",
-            "pos:deterministic_pii_nearby",
-            "pos:name_final_syllable",
-            "pos:name_likelihood(0.20)",
             "origin:korean",
             "corroborated_by:secondary(PERSON)"
           ]
@@ -3546,9 +4249,23 @@
           9,
           23,
           1.0,
-          ["pattern:rrn", "date_valid:1988-01-01", "checksum:valid"]
+          [
+            "pattern:rrn",
+            "date_valid:1988-01-01",
+            "checksum:valid"
+          ]
         ],
-        ["EMAIL", "BLOCK", "<EMAIL_1>", 25, 41, 1.0, ["pattern:email"]],
+        [
+          "EMAIL",
+          "BLOCK",
+          "<EMAIL_1>",
+          25,
+          41,
+          1.0,
+          [
+            "pattern:email"
+          ]
+        ],
         [
           "PERSON",
           "BLOCK",
@@ -3568,13 +4285,22 @@
       ],
       "summary": {
         "combined_risk": "CRITICAL",
-        "combined_rationale": ["식별자 1종 등장: RRN → 즉시 식별 가능"],
-        "distinct_identifiers": ["RRN"],
-        "distinct_quasi_identifiers": ["EMAIL", "PERSON"],
+        "combined_rationale": [
+          "선택된 탐지에서 식별자 1종 관측: RRN → 규칙상 CRITICAL"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [
+          "EMAIL",
+          "PERSON"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 4
         },
@@ -3591,7 +4317,15 @@
         "by_legal_basis": {
           "개인정보보호법 제2조": 3,
           "개인정보보호법 제24조의2": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3604,7 +4338,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.6,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3621,13 +4357,10 @@
           "<PERSON_1>",
           4,
           7,
-          1.0,
+          0.9500000000000001,
           [
-            "pos:surname(김)",
+            "pattern:person_name_field",
             "pos:field_label(신청인)",
-            "pos:deterministic_pii_nearby",
-            "pos:name_final_syllable",
-            "pos:name_likelihood(0.20)",
             "origin:korean",
             "corroborated_by:secondary(PERSON)"
           ]
@@ -3639,9 +4372,23 @@
           9,
           23,
           1.0,
-          ["pattern:rrn", "date_valid:1988-01-01", "checksum:valid"]
+          [
+            "pattern:rrn",
+            "date_valid:1988-01-01",
+            "checksum:valid"
+          ]
         ],
-        ["EMAIL", "BLOCK", "<EMAIL_1>", 25, 41, 1.0, ["pattern:email"]],
+        [
+          "EMAIL",
+          "BLOCK",
+          "<EMAIL_1>",
+          25,
+          41,
+          1.0,
+          [
+            "pattern:email"
+          ]
+        ],
         [
           "PERSON",
           "BLOCK",
@@ -3661,13 +4408,22 @@
       ],
       "summary": {
         "combined_risk": "CRITICAL",
-        "combined_rationale": ["식별자 1종 등장: RRN → 즉시 식별 가능"],
-        "distinct_identifiers": ["RRN"],
-        "distinct_quasi_identifiers": ["EMAIL", "PERSON"],
+        "combined_rationale": [
+          "선택된 탐지에서 식별자 1종 관측: RRN → 규칙상 CRITICAL"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [
+          "EMAIL",
+          "PERSON"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 4
         },
@@ -3684,7 +4440,15 @@
         "by_legal_basis": {
           "개인정보보호법 제2조": 3,
           "개인정보보호법 제24조의2": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3697,7 +4461,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.6,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3714,13 +4480,10 @@
           "<PERSON_1>",
           4,
           7,
-          1.0,
+          0.9,
           [
-            "pos:surname(김)",
+            "pattern:person_name_field",
             "pos:field_label(신청인)",
-            "pos:deterministic_pii_nearby",
-            "pos:name_final_syllable",
-            "pos:name_likelihood(0.20)",
             "origin:korean"
           ]
         ],
@@ -3731,9 +4494,23 @@
           9,
           23,
           1.0,
-          ["pattern:rrn", "date_valid:1988-01-01", "checksum:valid"]
+          [
+            "pattern:rrn",
+            "date_valid:1988-01-01",
+            "checksum:valid"
+          ]
         ],
-        ["EMAIL", "BLOCK", "<EMAIL_1>", 25, 41, 1.0, ["pattern:email"]],
+        [
+          "EMAIL",
+          "BLOCK",
+          "<EMAIL_1>",
+          25,
+          41,
+          1.0,
+          [
+            "pattern:email"
+          ]
+        ],
         [
           "PERSON",
           "BLOCK",
@@ -3753,13 +4530,22 @@
       ],
       "summary": {
         "combined_risk": "CRITICAL",
-        "combined_rationale": ["식별자 1종 등장: RRN → 즉시 식별 가능"],
-        "distinct_identifiers": ["RRN"],
-        "distinct_quasi_identifiers": ["EMAIL", "PERSON"],
+        "combined_rationale": [
+          "선택된 탐지에서 식별자 1종 관측: RRN → 규칙상 CRITICAL"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [
+          "EMAIL",
+          "PERSON"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 4
         },
@@ -3776,7 +4562,15 @@
         "by_legal_basis": {
           "개인정보보호법 제2조": 3,
           "개인정보보호법 제24조의2": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3789,7 +4583,9 @@
           "end": 7,
           "risk": 3,
           "conf": 0.6,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3800,7 +4596,17 @@
       "strategy": "tokenize",
       "out": "신청인 김철수 (<RRN_1>) <EMAIL_1> 박영희 팀장",
       "records": [
-        ["PERSON", "REVIEW", null, 4, 7, 0.6, ["ml"]],
+        [
+          "PERSON",
+          "REVIEW",
+          null,
+          4,
+          7,
+          0.6,
+          [
+            "ml"
+          ]
+        ],
         [
           "RRN",
           "BLOCK",
@@ -3808,19 +4614,42 @@
           9,
           23,
           1.0,
-          ["pattern:rrn", "date_valid:1988-01-01", "checksum:valid"]
+          [
+            "pattern:rrn",
+            "date_valid:1988-01-01",
+            "checksum:valid"
+          ]
         ],
-        ["EMAIL", "BLOCK", "<EMAIL_1>", 25, 41, 1.0, ["pattern:email"]]
+        [
+          "EMAIL",
+          "BLOCK",
+          "<EMAIL_1>",
+          25,
+          41,
+          1.0,
+          [
+            "pattern:email"
+          ]
+        ]
       ],
       "summary": {
         "combined_risk": "CRITICAL",
-        "combined_rationale": ["식별자 1종 등장: RRN → 즉시 식별 가능"],
-        "distinct_identifiers": ["RRN"],
-        "distinct_quasi_identifiers": ["EMAIL", "PERSON"],
+        "combined_rationale": [
+          "선택된 탐지에서 식별자 1종 관측: RRN → 규칙상 CRITICAL"
+        ],
+        "distinct_identifiers": [
+          "RRN"
+        ],
+        "distinct_quasi_identifiers": [
+          "EMAIL",
+          "PERSON"
+        ],
         "sensitive_attributes": [],
         "total": 3,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "REVIEW": 1,
           "BLOCK": 2
@@ -3838,7 +4667,15 @@
           "—": 1,
           "개인정보보호법 제24조의2": 1,
           "개인정보보호법 제2조": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3851,7 +4688,9 @@
           "end": 10,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3862,7 +4701,9 @@
           "end": 15,
           "risk": 3,
           "conf": 0.4,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3873,7 +4714,9 @@
           "end": 2,
           "risk": 3,
           "conf": 0.95,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3884,20 +4727,68 @@
       "strategy": "tokenize",
       "out": "<PERSON_1> 참석: <PERSON_2>, 최지우. 연락처 <PHONE_1>",
       "records": [
-        ["PERSON", "BLOCK", "<PERSON_1>", 0, 2, 0.95, ["ml"]],
-        ["PERSON", "BLOCK", "<PERSON_2>", 7, 10, 0.9, ["ml"]],
-        ["PERSON", "ALLOW", null, 12, 15, 0.4, ["ml"]],
-        ["PHONE", "BLOCK", "<PHONE_1>", 21, 32, 1.0, ["pattern:phone", "type:landline"]]
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          0,
+          2,
+          0.95,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_2>",
+          7,
+          10,
+          0.9,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PERSON",
+          "ALLOW",
+          null,
+          12,
+          15,
+          0.4,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          21,
+          32,
+          1.0,
+          [
+            "pattern:phone",
+            "type:landline"
+          ]
+        ]
       ],
       "summary": {
         "combined_risk": "MEDIUM",
-        "combined_rationale": ["준식별자 2종 결합 → 재식별 가능성 있음"],
+        "combined_rationale": [
+          "준식별자 2종 결합 → 재식별 가능성 있음"
+        ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["PERSON", "PHONE"],
+        "distinct_quasi_identifiers": [
+          "PERSON",
+          "PHONE"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 3,
           "ALLOW": 1
@@ -3912,7 +4803,15 @@
         "by_legal_basis": {
           "—": 3,
           "개인정보보호법 제2조": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3925,7 +4824,9 @@
           "end": 10,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3936,7 +4837,9 @@
           "end": 15,
           "risk": 3,
           "conf": 0.4,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3947,7 +4850,9 @@
           "end": 2,
           "risk": 3,
           "conf": 0.95,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -3960,17 +4865,29 @@
       "records": [],
       "summary": {
         "combined_risk": "INFO",
-        "combined_rationale": ["식별 정보 없음"],
+        "combined_rationale": [
+          "선택된 탐지 결과에서 식별자/준식별자 라벨을 찾지 못함; 원문에 없다는 보장은 아님"
+        ],
         "distinct_identifiers": [],
         "distinct_quasi_identifiers": [],
         "sensitive_attributes": [],
         "total": 0,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {},
         "by_risk": {},
         "by_label": {},
-        "by_legal_basis": {}
+        "by_legal_basis": {},
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -3983,7 +4900,9 @@
           "end": 10,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -3994,7 +4913,9 @@
           "end": 15,
           "risk": 3,
           "conf": 0.4,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -4005,7 +4926,9 @@
           "end": 2,
           "risk": 3,
           "conf": 0.95,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -4023,9 +4946,23 @@
           0,
           2,
           0.6649999999999999,
-          ["ml", "uncorroborated:primary_missed"]
+          [
+            "ml",
+            "uncorroborated:primary_missed"
+          ]
         ],
-        ["PERSON", "REVIEW", null, 7, 10, 0.63, ["ml", "uncorroborated:primary_missed"]],
+        [
+          "PERSON",
+          "REVIEW",
+          null,
+          7,
+          10,
+          0.63,
+          [
+            "ml",
+            "uncorroborated:primary_missed"
+          ]
+        ],
         [
           "PERSON",
           "ALLOW",
@@ -4033,19 +4970,40 @@
           12,
           15,
           0.27999999999999997,
-          ["ml", "uncorroborated:primary_missed"]
+          [
+            "ml",
+            "uncorroborated:primary_missed"
+          ]
         ],
-        ["PHONE", "BLOCK", "<PHONE_1>", 21, 32, 1.0, ["pattern:phone", "type:landline"]]
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          21,
+          32,
+          1.0,
+          [
+            "pattern:phone",
+            "type:landline"
+          ]
+        ]
       ],
       "summary": {
         "combined_risk": "MEDIUM",
-        "combined_rationale": ["준식별자 2종 결합 → 재식별 가능성 있음"],
+        "combined_rationale": [
+          "준식별자 2종 결합 → 재식별 가능성 있음"
+        ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["PERSON", "PHONE"],
+        "distinct_quasi_identifiers": [
+          "PERSON",
+          "PHONE"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "REVIEW": 2,
           "ALLOW": 1,
@@ -4061,7 +5019,15 @@
         "by_legal_basis": {
           "—": 3,
           "개인정보보호법 제2조": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -4074,7 +5040,9 @@
           "end": 10,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -4085,7 +5053,9 @@
           "end": 15,
           "risk": 3,
           "conf": 0.4,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -4096,7 +5066,9 @@
           "end": 2,
           "risk": 3,
           "conf": 0.95,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -4107,20 +5079,68 @@
       "strategy": "tokenize",
       "out": "<PERSON_1> 참석: <PERSON_2>, 최지우. 연락처 <PHONE_1>",
       "records": [
-        ["PERSON", "BLOCK", "<PERSON_1>", 0, 2, 0.95, ["ml"]],
-        ["PERSON", "BLOCK", "<PERSON_2>", 7, 10, 0.9, ["ml"]],
-        ["PERSON", "ALLOW", null, 12, 15, 0.4, ["ml"]],
-        ["PHONE", "BLOCK", "<PHONE_1>", 21, 32, 1.0, ["pattern:phone", "type:landline"]]
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          0,
+          2,
+          0.95,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_2>",
+          7,
+          10,
+          0.9,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PERSON",
+          "ALLOW",
+          null,
+          12,
+          15,
+          0.4,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          21,
+          32,
+          1.0,
+          [
+            "pattern:phone",
+            "type:landline"
+          ]
+        ]
       ],
       "summary": {
         "combined_risk": "MEDIUM",
-        "combined_rationale": ["준식별자 2종 결합 → 재식별 가능성 있음"],
+        "combined_rationale": [
+          "준식별자 2종 결합 → 재식별 가능성 있음"
+        ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["PERSON", "PHONE"],
+        "distinct_quasi_identifiers": [
+          "PERSON",
+          "PHONE"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 3,
           "ALLOW": 1
@@ -4135,7 +5155,15 @@
         "by_legal_basis": {
           "—": 3,
           "개인정보보호법 제2조": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -4148,7 +5176,9 @@
           "end": 10,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -4159,7 +5189,9 @@
           "end": 15,
           "risk": 3,
           "conf": 0.4,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -4170,7 +5202,9 @@
           "end": 2,
           "risk": 3,
           "conf": 0.95,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -4180,16 +5214,35 @@
       "exc": null,
       "strategy": "tokenize",
       "out": "회의 참석: 이민수, 최지우. 연락처 <PHONE_1>",
-      "records": [["PHONE", "BLOCK", "<PHONE_1>", 21, 32, 1.0, ["pattern:phone", "type:landline"]]],
+      "records": [
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          21,
+          32,
+          1.0,
+          [
+            "pattern:phone",
+            "type:landline"
+          ]
+        ]
+      ],
       "summary": {
         "combined_risk": "LOW",
-        "combined_rationale": ["준식별자 1종 → 단독 식별 어려움"],
+        "combined_rationale": [
+          "준식별자 1종 관측 → 규칙상 LOW; 단독 식별 불가를 뜻하지 않음"
+        ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["PHONE"],
+        "distinct_quasi_identifiers": [
+          "PHONE"
+        ],
         "sensitive_attributes": [],
         "total": 1,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 1
         },
@@ -4201,7 +5254,15 @@
         },
         "by_legal_basis": {
           "개인정보보호법 제2조": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     },
     {
@@ -4214,7 +5275,9 @@
           "end": 10,
           "risk": 3,
           "conf": 0.9,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -4225,7 +5288,9 @@
           "end": 15,
           "risk": 3,
           "conf": 0.4,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         },
@@ -4236,7 +5301,9 @@
           "end": 2,
           "risk": 3,
           "conf": 0.95,
-          "evidence": ["ml"],
+          "evidence": [
+            "ml"
+          ],
           "legal_basis": null,
           "extra": {}
         }
@@ -4247,20 +5314,68 @@
       "strategy": "tokenize",
       "out": "<PERSON_1> 참석: <PERSON_2>, 최지우. 연락처 <PHONE_1>",
       "records": [
-        ["PERSON", "BLOCK", "<PERSON_1>", 0, 2, 0.95, ["ml"]],
-        ["PERSON", "BLOCK", "<PERSON_2>", 7, 10, 0.9, ["ml"]],
-        ["PERSON", "ALLOW", null, 12, 15, 0.4, ["ml"]],
-        ["PHONE", "BLOCK", "<PHONE_1>", 21, 32, 1.0, ["pattern:phone", "type:landline"]]
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_1>",
+          0,
+          2,
+          0.95,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PERSON",
+          "BLOCK",
+          "<PERSON_2>",
+          7,
+          10,
+          0.9,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PERSON",
+          "ALLOW",
+          null,
+          12,
+          15,
+          0.4,
+          [
+            "ml"
+          ]
+        ],
+        [
+          "PHONE",
+          "BLOCK",
+          "<PHONE_1>",
+          21,
+          32,
+          1.0,
+          [
+            "pattern:phone",
+            "type:landline"
+          ]
+        ]
       ],
       "summary": {
         "combined_risk": "MEDIUM",
-        "combined_rationale": ["준식별자 2종 결합 → 재식별 가능성 있음"],
+        "combined_rationale": [
+          "준식별자 2종 결합 → 재식별 가능성 있음"
+        ],
         "distinct_identifiers": [],
-        "distinct_quasi_identifiers": ["PERSON", "PHONE"],
+        "distinct_quasi_identifiers": [
+          "PERSON",
+          "PHONE"
+        ],
         "sensitive_attributes": [],
         "total": 4,
         "mode": "STRICT",
         "strategy": "tokenize",
+        "strategies": {},
+        "transformation_policy_sha256": "231e80ff0feb43a08b3febd7fba70bd36ef1e000f03398105fe3c63d586df258",
         "by_action": {
           "BLOCK": 3,
           "ALLOW": 1
@@ -4275,9 +5390,17 @@
         "by_legal_basis": {
           "—": 3,
           "개인정보보호법 제2조": 1
-        }
+        },
+        "detection_scope": {
+          "input_empty": false,
+          "asserted_field": false,
+          "include": null,
+          "exclude": [],
+          "combined_risk_basis": "observed_labels_heuristic_not_anonymity_assessment"
+        },
+        "overlap_resolution": "block_risk_confidence_length_start"
       }
     }
   ],
-  "bad_mode": "ValueError: 'bogus' is not a valid MergeMode"
+  "bad_mode": "ValueError: invalid merge_mode or role_split_labels; use registered modes and labels"
 }

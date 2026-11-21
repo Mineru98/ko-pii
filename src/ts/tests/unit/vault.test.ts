@@ -5,10 +5,11 @@
  * 골드 벡터: spec/goldmaster/{fingerprint,kdf,kvault}.json (바이트 호환 판정 기준)
  */
 import { createHash, pbkdf2Sync } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ValueError } from "../../src/core/errors.js";
 import { RiskLevel } from "../../src/core/types.js";
 import {
   decryptBlob,
@@ -214,23 +215,29 @@ describe("ReversibleVault 토큰/엔트리 (Python test_reversible 대응)", () 
     );
   });
 
-  it("entry 역색인/카운터 재구성 + 비정상 토큰 skip", () => {
+  it("entry 역색인/카운터 재구성 — 비정상 토큰은 거부 (1.27: skip → ValueError)", () => {
     const v = ReversibleVault.fromDict({
       schema_version: 1,
       created_at: "t",
       salt: "s",
       entries: {
         "<RRN_2>": { label: "RRN", original: "a", risk_level: 5 },
-        "weird-token": { label: "RRN", original: "b", risk_level: 4 },
-        "<PHONE_x>": { label: "PHONE", original: "c", risk_level: 3 },
+        "<RRN_7>": { label: "RRN", original: "b", risk_level: 4 },
       },
     });
-    // 역색인: 같은 (label, original) 재저장 시 기존 토큰(비정상 토큰 포함) 재사용 — Python 동일
     expect(v.store("RRN", "a", 5)).toBe("<RRN_2>");
-    expect(v.store("RRN", "b", 4)).toBe("weird-token");
-    // 카운터는 <RRN_2> 만 반영, 비정상 토큰 2개는 skip
-    expect(v.store("RRN", "z", 5)).toBe("<RRN_3>");
-    expect(v.store("PHONE", "d", 3)).toBe("<PHONE_1>"); // <PHONE_x> 숫자 파싱 실패 → 카운터 없음
+    expect(v.store("RRN", "b", 4)).toBe("<RRN_7>");
+    expect(v.store("RRN", "z", 5)).toBe("<RRN_8>");
+    expect(v.store("PHONE", "d", 3)).toBe("<PHONE_1>");
+    for (const token of ["weird-token", "<PHONE_x>"]) {
+      expect(() =>
+        ReversibleVault.fromDict({
+          schema_version: 1,
+          salt: "s",
+          entries: { [token]: { label: "PHONE", original: "c", risk_level: 3 } },
+        }),
+      ).toThrow(ValueError);
+    }
   });
 
   it("secret_key 는 직렬화되지 않는다", () => {
@@ -443,7 +450,7 @@ describe("AuditLog (Python test_audit 대응)", () => {
     log.recordAnonymize(3, "STRICT");
     const entries = replay(path);
     expect(entries[0]).not.toHaveProperty("extra");
-    expect(entries[1]?.extra).toEqual({ count: 3, mode: "STRICT" });
+    expect(entries[1]?.extra).toEqual({ count: 3, mode: "STRICT", status: "completed" });
   });
 });
 
@@ -462,5 +469,379 @@ describe("VaultEntry", () => {
     ]);
     expect(d.label).toBe("X");
     expect(d.risk_level).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 1.27.0 — 적재 검증·토큰 정합성·감사 실패 정책 (Python tests/unit/test_email_vault_boundaries.py,
+// tests/unit/vault/test_audit.py). 기대 메시지는 .venv/bin/python 실측값.
+// ---------------------------------------------------------------------------
+
+const PY_VALID_DUMP =
+  '{"schema_version": 1, "created_at": "2026-01-01T00:00:00+00:00", "salt": "test", "fingerprint_scheme": "pbkdf2-sha256-v2", "fingerprint_iterations": 100000, "entries": {"<PHONE_1>": {"label": "PHONE", "original": "018-2345-6789", "risk_level": 3, "legal_basis": null, "first_seen_offset": -1, "occurrences": [], "extra": {}}}}';
+
+// biome-ignore lint/suspicious/noExplicitAny: Python 테스트처럼 payload 를 자유롭게 변형하는 동적 JSON
+type JsonPayload = Record<string, any>;
+
+function boundaryPayload(): JsonPayload {
+  const v = new ReversibleVault({ salt: "test" });
+  v.store("PHONE", "018-2345-6789", 3);
+  v.createdAt = "2026-01-01T00:00:00+00:00";
+  return JSON.parse(v.dumps(null)) as JsonPayload;
+}
+
+function loadOutcome(payload: unknown): string {
+  try {
+    const raw = typeof payload === "string" ? payload : JSON.stringify(payload);
+    ReversibleVault.loads(raw);
+    return "OK";
+  } catch (e) {
+    if (!(e instanceof ValueError)) throw e;
+    return e.message;
+  }
+}
+
+describe("1.27 Vault 적재 검증 (Python 실측 메시지 대조)", () => {
+  it("유효 payload 는 Python dumps 와 바이트 동일하게 왕복", () => {
+    expect(boundaryPayload()).toEqual(JSON.parse(PY_VALID_DUMP));
+    expect(ReversibleVault.loads(PY_VALID_DUMP).dumps(null)).toBe(PY_VALID_DUMP);
+    const multi =
+      '{"schema_version": 1, "created_at": "t", "salt": "s", "fingerprint_scheme": "pbkdf2-sha256-v2", "fingerprint_iterations": 100000, "entries": {"<PHONE_1>": {"label": "PHONE", "original": "a", "risk_level": 3, "legal_basis": null, "first_seen_offset": 4, "occurrences": [4], "extra": {}}, "<PHONE_2>": {"label": "PHONE", "original": "b", "risk_level": 3, "legal_basis": null, "first_seen_offset": -1, "occurrences": [], "extra": {}}, "<CUSTOM_LABEL_1>": {"label": "CUSTOM_LABEL", "original": "c", "risk_level": 2, "legal_basis": "basis", "first_seen_offset": 9, "occurrences": [9], "extra": {"k": [1, 2]}}}}';
+    const v = new ReversibleVault({ salt: "s" });
+    v.store("PHONE", "a", 3, null, 4);
+    v.store("PHONE", "b", 3);
+    v.store("CUSTOM_LABEL", "c", 2, "basis", 9, { k: [1, 2] });
+    v.createdAt = "t";
+    expect(v.dumps(null)).toBe(multi);
+    expect(ReversibleVault.loads(multi).dumps(null)).toBe(multi);
+  });
+
+  it.each([
+    ["<PHONE_0>", "Invalid vault token index"],
+    ["<PHONE_-1>", "Invalid vault token index"],
+    ["<PHONE_01>", "Invalid vault token index"],
+    ["<PHONE_1", "Vault token does not match its label"],
+    ["PHONE_1>", "Vault token does not match its label"],
+    ["<PHONE_١>", "Invalid vault token index"],
+    ["<PHONE_1>>", "Invalid vault token index"],
+    ["1", "Vault token does not match its label"],
+    ["<PHONE_>", "Invalid vault token index"],
+    ["<PHONE_99>", "OK"],
+  ])("토큰 %s → %s", (token, expected) => {
+    const p = boundaryPayload();
+    p.entries[token] = p.entries["<PHONE_1>"];
+    delete p.entries["<PHONE_1>"];
+    expect(loadOutcome(p)).toBe(expected);
+  });
+
+  it("라벨-토큰 불일치는 거부하고 payload 를 바꾸지 않는다", () => {
+    const p = boundaryPayload();
+    p.entries["<PHONE_1>"].label = "EMAIL";
+    const before = structuredClone(p);
+    expect(() => ReversibleVault.fromDict(p)).toThrow(/token does not match/);
+    expect(p).toEqual(before);
+  });
+
+  it.each([
+    ["label", null, "Invalid vault label"],
+    ["label", [], "Invalid vault label"],
+    ["label", "", "Invalid vault label"],
+    ["label", "A<B", "Invalid vault label"],
+    ["original", 1, "Invalid vault original: expected a string"],
+    ["original", [], "Invalid vault original: expected a string"],
+    ["risk_level", true, "Invalid vault risk_level"],
+    ["risk_level", 0, "Invalid vault risk_level"],
+    ["risk_level", 6, "Invalid vault risk_level"],
+    ["risk_level", "3", "Invalid vault risk_level"],
+    ["risk_level", 1.5, "Invalid vault risk_level"],
+    ["legal_basis", [], "Invalid vault legal_basis"],
+    ["first_seen_offset", -2, "Invalid vault offset"],
+    ["first_seen_offset", true, "Invalid vault offset"],
+    ["occurrences", "12", "Invalid vault occurrences"],
+    ["occurrences", [-1], "Invalid vault occurrences"],
+    ["occurrences", [true], "Invalid vault occurrences"],
+    ["extra", [], "Invalid vault extra: expected an object"],
+    ["extra", null, "Invalid vault extra: expected an object"],
+  ])("entry %s=%j → %s", (field, value, expected) => {
+    const p = boundaryPayload();
+    p.entries["<PHONE_1>"][field] = value;
+    expect(loadOutcome(p)).toBe(expected);
+  });
+
+  it.each([
+    ["risk_level", "Invalid vault risk_level"],
+    ["legal_basis", "OK"],
+    ["first_seen_offset", "OK"],
+    ["occurrences", "OK"],
+    ["extra", "OK"],
+    ["label", "Invalid vault label"],
+    ["original", "Invalid vault original: expected a string"],
+  ])("entry 필드 %s 누락 → %s", (field, expected) => {
+    const p = boundaryPayload();
+    delete p.entries["<PHONE_1>"][field];
+    expect(loadOutcome(p)).toBe(expected);
+  });
+
+  const ITER = "Invalid vault fingerprint_iterations: expected a positive integer";
+  it.each([
+    ["schema_version", true, "Unsupported vault schema_version"],
+    ["schema_version", 2, "Unsupported vault schema_version"],
+    ["salt", null, "Invalid vault salt"],
+    ["created_at", [], "Invalid vault created_at"],
+    ["entries", [], "Invalid vault entries: expected an object"],
+    ["entries", null, "Invalid vault entries: expected an object"],
+    ["fingerprint_scheme", "unsupported", "Unsupported vault fingerprint_scheme"],
+    ["fingerprint_scheme", [], "Unsupported vault fingerprint_scheme"],
+    ["fingerprint_scheme", null, "Unsupported vault fingerprint_scheme"],
+    ["fingerprint_iterations", 0, ITER],
+    ["fingerprint_iterations", -1, ITER],
+    ["fingerprint_iterations", true, ITER],
+    ["fingerprint_iterations", "1000", ITER],
+    ["fingerprint_iterations", 1.5, ITER],
+    ["fingerprint_iterations", null, ITER],
+  ])("vault %s=%j → %s", (field, value, expected) => {
+    const p = boundaryPayload();
+    p[field] = value;
+    expect(loadOutcome(p)).toBe(expected);
+  });
+
+  it.each([
+    ["schema_version", "Unsupported vault schema_version"],
+    ["salt", "Invalid vault salt"],
+    ["entries", "OK"],
+    ["fingerprint_scheme", "OK"],
+    ["fingerprint_iterations", "OK"],
+  ])("vault 필드 %s 누락 → %s", (field, expected) => {
+    const p = boundaryPayload();
+    delete p[field];
+    expect(loadOutcome(p)).toBe(expected);
+  });
+
+  it("legacy(scheme 누락) 는 sha256-v1, 반복 횟수 누락은 기본값", () => {
+    const p = boundaryPayload();
+    delete p.fingerprint_scheme;
+    delete p.fingerprint_iterations;
+    const v = ReversibleVault.fromDict(p);
+    expect(v.fpScheme).toBe("sha256-v1");
+    expect(v.fpIterations).toBe(100_000);
+  });
+
+  it.each(["null", "[]", '"secret-text"', "1"])("객체가 아닌 vault %s 거부", (raw) => {
+    expect(loadOutcome(raw)).toBe("Invalid vault: expected an object");
+    expect(() => ReversibleVault.fromDict(JSON.parse(raw))).toThrow(ValueError);
+  });
+
+  it("같은 identity 가 두 토큰을 가질 수 없다", () => {
+    const p = boundaryPayload();
+    p.entries["<PHONE_2>"] = structuredClone(p.entries["<PHONE_1>"]);
+    expect(loadOutcome(p)).toBe("Duplicate vault identity mapping");
+  });
+
+  it.each([
+    ['{"schema_version":1,"salt":"x","entries":{},"entries":{}}', "dup"],
+    ['{"schema_version":1,"salt":"x","entries":{"private-key":{},"private-key":{}}}', "dup"],
+    ['{"schema_version":1,"salt":"x","extra":{"private-key":1,"private-key":2}}', "dup"],
+    ['{"schema_version":1,"salt":"x","a":{"k\\u0031":1,"k1":2}}', "dup"],
+    ['{"schema_version":1,"salt":"x","a":[{"k":1},{"k":2}]}', "OK"],
+  ])("JSON 중복 키는 모든 깊이에서 거부, 값은 메시지에 없음: %s", (raw, kind) => {
+    const out = loadOutcome(raw);
+    if (kind === "OK") expect(out).toBe("OK");
+    else expect(out).toBe("Invalid vault JSON: duplicate object key");
+    expect(out).not.toContain("private-key");
+  });
+
+  it.each(["NaN", "Infinity", "-Infinity"])("비유한 JSON 상수 %s 거부", (c) => {
+    expect(loadOutcome(`{"schema_version":1,"salt":"x","extra":${c}}`)).toBe(
+      "Invalid vault JSON: non-finite number",
+    );
+  });
+
+  it("문자열 안의 NaN/Infinity 와 구문 오류", () => {
+    expect(loadOutcome('{"schema_version":1,"salt":"NaN Infinity","entries":{}}')).toBe("OK");
+    expect(() => ReversibleVault.loads('{"schema_version":1,')).toThrow(ValueError);
+  });
+
+  it("변조된 entry 로 store 하면 Inconsistent — 상태 불변", () => {
+    const vault = ReversibleVault.fromDict(boundaryPayload());
+    const entry = vault.get("<PHONE_1>");
+    if (entry) entry.original = "other value";
+    const before = vault.dumps(null);
+    expect(() => vault.store("PHONE", "018-2345-6789", 3, null, 100)).toThrow(/Inconsistent/);
+    expect(vault.dumps(null)).toBe(before);
+  });
+
+  it("토큰 충돌은 카운터 예약 전에 검사 (Conflicting) — 상태 불변", () => {
+    const vault = ReversibleVault.fromDict(boundaryPayload());
+    const internals = vault as unknown as {
+      counters: Map<string, number>;
+      reverse: Map<string, string>;
+    };
+    internals.counters.set("PHONE", 0);
+    const before = vault.dumps(null);
+    const reverse = new Map(internals.reverse);
+    expect(() => vault.store("PHONE", "010-9876-5432", 3)).toThrow(/Conflicting/);
+    expect(vault.dumps(null)).toBe(before);
+    expect(internals.reverse).toEqual(reverse);
+    expect(internals.counters.get("PHONE")).toBe(0);
+  });
+
+  it("legacy/current 무작위 왕복 — 토큰 재현 + 신규 토큰 비충돌", () => {
+    let seed = 20261022;
+    const rand = (n: number): number => {
+      seed = (seed * 1103515245 + 12345) % 2 ** 31;
+      return seed % n;
+    };
+    const labels = ["PHONE", "EMAIL", "CUSTOM_LABEL"];
+    for (let round = 0; round < 30; round++) {
+      const vault = new ReversibleVault({ salt: "test" });
+      const pairs = Array.from(
+        { length: 30 },
+        () => [labels[rand(3)] ?? "PHONE", String(rand(100))] as const,
+      );
+      const tokens = pairs.map(([label, value], i) => vault.store(label, value, 3, null, i));
+      for (const legacy of [false, true]) {
+        const payload = vault.toDict() as unknown as Record<string, unknown>;
+        if (legacy) {
+          delete payload.fingerprint_scheme;
+          delete payload.fingerprint_iterations;
+        }
+        const loaded = ReversibleVault.loads(JSON.stringify(payload));
+        pairs.forEach(([label, value], i) => {
+          expect(loaded.store(label, value, 3)).toBe(tokens[i]);
+          expect(loaded.reveal(tokens[i] ?? "")).toBe(value);
+        });
+        const fresh = loaded.store("PHONE", "new-value", 3);
+        expect(tokens).not.toContain(fresh);
+        expect(loaded.reveal(fresh)).toBe("new-value");
+      }
+    }
+  });
+
+  it("거부된 파일은 그대로 남는다 (plain / .kvault)", () => {
+    const p = boundaryPayload();
+    p.entries["<PHONE_1>"].label = "EMAIL";
+    const path = join(tmp, "rejected.json");
+    const original = JSON.stringify(p);
+    writeFileSync(path, original, "utf8");
+    expect(() => ReversibleVault.load(path)).toThrow(ValueError);
+    expect(readFileSync(path, "utf8")).toBe(original);
+
+    const vault = ReversibleVault.fromDict(boundaryPayload());
+    const entry = vault.get("<PHONE_1>");
+    if (entry) entry.label = "EMAIL";
+    const kpath = join(tmp, "broken.kvault");
+    saveEncrypted(vault, kpath, "test-only-password");
+    const bytes = readFileSync(kpath);
+    expect(() => loadEncrypted(kpath, "test-only-password")).toThrow(/token does not match/);
+    expect(readFileSync(kpath).equals(bytes)).toBe(true);
+  });
+
+  it.each([0, -1, true, "1000", 1.5])("생성자 fingerprintIterations=%j 거부", (iterations) => {
+    expect(
+      () => new ReversibleVault({ fingerprintIterations: iterations as unknown as number }),
+    ).toThrow(/fingerprint_iterations/);
+  });
+
+  it("store/tokenFor 입력 검증 (Python 메시지 동일, 실패 시 상태 불변)", () => {
+    const v = new ReversibleVault({ salt: "s" });
+    const cases: [() => unknown, string][] = [
+      [() => v.store("", "x", 3), "Invalid vault label"],
+      [() => v.store("A>", "x", 3), "Invalid vault label"],
+      [() => v.store("A", 1 as unknown as string, 3), "Invalid vault original: expected a string"],
+      [() => v.store("A", "x", 0), "Invalid vault risk_level"],
+      [() => v.store("A", "x", 3, null, -2), "Invalid vault offset"],
+      [() => v.store("A", "x", 3, 1 as unknown as string), "Invalid vault legal_basis"],
+      [
+        () => v.store("A", "x", 3, null, -1, [] as unknown as Record<string, unknown>),
+        "Invalid vault extra: expected an object",
+      ],
+      [() => v.tokenFor("B\n", "x"), "Invalid vault label"],
+    ];
+    for (const [fn, msg] of cases) expect(fn).toThrow(new ValueError(msg));
+    expect(v.size).toBe(0);
+    expect(v.store("A", "x", 3, null, -1, null)).toBe("<A_1>");
+  });
+
+  it("save 는 원자적 교체 — 임시 파일을 남기지 않는다", () => {
+    const dir = mkdtempSync(join(tmp, "atomic-"));
+    const path = join(dir, "vault.json");
+    writeFileSync(path, "old", "utf8");
+    const v = new ReversibleVault({ salt: "abc" });
+    v.store("EMAIL", "a@b.c", 3);
+    v.save(path);
+    expect(readFileSync(path, "utf8")).toBe(v.dumps());
+    saveEncrypted(v, join(dir, "v.kvault"), "pw");
+    expect(readdirSync(dir).sort()).toEqual(["v.kvault", "vault.json"]);
+  });
+});
+
+describe("1.27 감사 실패 정책 (Python tests/unit/vault/test_audit.py)", () => {
+  class FailingAudit {
+    recordStore(): void {
+      throw new Error("audit unavailable");
+    }
+    recordReveal(): void {
+      throw new Error("audit unavailable");
+    }
+  }
+
+  it("best_effort(기본) 는 기존 동작 유지", () => {
+    const vault = new ReversibleVault({ salt: "x", auditLog: new FailingAudit() });
+    const token = vault.store("RRN", "880101-1234568", RiskLevel.CRITICAL);
+    expect(vault.reveal(token)).toBe("880101-1234568");
+  });
+
+  it("raise 는 기록되지 않은 store/reveal 을 막는다", () => {
+    const vault = new ReversibleVault({
+      salt: "x",
+      auditLog: new FailingAudit(),
+      auditFailurePolicy: "raise",
+    });
+    expect(() => vault.store("RRN", "880101-1234568", RiskLevel.CRITICAL)).toThrow(
+      "audit unavailable",
+    );
+    expect(vault.size).toBe(0);
+    expect(vault.get("<RRN_1>")).toBeUndefined();
+    // 롤백 후 카운터도 원복 — 다음 store 가 <RRN_1> 을 다시 받는다
+    vault.attachAudit(new AuditLog(join(tmp, "audit-rollback.jsonl"), "t"));
+    expect(vault.store("RRN", "880101-1234568", RiskLevel.CRITICAL)).toBe("<RRN_1>");
+
+    const v2 = new ReversibleVault({ salt: "x" });
+    const token = v2.store("RRN", "880101-1234568", RiskLevel.CRITICAL);
+    v2.attachAudit(new FailingAudit(), { failurePolicy: "raise" });
+    expect(() => v2.reveal(token)).toThrow("audit unavailable");
+  });
+
+  it("raise 는 occurrence 추가도 되돌린다", () => {
+    const vault = new ReversibleVault({ salt: "x" });
+    const token = vault.store("RRN", "880101-1234568", RiskLevel.CRITICAL, null, 3);
+    vault.attachAudit(new FailingAudit(), { failurePolicy: "raise" });
+    expect(() => vault.store("RRN", "880101-1234568", RiskLevel.CRITICAL, null, 17)).toThrow(
+      "audit unavailable",
+    );
+    expect(vault.get(token)?.occurrences).toEqual([3]);
+  });
+
+  it("미지 정책 거부 (생성자/attachAudit)", () => {
+    expect(
+      () => new ReversibleVault({ auditFailurePolicy: "ignore" as unknown as "raise" }),
+    ).toThrow(
+      new ValueError("Unknown audit_failure_policy: 'ignore'; expected one of best_effort, raise"),
+    );
+    const v = new ReversibleVault({ salt: "x" });
+    expect(() =>
+      v.attachAudit(new FailingAudit(), { failurePolicy: "nope" as unknown as "raise" }),
+    ).toThrow(/audit_failure_policy/);
+  });
+
+  it("record_anonymize status 기록", () => {
+    const path = join(tmp, "audit-status.jsonl");
+    const log = new AuditLog(path, "tester", { now: () => "2024-01-01T00:00:00+00:00" });
+    log.recordAnonymize(2, "STRICT", { status: "prepared" });
+    const [entry] = replay(path);
+    expect(entry?.extra).toEqual({ count: 2, mode: "STRICT", status: "prepared" });
+    expect(readFileSync(path, "utf8")).toBe(
+      '{"ts": "2024-01-01T00:00:00+00:00", "action": "anonymize", "token": null, "label": null, "actor": "tester", "context": null, "extra": {"count": 2, "mode": "STRICT", "status": "prepared"}}\n',
+    );
   });
 });

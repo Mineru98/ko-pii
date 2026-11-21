@@ -251,12 +251,13 @@ describe("ko-pii MCP server", () => {
     const miss = await callJson(client, "reveal", { token: "<RRN_999>", vault_id: vid });
     expect(miss).toEqual({ token: "<RRN_999>", original: null, found: false });
 
-    // 존재하지 않는 vault_id — Python 실측: compact JSON 에러 본문
+    // 존재하지 않는 vault_id — 1.27: vault_id 를 되비추지 않는 isError 결과
     const badVault = await client.callTool({
       name: "reveal",
       arguments: { token: "<RRN_1>", vault_id: "no-such-vault" },
     });
-    expect(textOf(badVault)).toBe('{"error": "unknown vault_id: no-such-vault"}');
+    expect(badVault.isError).toBe(true);
+    expect(textOf(badVault as never)).toBe('{"error": "Tool execution failed"}');
   });
 
   it("combined_risk: 이름+RRN+주소 → CRITICAL (Python 실측 분류와 동일)", async () => {

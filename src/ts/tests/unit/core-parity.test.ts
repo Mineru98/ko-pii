@@ -11,7 +11,6 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { classify_attribute, k_anonymity } from "../../src/analytics/index.js";
 import { Anonymizer } from "../../src/anonymizer.js";
-import { IndexError } from "../../src/core/errors.js";
 import { type DetectionResult, makeDetection } from "../../src/core/types.js";
 import * as publicApi from "../../src/index.js";
 import { categoryFor, legalBasisFor, riskFloorFor } from "../../src/legal/index.js";
@@ -100,16 +99,14 @@ describe("#9 아스트랄 문자 포함 값 — 길이·슬라이스는 코드 �
     ["URL", E.repeat(6), `${E}${E}**${E}${E}`],
     ["PERSON", `김철수${E}`, "김OOO"],
     ["PERSON", `${E}880101-1234568`, `${E}OOOOOOOOOOOOOO`],
-    ["EMAIL", `${E}user@example.com`, `${E}****@example.com`],
-    ["EMAIL", `us${E}er@example.com`, "u****@example.com"],
+    // 1.27: 지원 부분집합 밖의 이메일(아스트랄 로컬)은 전체 마스킹 (Python 실측).
+    ["EMAIL", `${E}user@example.com`, "*****************"],
+    ["EMAIL", `us${E}er@example.com`, "*****************"],
     ["RRN", `김철수${E}`, "****"],
     ["MAJOR", `수학${E}과`, "○○○과"],
-    ["PHONE", MATH_PHONE, "\u{1D7CE}\u{1D7CF}\u{1D7CE}-****-\u{1D7D3}\u{1D7D4}\u{1D7D5}\u{1D7D6}"],
-    [
-      "CARD",
-      MATH_PHONE,
-      "\u{1D7CE}\u{1D7CF}\u{1D7CE}\u{1D7CF}-***-\u{1D7D3}\u{1D7D4}\u{1D7D5}\u{1D7D6}",
-    ],
+    // 1.27: 남는 자릿값은 ASCII 로 정규화되어 출력된다 (Python 실측).
+    ["PHONE", MATH_PHONE, "010-****-5678"],
+    ["CARD", MATH_PHONE, "0101-***-5678"],
   ])("maskValue(%s, %j)", (label, value, want) => {
     const got = maskValue(label, value);
     expect(got).toBe(want);
@@ -117,12 +114,13 @@ describe("#9 아스트랄 문자 포함 값 — 길이·슬라이스는 코드 �
   });
 
   it("fpe 도 코드 포인트 기준으로 길이를 센다", () => {
-    expect(FPE_BY_LABEL.get("EMAIL")?.(`us${E}er@example.com`, FP)).toBe("ztsst@example.com");
+    // 1.27 Python 실측: 지원 형식 밖(아스트랄 로컬 이메일·비ASCII 숫자 전화/카드)은 원문 유지.
+    expect(FPE_BY_LABEL.get("EMAIL")?.(`us${E}er@example.com`, FP)).toBe(`us${E}er@example.com`);
     expect(fpeDefault(`a${E}bcd`, FP)).toBe(`z${E}tss`);
-    expect(FPE_BY_LABEL.get("PHONE")?.(MATH_PHONE, FP)).toBe("\u{1D7CE}\u{1D7CF}5-5262-9119");
+    expect(FPE_BY_LABEL.get("PHONE")?.(MATH_PHONE, FP)).toBe(MATH_PHONE);
     expect(FPE_BY_LABEL.get("RRN")?.(`${MATH_32}세`, FP)).toBe("55");
     expect(FPE_BY_LABEL.get("CARD")?.(FW("1234-5678-9012-3456"), FP)).toBe(
-      `${FW("1234")}-${FW("56")}55-2629-1198`,
+      FW("1234-5678-9012-3456"),
     );
   });
 });
@@ -146,40 +144,30 @@ describe("#8 fpe 의 Python str.isdigit() 집합 (Nd + 위첨자·원문자)", (
     expect(fpeDefault("x\xb2y", FP)).toBe("z5t");
     expect(fpeDefault("\u2460\u2461\u2462\u2463\u2464", FP)).toBe("55262");
   });
-  it("자릿수(Nd)보다 isdigit 문자가 많으면 Python IndexError 처럼 예외", () => {
-    // Python 실측: `IndexError: string index out of range` (PHONE·CARD 공통) — batch 의
-    // error 문자열 "{클래스명}: {메시지}" 에 그대로 나오므로 name·message 를 모두 단언한다.
+  it("자릿수(Nd)보다 isdigit 문자가 많은 값은 예외 없이 원문을 유지한다 (1.27 Python 실측)", () => {
     for (const [label, value] of [
       ["PHONE", "010-1234-5678\xb2"],
       ["CARD", "4111-1111-1111-1111\u2460"],
     ] as const) {
-      let caught: unknown;
-      try {
-        FPE_BY_LABEL.get(label)?.(value, FP);
-      } catch (e) {
-        caught = e;
-      }
-      expect(caught).toBeInstanceOf(IndexError);
-      expect((caught as Error).name).toBe("IndexError");
-      expect((caught as Error).message).toBe("string index out of range");
-      expect(String(caught)).toBe("IndexError: string index out of range");
+      expect(FPE_BY_LABEL.get(label)?.(value, FP)).toBe(value);
     }
   });
 });
 
 describe("#3 #4 #5 #6 정규식·repeat 의미론", () => {
-  it("#3 PASSPORT 숫자 1~2자리 — 음수 repeat 가드", () => {
-    expect(maskValue("PASSPORT", "M1")).toBe("M1");
-    expect(maskValue("PASSPORT", "M12")).toBe("M12");
+  // 1.27 Python 실측: 여권 형식이 아닌 값은 전체 마스킹, fpe 는 원문 유지.
+  it("#3 PASSPORT 숫자 1~2자리 — 형식 밖이라 전체 마스킹", () => {
+    expect(maskValue("PASSPORT", "M1")).toBe("**");
+    expect(maskValue("PASSPORT", "M12")).toBe("***");
   });
-  it("#4 Python `$` 는 끝의 개행 직전에도 매칭한다", () => {
-    expect(maskValue("PASSPORT", "M12345678\n")).toBe("M******78");
+  it("#4 Python `$` 는 끝의 개행 직전에도 매칭한다 (PASSPORT 는 1.27 에서 개행 포함 값 거부)", () => {
+    expect(maskValue("PASSPORT", "M12345678\n")).toBe("**********");
     expect(maskValue("DT_BIRTH", "1988-01-01\n")).toBe("1988-**-**");
     expect(maskValue("DT_BIRTH", "1988년 1월 1일\n")).toBe("1988년 **월 **일");
-    expect(FPE_BY_LABEL.get("PASSPORT")?.("M12345678\n", FP)).toBe("M55262911");
+    expect(FPE_BY_LABEL.get("PASSPORT")?.("M12345678\n", FP)).toBe("M12345678\n");
   });
-  it("#5 fpe PASSPORT 는 전각 숫자(Nd)도 받는다", () => {
-    expect(FPE_BY_LABEL.get("PASSPORT")?.(`M${FW("12345678")}`, FP)).toBe("M55262911");
+  it("#5 fpe PASSPORT 는 전각 숫자 값을 형식 밖으로 보고 원문 유지", () => {
+    expect(FPE_BY_LABEL.get("PASSPORT")?.(`M${FW("12345678")}`, FP)).toBe(`M${FW("12345678")}`);
   });
   it("#6 DT_BIRTH 의 공백은 Python `\\s` 집합", () => {
     expect(maskValue("DT_BIRTH", "1988년\x1f1월 1일")).toBe("1988년 **월 **일");
@@ -229,44 +217,44 @@ describe("#12 k_anonymity — Python tuple 동등성·repr·TypeError", () => {
   });
   it("rationale 의 키 목록은 Python repr(list[str])", () => {
     const keys = ["a'b", "x\ny", 'q"', "한", "b\\s", "a'\"b", "\x7f\u200b"];
-    const r = k_anonymity([{ "a'b": 1, "x\ny": 2, 'q"': 3, 한: 4, "b\\s": 5 }], keys);
+    const r = k_anonymity(
+      [{ "a'b": 1, "x\ny": 2, 'q"': 3, 한: 4, "b\\s": 5, "a'\"b": 6, "\x7f\u200b": 7 }],
+      keys,
+    );
     expect(r.rationale[0]).toBe(
       "준식별자 [\"a'b\", 'x\\ny', 'q\"', '한', 'b\\\\s', 'a\\'\"b', '\\x7f\\u200b'] 기준 1개 그룹",
     );
-    // 누락 키는 Python `rec.get(k)` 의 None — TS 는 null 로 담는다 (Python 실측 [1,2,3,4,5,None,None]).
-    expect(r.smallest_group_values).toEqual([1, 2, 3, 4, 5, null, null]);
-    expect(JSON.stringify(r.smallest_group_values)).toBe("[1,2,3,4,5,null,null]");
+    expect(r.smallest_group_values).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
-  it("준식별자 키는 레코드 자기 키만 조회 (프로토타입 체인 차단) — Python 실측", () => {
-    const recs = [{ AGE: 1 }, { AGE: 1 }];
-    const view = (keys: string[], records: Record<string, unknown>[] = recs) => {
-      const r = k_anonymity(records, keys, 1);
-      return [r.k, r.group_count, r.smallest_group_values, r.rationale[0]];
-    };
-    expect(view(["constructor"])).toEqual([2, 1, [null], "준식별자 ['constructor'] 기준 1개 그룹"]);
-    expect(view(["__proto__", "toString", "hasOwnProperty"])).toEqual([
-      2,
-      1,
-      [null, null, null],
-      "준식별자 ['__proto__', 'toString', 'hasOwnProperty'] 기준 1개 그룹",
-    ]);
-    expect(view(["AGE", "constructor"])).toEqual([
-      2,
-      1,
-      [1, null],
-      "준식별자 ['AGE', 'constructor'] 기준 1개 그룹",
-    ]);
+  it("준식별자 키는 레코드 자기 키만 조회 (프로토타입 체인 차단) — Python 1.27 실측", () => {
+    // 1.27: 누락 열은 공유 None 그룹이 아니라 ValueError
+    const missing = /present in every record/;
+    expect(() => k_anonymity([{ AGE: 1 }, { AGE: 1 }], ["constructor"], 1)).toThrow(missing);
+    expect(() =>
+      k_anonymity([{ AGE: 1 }, { AGE: 1 }], ["__proto__", "toString", "hasOwnProperty"], 1),
+    ).toThrow(missing);
+    expect(() => k_anonymity([{ AGE: 1, toString: "x" }, { AGE: 1 }], ["toString"], 1)).toThrow(
+      missing,
+    );
     // 자기 키로 실제 들어 있으면 값으로 쓴다
-    expect(view(["toString"], [{ AGE: 1, toString: "x" }, { AGE: 1 }])).toEqual([
+    const r = k_anonymity(
+      [
+        { AGE: 1, toString: "x" },
+        { AGE: 1, toString: null },
+      ],
+      ["toString"],
+      1,
+    );
+    expect([r.k, r.group_count, r.smallest_group_values, r.rationale[0]]).toEqual([
       1,
       2,
       ["x"],
       "준식별자 ['toString'] 기준 2개 그룹",
     ]);
   });
-  it("list/dict 값은 해시 불가 — TypeError", () => {
-    expect(() => k_anonymity([{ AGE: [1, 2] }, { AGE: [1, 2] }])).toThrow(TypeError);
-    expect(() => k_anonymity([{ AGE: { a: 1 } }])).toThrow(TypeError);
+  it("list/dict 값은 해시 불가 — ValueError (1.27)", () => {
+    expect(() => k_anonymity([{ AGE: [1, 2] }, { AGE: [1, 2] }])).toThrow(/hashable/);
+    expect(() => k_anonymity([{ AGE: { a: 1 } }])).toThrow(/hashable/);
   });
 });
 
@@ -310,48 +298,44 @@ describe("#13 vault/audit — truthiness·타입 강제·직렬화", () => {
   const load = (payload: unknown) => ReversibleVault.loads(JSON.stringify(payload));
   const base = { schema_version: 1, salt: "a" };
 
-  it("fingerprint_iterations 는 int() 강제 변환", () => {
-    expect(load({ ...base, fingerprint_iterations: "7" }).fpIterations).toBe(7);
-    expect(load({ ...base, fingerprint_iterations: 7.9 }).fpIterations).toBe(7);
-    expect(() => load({ ...base, fingerprint_iterations: "x" })).toThrow();
+  // 1.27: vault 적재가 엄격해졌다 — 아래 메시지는 모두 .venv/bin/python 실측.
+  it("fingerprint_iterations 는 양의 정수만 (문자열·실수 거부)", () => {
+    const msg = "Invalid vault fingerprint_iterations: expected a positive integer";
+    expect(() => load({ ...base, fingerprint_iterations: "7" })).toThrow(msg);
+    expect(() => load({ ...base, fingerprint_iterations: 7.9 })).toThrow(msg);
+    expect(() => load({ ...base, fingerprint_iterations: "x" })).toThrow(msg);
   });
 
-  it("fingerprint_scheme: 필드 없음 → legacy, null 은 그대로(KDF 경로)", () => {
+  it("fingerprint_scheme: 필드 없음 → legacy, null 은 거부", () => {
     expect(load(base).fpScheme).toBe("sha256-v1");
-    const v = load({ ...base, fingerprint_scheme: null });
-    expect(v.toDict().fingerprint_scheme).toBeNull();
-    const kdf = new ReversibleVault({ salt: "a", fingerprintIterations: v.fpIterations });
-    expect(v.fingerprint("RRN", "x")).toBe(kdf.fingerprint("RRN", "x"));
+    expect(() => load({ ...base, fingerprint_scheme: null })).toThrow(
+      "Unsupported vault fingerprint_scheme",
+    );
   });
 
-  it("엔트리 값은 타입 검사 없이 보존, 필수 키 누락·entries null 은 예외", () => {
-    const e1 = { label: "A", original: "x", risk_level: "5" };
-    expect(load({ ...base, entries: { "<A_1>": e1 } }).toDict().entries["<A_1>"]).toEqual({
-      label: "A",
-      original: "x",
-      risk_level: "5",
-      legal_basis: null,
-      first_seen_offset: -1,
-      occurrences: [],
-      extra: {},
-    });
-    const e2 = { label: "A", original: "x", risk_level: 1, legal_basis: 5, first_seen_offset: "3" };
-    const d2 = load({ ...base, entries: { "<A_1>": e2 } }).toDict().entries["<A_1>"];
-    expect([d2?.legal_basis, d2?.first_seen_offset]).toEqual([5, "3"]);
-    expect(load({ ...base, created_at: 5 }).toDict().created_at).toBe(5);
-    expect(() => load({ ...base, entries: null })).toThrow();
+  it("엔트리·메타데이터 타입을 검사한다", () => {
     expect(() =>
-      load({ ...base, entries: { "<A_1>": { original: "x", risk_level: 1 } } }),
-    ).toThrow();
+      load({ ...base, entries: { "<A_1>": { label: "A", original: "x", risk_level: "5" } } }),
+    ).toThrow("Invalid vault risk_level");
+    const e2 = { label: "A", original: "x", risk_level: 1, legal_basis: 5, first_seen_offset: "3" };
+    expect(() => load({ ...base, entries: { "<A_1>": e2 } })).toThrow("Invalid vault legal_basis");
+    expect(() => load({ ...base, created_at: 5 })).toThrow("Invalid vault created_at");
+    expect(() => load({ ...base, entries: null })).toThrow(
+      "Invalid vault entries: expected an object",
+    );
+    expect(() => load({ ...base, entries: { "<A_1>": { original: "x", risk_level: 1 } } })).toThrow(
+      "Invalid vault label",
+    );
   });
 
-  it("토큰 카운터는 Python int() 처럼 공백·전각 숫자를 허용한다", () => {
+  it("토큰 번호는 ASCII 정수만 (공백·전각·밑줄 포함 토큰 거부)", () => {
     const entry = (original: string) => ({ label: "A", original, risk_level: 1 });
-    const v = load({
-      ...base,
-      entries: { "<A_ 12 >": entry("x"), "<A_1_0>": entry("y"), "<A_\uff15>": entry("z") },
-    });
-    expect(v.store("A", "fresh", 1)).toBe("<A_13>");
+    expect(() =>
+      load({
+        ...base,
+        entries: { "<A_ 12 >": entry("x"), "<A_1_0>": entry("y"), "<A_\uff15>": entry("z") },
+      }),
+    ).toThrow("Invalid vault token index");
   });
 
   it("(label, original) 키는 NUL 이 들어 있어도 충돌하지 않는다", () => {

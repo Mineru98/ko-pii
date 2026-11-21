@@ -32,8 +32,11 @@ describe("detectAll include/exclude (Python 의미론)", () => {
   it("include 와 exclude 를 둘 다 적용한다", () => {
     expect(labels(text, ["PHONE", "EMAIL"], ["EMAIL"])).toEqual(["PHONE"]);
   });
-  it("빈 include 는 필터 없음이다", () => {
-    expect(labels(text, [])).toEqual(["PERSON", "PHONE", "EMAIL"]);
+  it("빈 include 는 ValueError, 빈 exclude 는 아무것도 제외하지 않는다 (1.27 validate_label_filter)", () => {
+    expect(() => labels(text, [])).toThrow(
+      "include must contain at least one category label; use None for all",
+    );
+    expect(labels(text, null, [])).toEqual(["PERSON", "PHONE", "EMAIL"]);
   });
   it("exclude 단독", () => {
     expect(labels(text, null, ["PHONE"])).toEqual(["PERSON", "EMAIL"]);
@@ -143,7 +146,8 @@ describe("tabular", () => {
     expect(classified(`${cp(0x1f)}성명`)).toBe(1);
     expect(classified(`${cp(0x85)} 성명`)).toBe(1);
     expect(classified(" 성 명 ")).toBe(1);
-    expect(classified(`${cp(0xfeff)}성명`)).toBe(0); // U+FEFF 는 Python 공백이 아니다
+    // 1.27: 헤더 정규화가 U+FEFF(BOM) 도 걷어낸다 (Python 실측 classify_schema_columns → 1)
+    expect(classified(`${cp(0xfeff)}성명`)).toBe(1);
   });
 });
 
@@ -185,36 +189,51 @@ describe("batch 파일 수집·실행", () => {
       "in//link.txt",
       "in//sub/b.txt",
     ]);
-    expect(collectFiles(["./in", "in/a.txt"]).length).toBe(5);
+    // 1.27: 같은 파일은 abspath 기준으로 한 번만 수집한다 (Python 실측 4)
+    expect(collectFiles(["./in", "in/a.txt"]).length).toBe(4);
   });
-  it("glob ** 는 숨김 디렉터리를 제외하고 './' 접두를 보존한다", () => {
+  it("glob ** 는 숨김 파일을 제외하고 './' 접두를 보존한다 — 매칭된 디렉터리는 통째로 걷는다", () => {
     fixture();
     expect(collectFiles(["./in/**/*.txt"])).toEqual([
       "./in/a.txt",
       "./in/link.txt",
       "./in/sub/b.txt",
     ]);
-    expect(collectFiles(["in/**"])).toEqual(["in/a.txt", "in/link.txt", "in/sub/b.txt"]);
+    // 1.27: glob 이 돌려준 디렉터리("in/")는 os.walk 로 전부 방문한다 (Python 실측)
+    expect(collectFiles(["in/**"])).toEqual([
+      "in/.hid/h.txt",
+      "in/a.txt",
+      "in/link.txt",
+      "in/sub/b.txt",
+    ]);
   });
-  it("빈 extensions 는 기본 확장자로 대체된다", () => {
+  it("빈 extensions 는 아무 확장자도 받지 않는다 (1.27: None 만 기본값)", () => {
     fixture();
-    expect(collectFiles(["in"], true, new Set()).length).toBe(4);
+    expect(collectFiles(["in"], true, new Set()).length).toBe(0);
   });
-  it("파일 0개 + workers>=2 도 즉시 끝난다", async () => {
+  it("파일 0개 + workers>=2 도 즉시 끝난다 (빈 디렉터리는 no_input_files 실패 1건)", async () => {
     const root = fixture();
     const summary = await processPaths(["empty"], join(root, "out"), {
       workers: 2,
       progress: false,
     });
-    expect(summary.totalFiles).toBe(0);
+    expect(summary.totalFiles).toBe(1);
+    expect(summary.results[0]?.errorCode).toBe("no_input_files");
+    const allowed = await processPaths(["empty"], join(root, "out"), {
+      workers: 2,
+      progress: false,
+      allowEmpty: true,
+    });
+    expect(allowed.totalFiles).toBe(0);
   });
-  it("에러 문자열은 Python 예외 클래스명을 쓴다", async () => {
+  it("에러 문자열은 Python 예외 클래스명만 쓰고 메시지는 내보내지 않는다", async () => {
     const root = fixture();
     const summary = await processPaths(["in/a.txt"], join(root, "out"), {
       strategy: "nope",
       progress: false,
     });
-    expect(summary.results[0]?.error).toBe("ValueError: Unknown strategy: nope");
+    expect(summary.results[0]?.error).toBe("ValueError: processing failed");
+    expect(summary.results[0]?.errorCode).toBe("processing_failed");
   });
 });
 
@@ -229,23 +248,29 @@ describe("검수 큐", () => {
     return root;
   };
 
-  it("빈 enqueue 도 파일을 만든다", () => {
+  // Python 1.27 실측: 빈 enqueue 는 파일을 만들지 않고, 손상/스키마 오류 레코드는 건너뛰지 않고
+  // "invalid review queue record at line N; original file preserved" ValueError.
+  it("빈 enqueue 는 파일을 만들지 않는다 (1.27)", () => {
     const path = join(tmp(), "nested", "q.jsonl");
     new ReviewQueue(path).enqueueReviewRecords([]);
-    expect(existsSync(path)).toBe(true);
+    expect(existsSync(path)).toBe(false);
   });
-  it("stats 는 프로토타입 키 verdict 를 집계하지 않는다", () => {
+  it("잘못된 span·프로토타입 키 verdict 레코드는 ValueError (1.27)", () => {
     const path = join(tmp(), "q.jsonl");
     writeFileSync(
       path,
       '{"id":"a","doc":"d","label":"PHONE","text":"x","span":[1,2,3],"confidence":1e-7,"evidence":[],"legal_basis":null,"verdict":"toString","verdict_at":null,"verdict_by":null,"verdict_note":""}\n',
     );
-    expect(new ReviewQueue(path).stats()).toEqual({ total: 1, pending: 0, OK: 0, FP: 0, FN: 0 });
+    expect(() => new ReviewQueue(path).stats()).toThrow(
+      "invalid review queue record at line 1; original file preserved",
+    );
   });
-  it("객체가 아닌 JSON 라인은 건너뛰지 않고 TypeError", () => {
+  it("객체가 아닌 JSON 라인도 ValueError (1.27)", () => {
     const path = join(tmp(), "bad.jsonl");
     writeFileSync(path, "[1, 2]\n");
-    expect(() => new ReviewQueue(path).stats()).toThrow(TypeError);
+    expect(() => new ReviewQueue(path).stats()).toThrow(
+      "invalid review queue record at line 1; original file preserved",
+    );
   });
 });
 
@@ -255,19 +280,19 @@ describe("레코드 헤더 순서 (Python dict 삽입 순서)", () => {
     for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true });
   });
 
-  it("정수형·__proto__·중복 헤더 CSV 를 헤더 순서 그대로 읽고 가명화한다", async () => {
+  it("정수형·__proto__ 헤더 CSV 를 헤더 순서 그대로 읽고 가명화한다", async () => {
     const root = mkdtempSync(join(tmpdir(), "ko-pii-order-"));
     roots.push(root);
     const path = join(root, "t.csv");
     writeFileSync(
       path,
-      "성명,2024,2023,1,__proto__,전화번호,10,2024\n홍길동,a,b,c,d,010-1234-5678,e,f\n이영희,m\n",
+      "성명,2024,2023,1,__proto__,전화번호,10\n홍길동,a,b,c,d,010-1234-5678,e\n이영희,m\n",
     );
     const recs = (await readRecords(path)) as Record<string, string | null>[];
-    // Python: list(read_records(path)[0].items()) — 중복 헤더 2024 는 첫 자리에 마지막 값
+    // Python 1.27: list(read_records(path)[0].items())
     expect(recordEntries(recs[0] ?? {})).toEqual([
       ["성명", "홍길동"],
-      ["2024", "f"],
+      ["2024", "a"],
       ["2023", "b"],
       ["1", "c"],
       ["__proto__", "d"],
@@ -288,13 +313,21 @@ describe("레코드 헤더 순서 (Python dict 삽입 순서)", () => {
     const [out] = anonymizeRecords(recs, { vault });
     expect(recordEntries(out[0] ?? {})).toEqual([
       ["성명", "<PERSON_1>"],
-      ["2024", "f"],
+      ["2024", "a"],
       ["2023", "b"],
       ["1", "c"],
       ["__proto__", "d"],
       ["전화번호", "<PHONE_1>"],
       ["10", "e"],
     ]);
+  });
+
+  it("중복 헤더 CSV 는 Python 1.27 처럼 거부한다", async () => {
+    const root = mkdtempSync(join(tmpdir(), "ko-pii-order-"));
+    roots.push(root);
+    const path = join(root, "dup.csv");
+    writeFileSync(path, "성명,2024,2024\n홍길동,a,f\n");
+    await expect(readRecords(path)).rejects.toThrow("CSV headers must be nonempty and unique");
   });
 
   it("setField 는 기존 키의 자리를 지키고, 순서 정보가 없으면 Object.keys 로 폴백한다", () => {
@@ -333,12 +366,13 @@ describe("리뷰 지적 회귀 (Python 실측)", () => {
     expect(pyFormatFixed(Number.NaN, 2)).toBe("nan");
   });
 
-  it("include truthiness 는 Python 규칙 — 빈 컨테이너는 필터 없음, 빈 제너레이터는 전부 제외", () => {
+  it("label 필터는 1회 구체화 후 검증 — 빈 컨테이너·빈 제너레이터·문자열·미등록 라벨 거부 (Python 실측)", () => {
     const text = "홍길동 010-1234-5678 hong@example.com";
     const lab = (inc: Iterable<string>) => detectAll(text, inc).map((d) => d.label);
-    expect(lab([])).toEqual(["PERSON", "PHONE", "EMAIL"]);
-    expect(lab(new Set())).toEqual(["PERSON", "PHONE", "EMAIL"]);
-    expect(lab((function* (): Generator<string> {})())).toEqual([]);
+    const empty = "include must contain at least one category label; use None for all";
+    expect(() => lab([])).toThrow(empty);
+    expect(() => lab(new Set())).toThrow(empty);
+    expect(() => lab((function* (): Generator<string> {})())).toThrow(empty);
     expect(
       lab(
         (function* (): Generator<string> {
@@ -346,6 +380,13 @@ describe("리뷰 지적 회귀 (Python 실측)", () => {
         })(),
       ),
     ).toEqual(["PHONE"]);
+    expect(() => lab("PHONE")).toThrow("include must be a collection of category labels");
+    expect(() => lab(["phone"])).toThrow(
+      "include contains an unknown category label; use ko-pii --labels",
+    );
+    expect(() => detectAll(text, null, ["NOPE"])).toThrow(
+      "exclude contains an unknown category label; use ko-pii --labels",
+    );
   });
 
   it("symlink 루프가 있어도 수집이 예외 없이 끝난다 (os.path.isdir 는 ELOOP 를 False 로)", () => {
@@ -382,8 +423,13 @@ describe("리뷰 지적 회귀 (Python 실측)", () => {
         verdict_note: "",
       });
     const path = join(root, "q.jsonl");
-    // BOM 으로 시작하는 첫 줄은 Python strip() 이 BOM 을 남겨 JSONDecodeError 로 버려진다
+    // BOM 으로 시작하는 첫 줄은 Python strip() 이 BOM 을 남겨 JSON 오류 — 1.27 은 건너뛰지 않고 실패
     writeFileSync(path, `${cp(0xfeff)}${line("a", null)}\r${line("b", "OK")}\r`);
-    expect(new ReviewQueue(path).stats()).toEqual({ total: 1, pending: 0, OK: 1, FP: 0, FN: 0 });
+    expect(() => new ReviewQueue(path).stats()).toThrow(
+      "invalid review queue record at line 1; original file preserved",
+    );
+    // \r 단독 줄 구분은 universal newlines — 두 번째 레코드가 line 2 로 센다
+    writeFileSync(path, `${line("a", null)}\r${line("b", "OK")}\r`);
+    expect(new ReviewQueue(path).stats()).toEqual({ total: 2, pending: 1, OK: 1, FP: 0, FN: 0 });
   });
 });

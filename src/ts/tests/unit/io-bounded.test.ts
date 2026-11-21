@@ -372,12 +372,13 @@ describe("bounded 회귀 (Python 실측 32종 픽스처 대조 기반)", () => {
     await expectCode(() => readTextBounded(join(dir, "no_such.txt")), "file_unavailable");
   });
 
-  it("bounded 텍스트는 dispatcher 정규화를 거친다 (줄바꿈 복원 실측)", async () => {
+  it("bounded 텍스트는 dispatcher 정규화를 거치되 숫자 줄 경계는 합치지 않는다 (1.27 실측)", async () => {
     const dir = tmp();
     const source = writeTmp(dir, "wrapped.txt", "880101-\n1234568 및 010-1234-\n5678");
 
     const result = await readTextBounded(source);
-    expect(result.text).toBe("880101- 1234568 및 010-1234- 5678");
+    expect(result.text).toBe("880101-\n1234568 및 010-1234-\n5678");
+    expect(result.coverage).toBeNull();
   });
 
   it("docx 본문 추출도 라우팅된다 (Python dispatcher 실측과 동일)", async () => {
@@ -388,13 +389,45 @@ describe("bounded 회귀 (Python 실측 32종 픽스처 대조 기반)", () => {
       await makeZip([
         [
           "word/document.xml",
-          "<w:document><w:body><w:p><w:r><w:t>안녕하세요</w:t></w:r></w:p></w:body></w:document>",
+          '<w:document xmlns:w="urn:w"><w:body><w:p><w:r><w:t>안녕하세요</w:t></w:r></w:p></w:body></w:document>',
         ],
       ]),
     );
 
     const result = await readTextBounded(source);
+    expect(result.text).toBe("\n안녕하세요");
     expect(result.archiveMembers).toBe(1);
     expect(result.extension).toBe(".docx");
+    expect(result.coverage?.status).toBe("complete");
+    expect(result.coverage?.parts).toEqual([{ part: "word/document.xml", status: "read" }]);
+  });
+
+  it("미선언 접두어 docx 는 빈 텍스트가 아니라 document_extraction_incomplete (1.27 실측)", async () => {
+    const dir = tmp();
+    const source = writeTmp(
+      dir,
+      "unbound.docx",
+      await makeZip([
+        [
+          "word/document.xml",
+          "<w:document><w:body><w:p><w:r><w:t>안녕하세요</w:t></w:r></w:p></w:body></w:document>",
+        ],
+      ]),
+    );
+    await expectCode(() => readTextBounded(source), "document_extraction_incomplete");
+    try {
+      await readTextBounded(source);
+    } catch (e) {
+      expect((e as BoundedReadError).coverage).toEqual({
+        status: "failed",
+        scope: "discovered_supported_text_parts",
+        parts: [{ part: "word/document.xml", status: "failed", reason: "part_parse_failed" }],
+        limitations: [
+          "embedded_images_not_ocr_checked",
+          "unsupported_parts_not_inspected",
+          "package_relationships_not_validated",
+        ],
+      });
+    }
   });
 });

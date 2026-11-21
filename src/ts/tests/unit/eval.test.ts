@@ -268,11 +268,11 @@ describe("kdpii (test_kdpii_matcher.py)", () => {
         ["EDUCATION", "MAJOR", "PERSON"],
       ]);
       expect(kdpii.formatKdpiiReport(kdpii.evaluateKdpii(docs))).toBe(
-        "문서 수: 2\n라벨 매핑: 22 KDPII → 20 ko-pii LABEL\n\n라벨                 정탐    오탐    미탐     정확도     재현율      F1\n---------------------------------------------------------\nEDUCATION           1     0     0   1.000   1.000   1.000\nEMAIL               1     0     0   1.000   1.000   1.000\nMAJOR               1     0     0   1.000   1.000   1.000\nPERSON              0     0     1   0.000   0.000   0.000\nPHONE               0     1     1   0.000   0.000   0.000\n---------------------------------------------------------\n(전체)                3     1     2   0.750   0.600   0.667\n\n정탐 = 정확히 잡은 것 (gold 도 있음)\n오탐 = 잘못 잡은 것 (gold 없는데 잡음)\n미탐 = 놓친 것 (gold 있는데 못 잡음)",
+        "문서 수: 2\n라벨 매핑: 22 KDPII → 20 ko-pii LABEL\n\n라벨                 정탐    오탐    미탐     정확도     재현율      F1\n---------------------------------------------------------\nEDUCATION           1     0     0   1.000   1.000   1.000\nEMAIL               1     0     0   1.000   1.000   1.000\nMAJOR               1     0     0   1.000   1.000   1.000\nPERSON              1     0     0   1.000   1.000   1.000\nPHONE               0     1     1   0.000   0.000   0.000\n---------------------------------------------------------\n(전체)                4     1     1   0.800   0.800   0.800\n\n정탐 = 정확히 잡은 것 (gold 도 있음)\n오탐 = 잘못 잡은 것 (gold 없는데 잡음)\n미탐 = 놓친 것 (gold 있는데 못 잡음)",
       );
       const rep1 = kdpii.evaluateKdpii(docs, detectAll, { personMinLength: 1 });
       const person = rep1.perLabel.get("PERSON")!;
-      expect([person.tp, person.fp, person.fn]).toEqual([0, 0, 2]);
+      expect([person.tp, person.fp, person.fn]).toEqual([1, 0, 1]);
 
       // Zenodo 배열 형식 자동 감지
       const arr = join(dir, "kd.json");
@@ -404,12 +404,12 @@ describe("benchmark (test_benchmark_smoke.py)", () => {
       expect(lines).toContain("RRN                     191   12    5     0.941    0.974   0.957");
       expect(lines).toContain("PHONE                   552   10    3     0.982    0.995   0.988");
       expect(lines).toContain("EMAIL                   204    1    0     0.995    1.000   0.998");
-      expect(lines).toContain("(전체)                   2874 1277  761     0.692    0.791   0.738");
-      expect(lines).toContain("(macro F1)                                                  0.667");
+      expect(lines).toContain("(전체)                   2887 1282  748     0.692    0.794   0.740");
+      expect(lines).toContain("(macro F1)                                                  0.664");
 
       expect(benchmark.main([EVAL_CORPUS, "--min-micro-f1", "0.99"])).toBe(1);
       expect(cap.err()).toBe(
-        "\nRegression gate failed:\n- micro F1=0.738248 is below floor=0.990000\n",
+        "\nRegression gate failed:\n- micro F1=0.739877 is below floor=0.990000\n",
       );
     },
     60_000,

@@ -1,0 +1,365 @@
+{
+ "text": [
+  {
+   "text": "018-2345-6789 user@example.com",
+   "before": {
+    "include": [
+     "PHONE",
+     "EMAIL"
+    ],
+    "strategy": "tokenize",
+    "strategies": {
+     "PHONE": "partial"
+    }
+   },
+   "after": {
+    "include": [
+     "PHONE",
+     "EMAIL"
+    ],
+    "strategy": "tokenize",
+    "strategies": {
+     "PHONE": "redact"
+    }
+   },
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"input_empty\": false,\n  \"offset_unit\": \"python_code_points\",\n  \"whole_text_safety_assessed\": false,\n  \"before_policy_sha256\": \"3e478d7b6eb2b3b6c3f0bb0c7efc5f6adbbfd56ce8028dda9816627e7f0b611a\",\n  \"after_policy_sha256\": \"c42bb4dc0bbc5f32bd0aae2761069cd667912cf8c3a85a0578027cdd9d6ddc93\",\n  \"observed_span_count\": 2,\n  \"changed_span_count\": 1,\n  \"changed_by_label\": {\n    \"PHONE\": 1\n  },\n  \"before_output_counts\": {\n    \"partial_strategy\": 1,\n    \"replaced\": 1\n  },\n  \"after_output_counts\": {\n    \"replaced\": 2\n  },\n  \"changes\": [\n    {\n      \"label\": \"PHONE\",\n      \"source_span\": [\n        0,\n        13\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"partial\",\n        \"applied_strategy\": \"partial\",\n        \"output_state\": \"partial_strategy\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"redact\",\n        \"applied_strategy\": \"redact\",\n        \"output_state\": \"replaced\"\n      }\n    }\n  ]\n}\n"
+  },
+  {
+   "text": "user@example.com 010-2345-6789",
+   "before": {
+    "include": [
+     "EMAIL",
+     "PHONE"
+    ],
+    "strategy": "hashed"
+   },
+   "after": {
+    "include": [
+     "EMAIL",
+     "PHONE"
+    ],
+    "strategy": "hashed"
+   },
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"input_empty\": false,\n  \"offset_unit\": \"python_code_points\",\n  \"whole_text_safety_assessed\": false,\n  \"before_policy_sha256\": \"b426be2edf09c0d9ed1e99a88b8e54b5d263279302df63be6797a70c6140213c\",\n  \"after_policy_sha256\": \"b426be2edf09c0d9ed1e99a88b8e54b5d263279302df63be6797a70c6140213c\",\n  \"observed_span_count\": 2,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {\n    \"replaced\": 2\n  },\n  \"after_output_counts\": {\n    \"replaced\": 2\n  },\n  \"changes\": []\n}\n"
+  },
+  {
+   "text": "성명: 홍길동",
+   "before": {
+    "include": [
+     "PERSON"
+    ]
+   },
+   "after": {
+    "include": [
+     "PERSON"
+    ],
+    "person_exclusions": [
+     "홍길동"
+    ]
+   },
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"input_empty\": false,\n  \"offset_unit\": \"python_code_points\",\n  \"whole_text_safety_assessed\": false,\n  \"before_policy_sha256\": \"e345baa1af0f7272362d252a416e73663aeabfd916c4f793553c191e747edd42\",\n  \"after_policy_sha256\": \"4eff078b29e2008bd5c472526f12fa12070b4c473989302f37ee808ff164af21\",\n  \"observed_span_count\": 1,\n  \"changed_span_count\": 1,\n  \"changed_by_label\": {\n    \"PERSON\": 1\n  },\n  \"before_output_counts\": {\n    \"replaced\": 1\n  },\n  \"after_output_counts\": {\n    \"not_detected\": 1\n  },\n  \"changes\": [\n    {\n      \"label\": \"PERSON\",\n      \"source_span\": [\n        4,\n        7\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      },\n      \"after\": {\n        \"detected\": false,\n        \"action\": null,\n        \"requested_strategy\": null,\n        \"applied_strategy\": null,\n        \"output_state\": \"not_detected\"\n      }\n    }\n  ]\n}\n"
+  },
+  {
+   "text": "010-2345-6789",
+   "before": {
+    "mode": "AUDIT"
+   },
+   "after": {
+    "mode": "STRICT"
+   },
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"input_empty\": false,\n  \"offset_unit\": \"python_code_points\",\n  \"whole_text_safety_assessed\": false,\n  \"before_policy_sha256\": \"2e99afb11981c32321ee748475934f9ebf019ae274aa81baaa7337f0318094de\",\n  \"after_policy_sha256\": \"fddf7ebeefeb8a5f18a542db8fa2d6096e034937fe8f33e1498010779aa8408f\",\n  \"observed_span_count\": 1,\n  \"changed_span_count\": 1,\n  \"changed_by_label\": {\n    \"PHONE\": 1\n  },\n  \"before_output_counts\": {\n    \"retained_by_policy\": 1\n  },\n  \"after_output_counts\": {\n    \"replaced\": 1\n  },\n  \"changes\": [\n    {\n      \"label\": \"PHONE\",\n      \"source_span\": [\n        0,\n        13\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"ALLOW\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": null,\n        \"output_state\": \"retained_by_policy\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      }\n    }\n  ]\n}\n"
+  },
+  {
+   "text": "",
+   "before": {},
+   "after": {},
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"input_empty\": true,\n  \"offset_unit\": \"python_code_points\",\n  \"whole_text_safety_assessed\": false,\n  \"before_policy_sha256\": \"fddf7ebeefeb8a5f18a542db8fa2d6096e034937fe8f33e1498010779aa8408f\",\n  \"after_policy_sha256\": \"fddf7ebeefeb8a5f18a542db8fa2d6096e034937fe8f33e1498010779aa8408f\",\n  \"observed_span_count\": 0,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {},\n  \"after_output_counts\": {},\n  \"changes\": []\n}\n"
+  },
+  {
+   "text": "undetected personal details",
+   "before": {
+    "include": [
+     "RRN"
+    ]
+   },
+   "after": {
+    "include": [
+     "RRN"
+    ]
+   },
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"input_empty\": false,\n  \"offset_unit\": \"python_code_points\",\n  \"whole_text_safety_assessed\": false,\n  \"before_policy_sha256\": \"8710003b5ff046b8ef2d6ed7dba9ab535639f3d28b4c9a2a7c4e88ae736d5779\",\n  \"after_policy_sha256\": \"8710003b5ff046b8ef2d6ed7dba9ab535639f3d28b4c9a2a7c4e88ae736d5779\",\n  \"observed_span_count\": 0,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {},\n  \"after_output_counts\": {},\n  \"changes\": []\n}\n"
+  },
+  {
+   "text": "신청인 880101-1234568 연락처 010-1234-5678 메일 user@example.com 주소 서울특별시 강남구 테헤란로 123",
+   "before": {
+    "mode": "PERMISSIVE"
+   },
+   "after": {
+    "mode": "PARANOID",
+    "strategy": "asterisk",
+    "exclude": [
+     "EMAIL"
+    ]
+   },
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"input_empty\": false,\n  \"offset_unit\": \"python_code_points\",\n  \"whole_text_safety_assessed\": false,\n  \"before_policy_sha256\": \"9967492020174a10b87fa4ae922c5886abd61338c3340c89cf7ef98d06e0186a\",\n  \"after_policy_sha256\": \"d648ec4d82b9d3b1475a1c566d68c8ab70143d4068b326538dccf2848f4e2b36\",\n  \"observed_span_count\": 4,\n  \"changed_span_count\": 4,\n  \"changed_by_label\": {\n    \"ADDRESS\": 1,\n    \"EMAIL\": 1,\n    \"PHONE\": 1,\n    \"RRN\": 1\n  },\n  \"before_output_counts\": {\n    \"replaced\": 1,\n    \"retained_by_policy\": 3\n  },\n  \"after_output_counts\": {\n    \"not_detected\": 1,\n    \"replaced\": 3\n  },\n  \"changes\": [\n    {\n      \"label\": \"ADDRESS\",\n      \"source_span\": [\n        60,\n        78\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"ALLOW\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": null,\n        \"output_state\": \"retained_by_policy\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"asterisk\",\n        \"applied_strategy\": \"asterisk\",\n        \"output_state\": \"replaced\"\n      }\n    },\n    {\n      \"label\": \"EMAIL\",\n      \"source_span\": [\n        40,\n        56\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"ALLOW\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": null,\n        \"output_state\": \"retained_by_policy\"\n      },\n      \"after\": {\n        \"detected\": false,\n        \"action\": null,\n        \"requested_strategy\": null,\n        \"applied_strategy\": null,\n        \"output_state\": \"not_detected\"\n      }\n    },\n    {\n      \"label\": \"PHONE\",\n      \"source_span\": [\n        23,\n        36\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"REVIEW\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": null,\n        \"output_state\": \"retained_by_policy\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"asterisk\",\n        \"applied_strategy\": \"asterisk\",\n        \"output_state\": \"replaced\"\n      }\n    },\n    {\n      \"label\": \"RRN\",\n      \"source_span\": [\n        4,\n        18\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"asterisk\",\n        \"applied_strategy\": \"asterisk\",\n        \"output_state\": \"replaced\"\n      }\n    }\n  ]\n}\n"
+  },
+  {
+   "text": "{\"x\": 1}",
+   "before": {
+    "schema_version": 1,
+    "name": "p",
+    "settings": {
+     "mode": "BALANCED"
+    }
+   },
+   "after": {},
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"input_empty\": false,\n  \"offset_unit\": \"python_code_points\",\n  \"whole_text_safety_assessed\": false,\n  \"before_policy_sha256\": \"1976df04bb37e53c650b47d4dbb31ef1581cf50c2228aaaa6883e693095eb7e6\",\n  \"after_policy_sha256\": \"fddf7ebeefeb8a5f18a542db8fa2d6096e034937fe8f33e1498010779aa8408f\",\n  \"observed_span_count\": 0,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {},\n  \"after_output_counts\": {},\n  \"changes\": []\n}\n"
+  }
+ ],
+ "json": [
+  {
+   "data": {
+    "product-private": "성명: 홍길동",
+    "customer-private": "홍길동"
+   },
+   "before": {
+    "include": [
+     "PERSON"
+    ],
+    "field_labels": {
+     "/customer-private": "PERSON"
+    }
+   },
+   "after": {
+    "include": [
+     "PERSON"
+    ],
+    "field_labels": {
+     "/customer-private": "PERSON"
+    },
+    "field_person_exclusions": {
+     "/product-private": [
+      "홍길동"
+     ],
+     "/customer-private": [
+      "홍길동"
+     ]
+    }
+   },
+   "include_paths": false,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": false,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"6f5bbd78bea825984656da6750c7461a0714f191e4e4f890dd4933c751f28cec\",\n  \"after_policy_sha256\": \"186072222b3a8f251c4830e5a6b3214fd2ab8bbb31725956736f9b00e2ae0bc5\",\n  \"compared_field_count\": 2,\n  \"observed_span_count\": 2,\n  \"changed_span_count\": 1,\n  \"changed_by_label\": {\n    \"PERSON\": 1\n  },\n  \"before_output_counts\": {\n    \"replaced\": 2\n  },\n  \"after_output_counts\": {\n    \"not_detected\": 1,\n    \"replaced\": 1\n  },\n  \"fields\": [\n    {\n      \"field_index\": 0,\n      \"before_screened\": true,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 1,\n      \"changed_by_label\": {\n        \"PERSON\": 1\n      },\n      \"before_output_counts\": {\n        \"replaced\": 1\n      },\n      \"after_output_counts\": {\n        \"not_detected\": 1\n      }\n    },\n    {\n      \"field_index\": 1,\n      \"before_screened\": true,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 0,\n      \"changed_by_label\": {},\n      \"before_output_counts\": {\n        \"replaced\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    }\n  ],\n  \"changes\": [\n    {\n      \"field_index\": 0,\n      \"label\": \"PERSON\",\n      \"source_span\": [\n        4,\n        7\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      },\n      \"after\": {\n        \"detected\": false,\n        \"action\": null,\n        \"requested_strategy\": null,\n        \"applied_strategy\": null,\n        \"output_state\": \"not_detected\"\n      }\n    }\n  ]\n}\n"
+  },
+  {
+   "data": [
+    "user@example.com",
+    "010-2345-6789"
+   ],
+   "before": {
+    "include": [
+     "PHONE",
+     "EMAIL"
+    ],
+    "strategy": "fpe"
+   },
+   "after": {
+    "include": [
+     "PHONE",
+     "EMAIL"
+    ],
+    "strategy": "fpe"
+   },
+   "include_paths": false,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": false,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"310cbb9fe2f4a11dccb708bf9f27eeacc85e6703db7639589a795ad6725b901a\",\n  \"after_policy_sha256\": \"310cbb9fe2f4a11dccb708bf9f27eeacc85e6703db7639589a795ad6725b901a\",\n  \"compared_field_count\": 2,\n  \"observed_span_count\": 2,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {\n    \"replaced\": 2\n  },\n  \"after_output_counts\": {\n    \"replaced\": 2\n  },\n  \"fields\": [\n    {\n      \"field_index\": 0,\n      \"before_screened\": true,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 0,\n      \"changed_by_label\": {},\n      \"before_output_counts\": {\n        \"replaced\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    },\n    {\n      \"field_index\": 1,\n      \"before_screened\": true,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 0,\n      \"changed_by_label\": {},\n      \"before_output_counts\": {\n        \"replaced\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    }\n  ],\n  \"changes\": []\n}\n"
+  },
+  {
+   "data": {
+    "skip": 42,
+    "account": 12345,
+    "email": "user@example.com",
+    "boolean": true,
+    "null": null,
+    "float": 1.5
+   },
+   "before": {
+    "include": [
+     "EMAIL",
+     "ACCOUNT"
+    ]
+   },
+   "after": {
+    "include": [
+     "EMAIL",
+     "ACCOUNT"
+    ],
+    "field_labels": {
+     "/account": "ACCOUNT"
+    }
+   },
+   "include_paths": true,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": true,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"8a586b16b01b2c63629919a99ccdd0ee782eb40b9cad152affe362355244b5d0\",\n  \"after_policy_sha256\": \"d1bcdf48cca1eb828eefa773fde2c8323a1ef790e8538ef5f89f040801e623b2\",\n  \"compared_field_count\": 2,\n  \"observed_span_count\": 2,\n  \"changed_span_count\": 1,\n  \"changed_by_label\": {\n    \"ACCOUNT\": 1\n  },\n  \"before_output_counts\": {\n    \"not_detected\": 1,\n    \"replaced\": 1\n  },\n  \"after_output_counts\": {\n    \"replaced\": 2\n  },\n  \"fields\": [\n    {\n      \"field_index\": 1,\n      \"path\": \"/account\",\n      \"before_screened\": false,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 1,\n      \"changed_by_label\": {\n        \"ACCOUNT\": 1\n      },\n      \"before_output_counts\": {\n        \"not_detected\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    },\n    {\n      \"field_index\": 2,\n      \"path\": \"/email\",\n      \"before_screened\": true,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 0,\n      \"changed_by_label\": {},\n      \"before_output_counts\": {\n        \"replaced\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    }\n  ],\n  \"changes\": [\n    {\n      \"field_index\": 1,\n      \"path\": \"/account\",\n      \"label\": \"ACCOUNT\",\n      \"source_span\": [\n        0,\n        5\n      ],\n      \"before\": {\n        \"detected\": false,\n        \"action\": null,\n        \"requested_strategy\": null,\n        \"applied_strategy\": null,\n        \"output_state\": \"not_detected\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      }\n    }\n  ]\n}\n"
+  },
+  {
+   "data": {
+    "skip": 42,
+    "account": 12345,
+    "email": "user@example.com",
+    "boolean": true,
+    "null": null,
+    "float": 1.5
+   },
+   "before": {
+    "include": [
+     "EMAIL",
+     "ACCOUNT"
+    ],
+    "field_labels": {
+     "/account": "ACCOUNT"
+    }
+   },
+   "after": {
+    "include": [
+     "EMAIL",
+     "ACCOUNT"
+    ]
+   },
+   "include_paths": false,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": false,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"d1bcdf48cca1eb828eefa773fde2c8323a1ef790e8538ef5f89f040801e623b2\",\n  \"after_policy_sha256\": \"8a586b16b01b2c63629919a99ccdd0ee782eb40b9cad152affe362355244b5d0\",\n  \"compared_field_count\": 2,\n  \"observed_span_count\": 2,\n  \"changed_span_count\": 1,\n  \"changed_by_label\": {\n    \"ACCOUNT\": 1\n  },\n  \"before_output_counts\": {\n    \"replaced\": 2\n  },\n  \"after_output_counts\": {\n    \"not_detected\": 1,\n    \"replaced\": 1\n  },\n  \"fields\": [\n    {\n      \"field_index\": 1,\n      \"before_screened\": true,\n      \"after_screened\": false,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 1,\n      \"changed_by_label\": {\n        \"ACCOUNT\": 1\n      },\n      \"before_output_counts\": {\n        \"replaced\": 1\n      },\n      \"after_output_counts\": {\n        \"not_detected\": 1\n      }\n    },\n    {\n      \"field_index\": 2,\n      \"before_screened\": true,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 0,\n      \"changed_by_label\": {},\n      \"before_output_counts\": {\n        \"replaced\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    }\n  ],\n  \"changes\": [\n    {\n      \"field_index\": 1,\n      \"label\": \"ACCOUNT\",\n      \"source_span\": [\n        0,\n        5\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      },\n      \"after\": {\n        \"detected\": false,\n        \"action\": null,\n        \"requested_strategy\": null,\n        \"applied_strategy\": null,\n        \"output_state\": \"not_detected\"\n      }\n    }\n  ]\n}\n"
+  },
+  {
+   "data": 12345,
+   "before": {
+    "include": [
+     "ACCOUNT"
+    ]
+   },
+   "after": {
+    "include": [
+     "ACCOUNT"
+    ],
+    "field_labels": {
+     "": "ACCOUNT"
+    }
+   },
+   "include_paths": true,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": true,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"b825f76ea1aa3c1d8061cc710880b8f54073144588f453d8cf4d490acb84dee0\",\n  \"after_policy_sha256\": \"bfbbdf8dc6abf807eb8a4c8c0589c2a0a42bcf587d2a0bc89a3f41699b4633fa\",\n  \"compared_field_count\": 1,\n  \"observed_span_count\": 1,\n  \"changed_span_count\": 1,\n  \"changed_by_label\": {\n    \"ACCOUNT\": 1\n  },\n  \"before_output_counts\": {\n    \"not_detected\": 1\n  },\n  \"after_output_counts\": {\n    \"replaced\": 1\n  },\n  \"fields\": [\n    {\n      \"field_index\": 0,\n      \"path\": \"\",\n      \"before_screened\": false,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 1,\n      \"changed_by_label\": {\n        \"ACCOUNT\": 1\n      },\n      \"before_output_counts\": {\n        \"not_detected\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    }\n  ],\n  \"changes\": [\n    {\n      \"field_index\": 0,\n      \"path\": \"\",\n      \"label\": \"ACCOUNT\",\n      \"source_span\": [\n        0,\n        5\n      ],\n      \"before\": {\n        \"detected\": false,\n        \"action\": null,\n        \"requested_strategy\": null,\n        \"applied_strategy\": null,\n        \"output_state\": \"not_detected\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      }\n    }\n  ]\n}\n"
+  },
+  {
+   "data": "12345",
+   "before": {
+    "include": [
+     "ACCOUNT"
+    ]
+   },
+   "after": {
+    "include": [
+     "ACCOUNT"
+    ],
+    "field_labels": {
+     "": "ACCOUNT"
+    }
+   },
+   "include_paths": true,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": true,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"b825f76ea1aa3c1d8061cc710880b8f54073144588f453d8cf4d490acb84dee0\",\n  \"after_policy_sha256\": \"bfbbdf8dc6abf807eb8a4c8c0589c2a0a42bcf587d2a0bc89a3f41699b4633fa\",\n  \"compared_field_count\": 1,\n  \"observed_span_count\": 1,\n  \"changed_span_count\": 1,\n  \"changed_by_label\": {\n    \"ACCOUNT\": 1\n  },\n  \"before_output_counts\": {\n    \"not_detected\": 1\n  },\n  \"after_output_counts\": {\n    \"replaced\": 1\n  },\n  \"fields\": [\n    {\n      \"field_index\": 0,\n      \"path\": \"\",\n      \"before_screened\": true,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 1,\n      \"changed_by_label\": {\n        \"ACCOUNT\": 1\n      },\n      \"before_output_counts\": {\n        \"not_detected\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    }\n  ],\n  \"changes\": [\n    {\n      \"field_index\": 0,\n      \"path\": \"\",\n      \"label\": \"ACCOUNT\",\n      \"source_span\": [\n        0,\n        5\n      ],\n      \"before\": {\n        \"detected\": false,\n        \"action\": null,\n        \"requested_strategy\": null,\n        \"applied_strategy\": null,\n        \"output_state\": \"not_detected\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      }\n    }\n  ]\n}\n"
+  },
+  {
+   "data": {
+    "a/b": {
+     "~": [
+      {
+       "id": 123
+      },
+      {
+       "id": null
+      },
+      {
+       "id": 456
+      },
+      {}
+     ]
+    }
+   },
+   "before": {
+    "include": [
+     "ACCOUNT"
+    ]
+   },
+   "after": {
+    "include": [
+     "ACCOUNT"
+    ],
+    "field_rules": [
+     {
+      "path": [
+       "a/b",
+       "~",
+       null,
+       "id"
+      ],
+      "label": "ACCOUNT",
+      "required": false
+     }
+    ]
+   },
+   "include_paths": true,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": true,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"b825f76ea1aa3c1d8061cc710880b8f54073144588f453d8cf4d490acb84dee0\",\n  \"after_policy_sha256\": \"a5b76d18e38fe28d78f9cba26b32af3cf6382524aeff6c4e3f9785b166799573\",\n  \"compared_field_count\": 2,\n  \"observed_span_count\": 2,\n  \"changed_span_count\": 2,\n  \"changed_by_label\": {\n    \"ACCOUNT\": 2\n  },\n  \"before_output_counts\": {\n    \"not_detected\": 2\n  },\n  \"after_output_counts\": {\n    \"replaced\": 2\n  },\n  \"fields\": [\n    {\n      \"field_index\": 0,\n      \"path\": \"/a~1b/~0/0/id\",\n      \"before_screened\": false,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 1,\n      \"changed_by_label\": {\n        \"ACCOUNT\": 1\n      },\n      \"before_output_counts\": {\n        \"not_detected\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    },\n    {\n      \"field_index\": 1,\n      \"path\": \"/a~1b/~0/2/id\",\n      \"before_screened\": false,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 1,\n      \"changed_by_label\": {\n        \"ACCOUNT\": 1\n      },\n      \"before_output_counts\": {\n        \"not_detected\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    }\n  ],\n  \"changes\": [\n    {\n      \"field_index\": 0,\n      \"path\": \"/a~1b/~0/0/id\",\n      \"label\": \"ACCOUNT\",\n      \"source_span\": [\n        0,\n        3\n      ],\n      \"before\": {\n        \"detected\": false,\n        \"action\": null,\n        \"requested_strategy\": null,\n        \"applied_strategy\": null,\n        \"output_state\": \"not_detected\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      }\n    },\n    {\n      \"field_index\": 1,\n      \"path\": \"/a~1b/~0/2/id\",\n      \"label\": \"ACCOUNT\",\n      \"source_span\": [\n        0,\n        3\n      ],\n      \"before\": {\n        \"detected\": false,\n        \"action\": null,\n        \"requested_strategy\": null,\n        \"applied_strategy\": null,\n        \"output_state\": \"not_detected\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      }\n    }\n  ]\n}\n"
+  },
+  {
+   "data": null,
+   "before": {},
+   "after": {},
+   "include_paths": false,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": false,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"after_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"compared_field_count\": 0,\n  \"observed_span_count\": 0,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {},\n  \"after_output_counts\": {},\n  \"fields\": [],\n  \"changes\": []\n}\n"
+  },
+  {
+   "data": true,
+   "before": {},
+   "after": {},
+   "include_paths": false,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": false,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"after_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"compared_field_count\": 0,\n  \"observed_span_count\": 0,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {},\n  \"after_output_counts\": {},\n  \"fields\": [],\n  \"changes\": []\n}\n"
+  },
+  {
+   "data": 1.2,
+   "before": {},
+   "after": {},
+   "include_paths": false,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": false,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"after_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"compared_field_count\": 0,\n  \"observed_span_count\": 0,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {},\n  \"after_output_counts\": {},\n  \"fields\": [],\n  \"changes\": []\n}\n"
+  },
+  {
+   "data": [],
+   "before": {},
+   "after": {},
+   "include_paths": false,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": false,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"after_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"compared_field_count\": 0,\n  \"observed_span_count\": 0,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {},\n  \"after_output_counts\": {},\n  \"fields\": [],\n  \"changes\": []\n}\n"
+  },
+  {
+   "data": {},
+   "before": {},
+   "after": {},
+   "include_paths": false,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": false,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"after_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"compared_field_count\": 0,\n  \"observed_span_count\": 0,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {},\n  \"after_output_counts\": {},\n  \"fields\": [],\n  \"changes\": []\n}\n"
+  },
+  {
+   "data": {
+    "empty": ""
+   },
+   "before": {},
+   "after": {},
+   "include_paths": false,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": false,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"after_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"compared_field_count\": 1,\n  \"observed_span_count\": 0,\n  \"changed_span_count\": 0,\n  \"changed_by_label\": {},\n  \"before_output_counts\": {},\n  \"after_output_counts\": {},\n  \"fields\": [\n    {\n      \"field_index\": 0,\n      \"before_screened\": true,\n      \"after_screened\": true,\n      \"observed_span_count\": 0,\n      \"changed_span_count\": 0,\n      \"changed_by_label\": {},\n      \"before_output_counts\": {},\n      \"after_output_counts\": {}\n    }\n  ],\n  \"changes\": []\n}\n"
+  },
+  {
+   "data": {
+    "private-field": "user@example.com",
+    "n": {
+     "phone": "010-2345-6789"
+    }
+   },
+   "before": {
+    "mode": "AUDIT"
+   },
+   "after": {},
+   "include_paths": true,
+   "report": "{\n  \"schema_version\": 1,\n  \"contract\": \"ko-pii-structured-policy-preview-v1\",\n  \"scope\": \"union_of_observed_spans_not_gold\",\n  \"whole_text_safety_assessed\": false,\n  \"keys_screened\": false,\n  \"unasserted_numbers_screened\": false,\n  \"paths_included\": true,\n  \"offset_unit\": \"python_code_points_within_field\",\n  \"field_index_scope\": \"string_and_integer_leaves_in_input_order\",\n  \"before_policy_sha256\": \"a3a7ce1a623321d7cf91e886e85212592b2a61ad56579a2af2ddc8c4a68b09af\",\n  \"after_policy_sha256\": \"48a2b31af180551c28a5456a023ae2ca4de6a4c8b4d3eb946921e59f7d64823c\",\n  \"compared_field_count\": 2,\n  \"observed_span_count\": 2,\n  \"changed_span_count\": 2,\n  \"changed_by_label\": {\n    \"EMAIL\": 1,\n    \"PHONE\": 1\n  },\n  \"before_output_counts\": {\n    \"retained_by_policy\": 2\n  },\n  \"after_output_counts\": {\n    \"replaced\": 2\n  },\n  \"fields\": [\n    {\n      \"field_index\": 0,\n      \"path\": \"/private-field\",\n      \"before_screened\": true,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 1,\n      \"changed_by_label\": {\n        \"EMAIL\": 1\n      },\n      \"before_output_counts\": {\n        \"retained_by_policy\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    },\n    {\n      \"field_index\": 1,\n      \"path\": \"/n/phone\",\n      \"before_screened\": true,\n      \"after_screened\": true,\n      \"observed_span_count\": 1,\n      \"changed_span_count\": 1,\n      \"changed_by_label\": {\n        \"PHONE\": 1\n      },\n      \"before_output_counts\": {\n        \"retained_by_policy\": 1\n      },\n      \"after_output_counts\": {\n        \"replaced\": 1\n      }\n    }\n  ],\n  \"changes\": [\n    {\n      \"field_index\": 0,\n      \"path\": \"/private-field\",\n      \"label\": \"EMAIL\",\n      \"source_span\": [\n        0,\n        16\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"ALLOW\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": null,\n        \"output_state\": \"retained_by_policy\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      }\n    },\n    {\n      \"field_index\": 1,\n      \"path\": \"/n/phone\",\n      \"label\": \"PHONE\",\n      \"source_span\": [\n        0,\n        13\n      ],\n      \"before\": {\n        \"detected\": true,\n        \"action\": \"ALLOW\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": null,\n        \"output_state\": \"retained_by_policy\"\n      },\n      \"after\": {\n        \"detected\": true,\n        \"action\": \"BLOCK\",\n        \"requested_strategy\": \"tokenize\",\n        \"applied_strategy\": \"tokenize\",\n        \"output_state\": \"replaced\"\n      }\n    }\n  ]\n}\n"
+  }
+ ]
+}

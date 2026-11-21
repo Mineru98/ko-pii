@@ -128,7 +128,9 @@ describe("CLI 보강 (argparse 동작)", () => {
       const text = chunks.join("");
       expect(text).toContain("ko-pii PII 카테고리 33종");
       expect(text).toContain("RRN");
-      expect(text).toContain("[결정적 검증] (8)");
+      // 1.27: PASSPORT 가 "형식 검증" 그룹으로 이동 (Python 실측 (7))
+      expect(text).toContain("[결정적 검증] (7)");
+      expect(text).toContain("[형식 검증] (8)");
     } finally {
       process.stdout.write = orig;
     }
@@ -156,12 +158,10 @@ describe("CLI 보강 (argparse 동작)", () => {
     expect(err).toContain("invalid int value: 'abc'");
   });
 
-  it("존재하지 않는 파일 → 코드 1 + FileNotFoundError", async () => {
+  it("존재하지 않는 파일 → 코드 1 + file_unavailable (경로 미노출)", async () => {
     const { rc, err } = await captureStderr(() => main(["no_such_file_cli_test.txt"]));
     expect(rc).toBe(1);
-    expect(err).toContain(
-      "FileNotFoundError: [Errno 2] No such file or directory: 'no_such_file_cli_test.txt'",
-    );
+    expect(err).toBe("ko-pii: file_unavailable: document is not an accessible file\n");
   });
 
   it("--vault-password 값 직접 지정 시 경고 + 암호화 vault 저장/재복호화", async () => {
@@ -189,13 +189,11 @@ describe("CLI 보강 (argparse 동작)", () => {
       delete process.env.KPII_VAULT_PASSWORD;
     }
 
-    // 비밀번호 없이 암호화 vault 읽기 → 코드 1 + 안내 메시지
+    // 비밀번호 없이 암호화 vault 읽기 → 코드 1 + 원문 없는 단계 실패 (1.27)
     const { rc: rc3, err: err3 } = await captureStderr(() =>
       main([src, "-o", join(dir, "out3.txt"), "--vault", kvault]),
     );
     expect(rc3).toBe(1);
-    expect(err3).toContain(
-      "암호화 vault: --vault-password 또는 환경변수 $KPII_VAULT_PASSWORD 필요.",
-    );
+    expect(err3).toBe("ko-pii: vault_load_failed: vault_load could not be completed\n");
   });
 });
